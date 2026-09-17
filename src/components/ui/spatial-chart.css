@@ -1,0 +1,69 @@
+﻿/* Spatial 3D Candlestick & Rupee Chart Styles */
+.spatial-scene {
+  perspective: 1200px;
+  transform-style: preserve-3d;
+  position: relative;
+  user-select: none;
+}
+
+.spatial-stage {
+  transform-style: preserve-3d;
+  transition: transform 0.18s cubic-bezier(0.2, 0, 0, 1);
+  will-change: transform;
+}
+
+/* Candlestick animations */
+@keyframes candle-breathe {
+  0%, 100% {
+    transform: translateY(0px) scaleY(1);
+  }
+  50% {
+    transform: translateY(-4px) scaleY(1.04);
+  }
+}
+
+@keyframes candle-flicker {
+  0%, 100% { opacity: 0.92; filter: drop-shadow(0 0 6px rgba(0, 245, 155, 0.4)); }
+  50% { opacity: 1; filter: drop-shadow(0 0 14px rgba(0, 245, 155, 0.85)); }
+}
+
+@keyframes trendline-glow {
+  0% { stroke-dashoffset: 400; }
+  100% { stroke-dashoffset: 0; }
+}
+
+@keyframes rupee-float {
+  0%, 100% {
+    transform: translateY(0px) rotateY(0deg) rotateX(10deg);
+  }
+  25% {
+    transform: translateY(-8px) rotateY(90deg) rotateX(-5deg);
+  }
+  50% {
+    transform: translateY(0px) rotateY(180deg) rotateX(8deg);
+  }
+  75% {
+    transform: translateY(6px) rotateY(270deg) rotateX(-10deg);
+  }
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.85); opacity: 0.8; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+
+.spatial-candle-breathe {
+  animation: candle-breathe 4s ease-in-out infinite;
+}
+
+.spatial-candle-glow {
+  animation: candle-flicker 2.5s ease-in-out infinite;
+}
+
+.spatial-rupee-spin {
+  animation: rupee-float 12s linear infinite;
+}
+
+.spatial-rupee-spin:hover {
+  animation-duration: 4s;
+}

@@ -1,0 +1,25 @@
+{
+  "name": "RupeeRookie — Paper Trading Academy",
+  "short_name": "RupeeRookie",
+  "description": "A mobile-first Indian paper trading simulator and investor academy.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    { "name": "Today’s Mission", "short_name": "Mission", "url": "/?view=home", "icons": [{ "src": "/app-icon.svg", "sizes": "any", "type": "image/svg+xml" }] },
+    { "name": "Academy", "short_name": "Learn", "url": "/?view=academy", "icons": [{ "src": "/app-icon.svg", "sizes": "any", "type": "image/svg+xml" }] },
+    { "name": "Portfolio", "short_name": "Portfolio", "url": "/?view=portfolio", "icons": [{ "src": "/app-icon.svg", "sizes": "any", "type": "image/svg+xml" }] }
+  ]
+}
+

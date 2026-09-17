@@ -1,0 +1,8 @@
+{
+  "name": "Remix RupeeRookie - Teen NSE Stock Simulator \u0026 Academy",
+  "description": "RupeeRookie - Indian paper trading simulator and investor academy with virtual capital, market replay, risk tools, and AI-powered explanations.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,0 +1,170 @@
+@import "tailwindcss";
+@import "./components/ui/liquid-glass-button.css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  --color-primary: var(--rr-ui-primary);
+  --color-primary-foreground: var(--rr-ui-primary-foreground);
+  --color-secondary: var(--rr-ui-secondary);
+  --color-secondary-foreground: var(--rr-ui-primary);
+  --color-background: var(--rr-ui-background);
+  --color-accent: var(--rr-ui-secondary);
+  --color-accent-foreground: var(--rr-ui-primary);
+  --color-muted: var(--rr-ui-secondary);
+  --color-input: var(--rr-ui-input);
+  --color-ring: var(--rr-ui-ring);
+  --color-destructive: #b33629;
+}
+:root { --rr-ui-primary:#122019; --rr-ui-primary-foreground:#f5f4e9; --rr-ui-secondary:#d3f780; --rr-ui-background:#f5f4e9; --rr-ui-input:#87947b; --rr-ui-ring:#618334; }
+:root.dark { --rr-ui-primary:#d3f780; --rr-ui-primary-foreground:#122019; --rr-ui-secondary:#324633; --rr-ui-background:#122019; --rr-ui-input:#78906a; --rr-ui-ring:#d3f780; }
+.rr-landing { --rr-ui-primary:#122019; --rr-ui-primary-foreground:#f5f4e9; --rr-ui-secondary:#d3f780; --rr-ui-background:#f5f4e9; --rr-ui-ring:#618334; }
+
+@layer base {
+  :root {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    color-scheme: light;
+    --rr-font-scale: 1;
+  }
+
+  :root[data-rr-text="small"] { --rr-font-scale: 0.94; }
+  :root[data-rr-text="large"] { --rr-font-scale: 1.08; }
+  :root[data-rr-text="xl"] { --rr-font-scale: 1.16; }
+
+  html { font-size: calc(16px * var(--rr-font-scale)); }
+
+  :root.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition: background-color 0.2s ease, color 0.2s ease;
+    margin: 0;
+    min-width: 320px;
+    background: #f8fafc;
+    overflow-x: hidden;
+    line-height: 1.5;
+  }
+
+  h1, h2, h3, h4 { text-wrap: balance; }
+  p { text-wrap: pretty; }
+  button, input, select, textarea { font: inherit; }
+
+  .dark body {
+    background-color: #030712;
+    color: #f3f4f6;
+  }
+
+  code, kbd, samp, pre, .font-mono {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+    font-feature-settings: "tnum" 1, "zero" 1;
+  }
+}
+
+/* Keep compact metadata readable across cards without changing component hierarchy. */
+[class~="text-[8px]"] { font-size: 0.625rem; line-height: 0.875rem; }
+[class~="text-[9px]"] { font-size: 0.625rem; line-height: 0.875rem; }
+[class~="text-[10px]"] { line-height: 0.95rem; }
+
+@media (max-width: 639px) {
+  [class~="text-[10px]"] { font-size: 0.6875rem; }
+  [class~="text-[11px]"] { line-height: 1rem; }
+}
+
+:root[data-rr-contrast="true"] body { background: #ffffff; }
+:root.dark[data-rr-contrast="true"] body { background: #000000; }
+:root[data-rr-contrast="true"] :where(p, span, label) { text-shadow: none; }
+:root[data-rr-contrast="true"] :where(button, input, select, textarea, section, article) { border-color: currentColor; }
+:root[data-rr-dyslexia="true"] .academy-reading,
+:root[data-rr-dyslexia="true"] .academy-reading * {
+  font-family: Verdana, Tahoma, Arial, sans-serif !important;
+  letter-spacing: 0.035em;
+  word-spacing: 0.12em;
+  line-height: 1.85 !important;
+}
+
+:root[data-rr-motion="reduced"] *,
+:root[data-rr-motion="reduced"] *::before,
+:root[data-rr-motion="reduced"] *::after {
+  scroll-behavior: auto !important;
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
+@media (pointer: coarse) {
+  :root[data-rr-touch="true"] :where(button, [role="button"], input:not([type="checkbox"]):not([type="radio"]), select) { min-height: 44px; }
+}
+
+.auth-3d-stage { perspective: 1100px; }
+.auth-3d-card { transform-style: preserve-3d; transition: transform 180ms ease, box-shadow 180ms ease; }
+.auth-3d-layer { transform: translateZ(26px); }
+.auth-3d-layer-soft { transform: translateZ(12px); }
+@media (max-width: 1023px), (prefers-reduced-motion: reduce) {
+  .auth-3d-card, .auth-3d-layer, .auth-3d-layer-soft { transform: none !important; }
+}
+
+.skip-link {
+  position: fixed;
+  left: 1rem;
+  top: 1rem;
+  z-index: 100;
+  transform: translateY(-160%);
+  border-radius: 0.75rem;
+  background: #ffffff;
+  color: #0f172a;
+  padding: 0.65rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 800;
+  box-shadow: 0 12px 30px rgb(15 23 42 / 0.18);
+  transition: transform 0.18s ease;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+  outline: 3px solid #818cf8;
+  outline-offset: 2px;
+}
+
+:where(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}
+
+@keyframes shrink {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee 38s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .animate-marquee {
+    animation: none;
+  }
+}

@@ -1,0 +1,1246 @@
+import React, { useEffect, useState, useMemo } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { 
+  BookOpen, 
+  CheckCircle2, 
+  Sparkles, 
+  HelpCircle, 
+  Calculator, 
+  TrendingUp, 
+  Zap, 
+  ShieldCheck, 
+  ArrowRight, 
+  Layers, 
+  Award,
+  ChevronRight,
+  RotateCcw,
+  Search,
+  X,
+  Filter,
+  Bookmark,
+  Lock,
+  Volume2,
+  VolumeX
+} from 'lucide-react';
+import { INITIAL_LESSONS } from '../data/lessonsData';
+import { CASE_STUDIES_DATA, CaseStudy } from '../data/caseStudiesData';
+import { useSimulator } from '../context/SimulatorContext';
+import { Lesson, LessonQuizOption } from '../types';
+import { formatINR } from '../utils/formatters';
+import { HistoricalEventsLab } from './HistoricalEventsLab';
+import { PortfolioConstructionLab } from './PortfolioConstructionLab';
+import { useAccessibility } from '../context/AccessibilityContext';
+
+const HINDI_LESSON_SUMMARIES: Record<string, string> = {
+  'lesson-1': 'शेयर किसी कंपनी में स्वामित्व का छोटा हिस्सा होता है। कीमत प्रतिदिन बदल सकती है, लेकिन मुख्य उद्देश्य व्यवसाय की गुणवत्ता और दीर्घकालीन मूल्य समझना है।',
+  'lesson-2': 'P/E और EPS बताते हैं कि कंपनी कितना कमा रही है और बाज़ार उस कमाई के लिए कितना मूल्य दे रहा है। कम P/E अपने-आप सस्ता निवेश नहीं बनाता।',
+  'lesson-3': '52-week high या low केवल संदर्भ है—यह अपने-आप खरीदने या बेचने का संकेत नहीं है। रुझान के साथ व्यवसाय और मूल्यांकन भी जाँचें।',
+  'lesson-4': 'Compounding में पुराने returns भी आगे return कमाते हैं। छोटी राशि और अधिक समय मिलकर बड़ा प्रभाव बना सकते हैं।',
+  'lesson-5': 'Allocation तय करता है कि एक गलत विचार पोर्टफोलियो को कितना नुकसान पहुँचा सकता है। Diversification का अर्थ केवल अधिक स्टॉक नहीं, बल्कि अलग आर्थिक कारण भी हैं।',
+  'lesson-6': 'Candlestick खरीदारों और विक्रेताओं की छोटी कहानी दिखाता है। Pattern को गारंटी नहीं, संभावना और जोखिम योजना की तरह उपयोग करें।',
+  'lesson-7': 'Market, limit और stop orders के अलग लाभ और सीमाएँ हैं। तेज़ execution और बिल्कुल तय price हमेशा एक साथ नहीं मिलते।',
+  'lesson-8': 'Inflation पैसे की वास्तविक क्रय शक्ति कम करती है। Nominal return के साथ inflation-adjusted real return देखना आवश्यक है।',
+  'lesson-9': 'P&L लाभ दिखाता है, balance sheet वित्तीय मजबूती और cash-flow statement वास्तविक नकदी की गति। तीनों को साथ पढ़ें।',
+  'lesson-10': 'Budget का लक्ष्य हर रुपये को उद्देश्य देना है। बचत और निवेश से पहले आपातकालीन आवश्यकता और नियमित खर्च की योजना बनाएँ।',
+  'lesson-11': 'FOMO, नुकसान का डर और अति-आत्मविश्वास निर्णय बिगाड़ सकते हैं। लिखित योजना और journal भावनाओं को स्पष्ट बनाते हैं।',
+  'lesson-12': 'ESG और carbon credits कंपनी की लागत और अवसरों को प्रभावित कर सकते हैं, लेकिन प्रमाण के बिना green label पर भरोसा न करें।',
+};
+
+const LEARNING_PATH = [
+  { name: 'Beginner', range: 'Lessons 1–2', outcome: 'Shares, indices and basic risk', required: 0 },
+  { name: 'Explorer', range: 'Lessons 3–4', outcome: 'Valuation, trends and compounding', required: 2 },
+  { name: 'Builder', range: 'Lessons 5–7', outcome: 'Allocation, diversification and orders', required: 4 },
+  { name: 'Analyst', range: 'Lessons 8–10', outcome: 'Inflation, statements and planning', required: 7 },
+  { name: 'Responsible Simulator', range: 'Lessons 11–12', outcome: 'Behaviour, evidence and discipline', required: 10 },
+] as const;
+
+// Helper to format text with bold, italics, formulas, and structured lists
+function FormattedLessonContent({ content }: { content: string }) {
+  const paragraphs = content.split('\n\n');
+
+  return (
+    <div className="space-y-4">
+      {paragraphs.map((p, idx) => {
+        const trimmed = p.trim();
+        if (!trimmed) return null;
+
+        // Formula block $$ ... $$
+        if (trimmed.startsWith('$$') && trimmed.endsWith('$$')) {
+          const formula = trimmed.slice(2, -2).trim()
+            .replace(/\\text\{([^}]+)\}/g, '$1')
+            .replace(/\\times/g, ' × ')
+            .replace(/\\div/g, ' ÷ ')
+            .replace(/\\approx/g, ' ≈ ')
+            .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '($1) / ($2)')
+            .replace(/\\%/g, '%');
+
+          return (
+            <div
+              key={idx}
+              className="my-3 py-3 px-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-center text-center shadow-xs"
+            >
+              <div className="font-mono text-xs sm:text-sm font-bold text-slate-900 tracking-wide">
+                📐 {formula}
+              </div>
+            </div>
+          );
+        }
+
+        // Bullet / Ordered lists
+        const lines = trimmed.split('\n');
+        const isList = lines.length > 1 && lines.every((line) => line.trim().startsWith('- ') || /^\d+\.\s/.test(line.trim()));
+
+        if (isList) {
+          return (
+            <ul key={idx} className="space-y-2 my-2">
+              {lines.map((line, lIdx) => {
+                const isOrdered = /^\d+\.\s/.test(line.trim());
+                const cleanText = line.replace(/^[-\d.]+\s+/, '');
+                return (
+                  <li key={lIdx} className="flex items-start gap-2.5 text-sm sm:text-base text-slate-900">
+                    <span className="mt-0.5 w-4 h-4 rounded-full bg-[#E2E8F0]/60 text-slate-900 text-[10px] font-black flex items-center justify-center shrink-0">
+                      {isOrdered ? lIdx + 1 : '•'}
+                    </span>
+                    <span className="flex-1 leading-relaxed">
+                      {renderInlineFormatting(cleanText)}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          );
+        }
+
+        // Regular paragraph
+        return (
+          <p key={idx} className="text-sm sm:text-base text-slate-900/85 leading-7">
+            {renderInlineFormatting(trimmed)}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
+function renderInlineFormatting(text: string) {
+  const parts = text.split(/(\$\$[^$]+\$\$|\*\*[^*]+\*\*|\*[^*]+\*)/g);
+  return parts.map((part, index) => {
+    if (part.startsWith('$$') && part.endsWith('$$')) {
+      const formula = part.slice(2, -2).trim()
+        .replace(/\\text\{([^}]+)\}/g, '$1')
+        .replace(/\\times/g, ' × ')
+        .replace(/\\div/g, ' ÷ ')
+        .replace(/\\approx/g, ' ≈ ')
+        .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '($1) / ($2)')
+        .replace(/\\%/g, '%');
+      return (
+        <span key={index} className="inline-block px-2 py-0.5 mx-1 bg-slate-50 text-slate-900 font-mono font-bold text-xs rounded-md border border-slate-200">
+          {formula}
+        </span>
+      );
+    }
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return (
+        <strong key={index} className="font-extrabold text-slate-900">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    if (part.startsWith('*') && part.endsWith('*')) {
+      return (
+        <em key={index} className="italic text-indigo-600 font-semibold">
+          {part.slice(1, -1)}
+        </em>
+      );
+    }
+    return part;
+  });
+}
+
+export const InvestorAcademy: React.FC = () => {
+  const { completedLessonIds, completeLesson, currentUser } = useSimulator();
+  const { settings } = useAccessibility();
+
+  const academyKey = `rr_academy_workspace:${currentUser?.id || 'guest'}`;
+  const recommendedLessonIndex = currentUser?.experienceLevel === 'ADVANCED' ? 8 : currentUser?.experienceLevel === 'INTERMEDIATE' ? 4 : 0;
+  const recommendedLesson = INITIAL_LESSONS[Math.min(recommendedLessonIndex, INITIAL_LESSONS.length - 1)];
+  const [activeLessonId, setActiveLessonId] = useState<string>(() => localStorage.getItem(`${academyKey}:last`) || recommendedLesson.id);
+  const [selectedQuizOption, setSelectedQuizOption] = useState<LessonQuizOption | null>(null);
+  const [isQuizSubmitted, setIsQuizSubmitted] = useState<boolean>(false);
+  const [activeSubTab, setActiveSubTab] = useState<'LESSONS' | 'CASE_STUDIES' | 'PORTFOLIO_MODELS' | 'HISTORICAL_EVENTS' | 'JARGON_BUSTER' | 'DAILY_QUIZ'>('LESSONS');
+  
+  // Case Studies State
+  const [activeCaseStudyId, setActiveCaseStudyId] = useState<string>(CASE_STUDIES_DATA[0].id);
+  const [caseStudyCategory, setCaseStudyCategory] = useState<string>('ALL');
+
+  // Jargon search
+  const [jargonQuery, setJargonQuery] = useState<string>('');
+  const [lessonQuery, setLessonQuery] = useState('');
+  const [bookmarkedLessonIds, setBookmarkedLessonIds] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem(`${academyKey}:bookmarks`) || '[]'); } catch { return []; }
+  });
+  const [isReadingAloud, setIsReadingAloud] = useState(false);
+  const caseStudiesUnlocked = completedLessonIds.length >= 2;
+
+  useEffect(() => () => window.speechSynthesis?.cancel(), []);
+
+  const toggleReadAloud = () => {
+    if (!('speechSynthesis' in window)) return;
+    if (isReadingAloud) {
+      window.speechSynthesis.cancel();
+      setIsReadingAloud(false);
+      return;
+    }
+    const hindiSummary = HINDI_LESSON_SUMMARIES[activeLessonId];
+    const text = settings.learningLanguage === 'HINDI' && hindiSummary
+      ? `${activeLesson.title}. ${hindiSummary}`
+      : `${activeLesson.title}. ${activeLesson.summary}. ${activeLesson.keyTakeaways.join('. ')}`;
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = settings.learningLanguage === 'HINDI' ? 'hi-IN' : 'en-IN';
+    utterance.rate = 0.92;
+    utterance.onend = () => setIsReadingAloud(false);
+    utterance.onerror = () => setIsReadingAloud(false);
+    setIsReadingAloud(true);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  // Quiz State
+  const QUIZ_QUESTIONS = useMemo(() => [
+    {
+      id: 'quiz-q1',
+      question: "What does NSE stand for?",
+      options: ["National Stock Exchange", "New Stock Engine", "National Securities Engine", "New Security Exchange"],
+      correctIndex: 0,
+      explanation: "NSE stands for National Stock Exchange of India, the leading stock exchange in India.",
+      xp: 50
+    },
+    {
+      id: 'quiz-q2',
+      question: "If a company goes public for the very first time to raise money, what is it called?",
+      options: ["FPO", "IPO", "ETF", "Mutual Fund"],
+      correctIndex: 1,
+      explanation: "An IPO (Initial Public Offering) is when a private company first sells shares of stock to the public.",
+      xp: 50
+    },
+    {
+      id: 'quiz-q3',
+      question: "What is a 'Blue Chip' stock?",
+      options: ["A stock that is colored blue on the terminal", "A highly speculative stock", "Shares of a large, well-established, and financially sound company", "A stock priced under ₹10"],
+      correctIndex: 2,
+      explanation: "Blue Chip stocks are giants of their industries (like Reliance or TCS) known for reliability and steady growth.",
+      xp: 50
+    },
+    {
+      id: 'quiz-q4',
+      question: "What does the 'Bull Market' represent?",
+      options: ["A market where prices are falling", "A market where prices are rising", "A market closed for trading", "A market with no buyers"],
+      correctIndex: 1,
+      explanation: "A Bull Market means stock prices are rising and investors are optimistic.",
+      xp: 50
+    }
+  ], []);
+
+  const [activeQuizIndex, setActiveQuizIndex] = useState(0);
+  const [selectedAnswerIdx, setSelectedAnswerIdx] = useState<number | null>(null);
+
+
+  const activeLesson = useMemo(() => {
+    return INITIAL_LESSONS.find((l) => l.id === activeLessonId) || INITIAL_LESSONS[0];
+  }, [activeLessonId]);
+
+  const filteredLessons = useMemo(() => {
+    const query = lessonQuery.trim().toLowerCase();
+    if (!query) return INITIAL_LESSONS;
+    return INITIAL_LESSONS.filter((lesson) => `${lesson.title} ${lesson.summary} ${lesson.category}`.toLowerCase().includes(query));
+  }, [lessonQuery]);
+
+  const continueLesson = INITIAL_LESSONS.find((lesson) => !completedLessonIds.includes(lesson.id)) || INITIAL_LESSONS[INITIAL_LESSONS.length - 1];
+
+  useEffect(() => { localStorage.setItem(`${academyKey}:last`, activeLessonId); }, [academyKey, activeLessonId]);
+  useEffect(() => { localStorage.setItem(`${academyKey}:bookmarks`, JSON.stringify(bookmarkedLessonIds)); }, [academyKey, bookmarkedLessonIds]);
+
+  const toggleLessonBookmark = (lessonId: string) => {
+    setBookmarkedLessonIds((previous) => previous.includes(lessonId) ? previous.filter((id) => id !== lessonId) : [...previous, lessonId]);
+  };
+
+  const isCurrentCompleted = completedLessonIds.includes(activeLesson.id);
+
+  const handleOptionSelect = (option: LessonQuizOption) => {
+    if (isQuizSubmitted) return;
+    setSelectedQuizOption(option);
+  };
+
+  const handleQuizSubmit = () => {
+    if (!selectedQuizOption) return;
+    setIsQuizSubmitted(true);
+    if (selectedQuizOption.isCorrect) {
+      completeLesson(activeLesson.id, activeLesson.xpReward);
+    }
+  };
+
+  const handleSelectLesson = (lesson: Lesson) => {
+    setActiveLessonId(lesson.id);
+    setSelectedQuizOption(null);
+    setIsQuizSubmitted(false);
+  };
+
+  const [selectedJargonCategory, setSelectedJargonCategory] = useState<string>('ALL');
+
+  // Jargon Glossary with Categorization
+  const jargonTerms = [
+    { term: 'NIFTY 50', category: 'Market & Indices', desc: 'The flagship benchmark index of India containing the top 50 biggest companies by market cap on the NSE.' },
+    { term: 'BULL MARKET', category: 'Market & Indices', desc: 'A market trend where prices are steadily climbing higher, driven by optimism and growing corporate profits.' },
+    { term: 'BEAR MARKET', category: 'Market & Indices', desc: 'A market trend where prices fall 20% or more from peaks, driven by fear, recessions, or economic slowdowns.' },
+    { term: 'BLUE CHIP', category: 'Market & Indices', desc: 'Large, established, financially sound industry leaders with trusted track records (like Reliance, TCS, HDFC Bank).' },
+    { term: '52-WEEK HIGH / LOW', category: 'Market & Indices', desc: 'The highest and lowest price point a stock has traded at over the past 365 days.' },
+    { term: 'P/E RATIO', category: 'Fundamentals & Valuation', desc: 'Price-to-Earnings: How many rupees you pay for ₹1 of company annual profit. Lower can indicate superior value.' },
+    { term: 'EPS (Earnings Per Share)', category: 'Fundamentals & Valuation', desc: 'Total Net Annual Profit divided by the number of outstanding shares. Measures core earning power per share.' },
+    { term: 'PEG RATIO', category: 'Fundamentals & Valuation', desc: 'P/E ratio divided by annual EPS earnings growth rate. PEG below 1.0 indicates undervalued high growth.' },
+    { term: 'ROE (Return on Equity)', category: 'Fundamentals & Valuation', desc: 'Net Profit divided by Shareholders Equity. Measures how effectively management compounds invested capital (15%+ is strong).' },
+    { term: 'EBITDA', category: 'Fundamentals & Valuation', desc: 'Earnings Before Interest, Taxes, Depreciation, and Amortization: Pure operational earnings before financing and accounting charges.' },
+    { term: 'FREE CASH FLOW (FCF)', category: 'Fundamentals & Valuation', desc: 'Operating Cash Flow minus Capital Expenditures. Real liquid cash remaining to pay dividends or reinvest.' },
+    { term: 'DIVIDEND', category: 'Fundamentals & Valuation', desc: 'A share of the company profits paid out directly in cash to all shareholders every quarter or year.' },
+    { term: 'MARKET CAP', category: 'Fundamentals & Valuation', desc: 'The total value of all company shares: Stock Price × Total Number of Shares. Measured in Crores.' },
+    { term: 'SIP (Systematic Investment Plan)', category: 'Trading & Strategy', desc: 'Investing a disciplined, fixed amount (like ₹1,000) every month into stocks or index funds to average acquisition costs.' },
+    { term: 'RUPEE COST AVERAGING', category: 'Trading & Strategy', desc: 'The mathematical benefit of buying more units when prices dip and fewer when prices rise through recurring SIPs.' },
+    { term: 'LIMIT ORDER', category: 'Trading & Strategy', desc: 'An order to buy/sell shares only at a specified price or better, eliminating slippage risk.' },
+    { term: 'STOP LOSS (SL)', category: 'Trading & Strategy', desc: 'An automatic order to exit a losing position at a predetermined floor to prevent severe capital drawdown.' },
+    { term: 'RISK-TO-REWARD RATIO', category: 'Trading & Strategy', desc: 'Comparing potential downside loss against upside target (e.g. risking ₹10 to gain ₹30 gives a 1:3 ratio).' },
+    { term: 'CIRCUIT BREAKER / LIMITS', category: 'Trading & Strategy', desc: 'SEBI mechanism that halts trading if a stock or market rises/drops too fast in one day (e.g. 5%, 10%, 20%) to prevent panic.' },
+    { term: 'DEMAT ACCOUNT', category: 'Regulation & Demat', desc: 'Dematerialized Account: The secure digital locker where your electronic shares are stored in India via NSDL or CDSL.' },
+    { term: 'SEBI', category: 'Regulation & Demat', desc: 'Securities and Exchange Board of India: The market regulator and referee that protects retail investors and teens.' },
+    { term: 'FII & DII', category: 'Macro & ESG', desc: 'Foreign Institutional Investors (global funds) and Domestic Institutional Investors (Indian mutual funds and LIC) driving market liquidity.' },
+    { term: 'CARBON CREDIT', category: 'Macro & ESG', desc: 'A transferable regulatory permit representing the legal right to emit 1 metric ton of carbon dioxide or equivalent GHG.' },
+    { term: 'ESG INVESTING', category: 'Macro & ESG', desc: 'Evaluating companies based on Environmental impact, Social responsibility, and Corporate Governance standards.' }
+  ];
+
+  const jargonCategories = ['ALL', 'Fundamentals & Valuation', 'Market & Indices', 'Trading & Strategy', 'Regulation & Demat', 'Macro & ESG'];
+
+  const filteredJargon = jargonTerms.filter((j) => {
+    const matchesCategory = selectedJargonCategory === 'ALL' || j.category === selectedJargonCategory;
+    const query = jargonQuery.toLowerCase().trim();
+    const matchesQuery = !query || j.term.toLowerCase().includes(query) || j.desc.toLowerCase().includes(query) || j.category.toLowerCase().includes(query);
+    return matchesCategory && matchesQuery;
+  });
+
+  return (
+    <div className="space-y-6">
+      
+      {/* Academy Top Header & Sub-Navigation */}
+      <div className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 shadow-sm flex flex-col items-start gap-5">
+        <div className="min-w-0 w-full">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-2">
+              <BookOpen className="w-6 h-6 text-slate-900 " />
+              Investor Academy for Teens
+            </h2>
+            <span className="bg-emerald-100 text-emerald-800 text-xs font-black px-2.5 py-0.5 rounded-full">
+              {completedLessonIds.length} / {INITIAL_LESSONS.length} Completed
+            </span>
+          </div>
+          <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">
+            {settings.learningLanguage === 'HINDI' ? 'छोटे और सरल पाठों से valuation, compounding और बाज़ार जोखिम को चरण-दर-चरण समझें।' : 'Master stock valuation, compounding superpowers, and market risk through bite-sized interactive modules.'}
+          </p>
+          <p className="mt-2 text-[11px] font-bold text-indigo-700">First lesson for your {currentUser?.experienceLevel.toLowerCase()} level: {recommendedLesson.title.split(':')[0]}</p>
+          <button type="button" onClick={() => { setActiveSubTab('LESSONS'); handleSelectLesson(continueLesson); }} className="mt-3 inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-black text-white hover:bg-indigo-700">
+            Continue learning <ArrowRight className="h-3.5 w-3.5" />
+            <span className="max-w-[180px] truncate text-indigo-100">{continueLesson.title.split(':')[0]}</span>
+          </button>
+
+          <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/60">
+            <div className="flex items-center justify-between gap-3"><div><h3 className="text-xs font-black text-slate-900 dark:text-white">Your learning path</h3><p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Progress unlocks deeper analysis; trading profit does not.</p></div><span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-black text-indigo-700 dark:bg-slate-900 dark:text-indigo-300">{completedLessonIds.length}/{INITIAL_LESSONS.length}</span></div>
+            <ol className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5">
+              {LEARNING_PATH.map((stage, index) => {
+                const unlocked = completedLessonIds.length >= stage.required;
+                const complete = completedLessonIds.length >= (LEARNING_PATH[index + 1]?.required ?? INITIAL_LESSONS.length);
+                return <li key={stage.name} className={`rounded-xl border p-3 ${complete ? 'border-emerald-300 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30' : unlocked ? 'border-indigo-300 bg-white dark:border-indigo-800 dark:bg-slate-900' : 'border-slate-200 bg-slate-100 text-slate-500 dark:border-slate-700 dark:bg-slate-800'}`}><div className="flex items-center justify-between"><span className="text-[10px] font-black uppercase tracking-wide">Stage {index + 1}</span>{complete ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : !unlocked ? <Lock className="h-3.5 w-3.5" /> : null}</div><p className="mt-1 text-xs font-black">{stage.name}</p><p className="mt-1 text-[10px] font-bold text-indigo-700 dark:text-indigo-300">{stage.range}</p><p className="mt-1 text-[11px] leading-relaxed">{stage.outcome}</p></li>;
+              })}
+            </ol>
+          </div>
+        </div>
+
+        {/* Sub-Tabs */}
+        <div className="grid w-full grid-cols-2 gap-1.5 rounded-2xl border border-slate-200 bg-slate-50 p-1.5 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
+          <button
+            onClick={() => setActiveSubTab('LESSONS')}
+            className={`min-h-11 rounded-xl px-2 py-2 text-center text-xs font-black leading-tight transition-all cursor-pointer ${
+              activeSubTab === 'LESSONS'
+                ? 'bg-slate-900 text-white shadow-xs'
+                : 'text-[#556952] hover:text-slate-900 hover:bg-white/60'
+            }`}
+          >
+            📚 Lessons ({INITIAL_LESSONS.length})
+          </button>
+          <button
+            onClick={() => caseStudiesUnlocked && setActiveSubTab('CASE_STUDIES')}
+            disabled={!caseStudiesUnlocked}
+            aria-label={caseStudiesUnlocked ? 'Open case studies and comparisons' : 'Complete two lessons to unlock case studies'}
+            className={`min-h-11 rounded-xl px-2 py-2 text-center text-xs font-black leading-tight transition-all cursor-pointer ${
+              activeSubTab === 'CASE_STUDIES'
+                ? 'bg-slate-900 text-white shadow-xs'
+                : 'text-[#556952] hover:text-slate-900 hover:bg-white/60'
+            }`}
+          >
+            {caseStudiesUnlocked ? '📊' : '🔒'} Case Studies ({CASE_STUDIES_DATA.length})
+          </button>
+          <button
+            onClick={() => setActiveSubTab('PORTFOLIO_MODELS')}
+            className={`min-h-11 rounded-xl px-2 py-2 text-center text-xs font-black leading-tight transition-all cursor-pointer ${
+              activeSubTab === 'PORTFOLIO_MODELS'
+                ? 'bg-slate-900 text-white shadow-xs'
+                : 'text-[#556952] hover:text-slate-900 hover:bg-white/60'
+            }`}
+          >
+            🧭 Portfolio Models
+          </button>
+          <button
+            onClick={() => setActiveSubTab('HISTORICAL_EVENTS')}
+            className={`min-h-11 rounded-xl px-2 py-2 text-center text-xs font-black leading-tight transition-all cursor-pointer ${activeSubTab === 'HISTORICAL_EVENTS' ? 'bg-slate-900 text-white shadow-xs' : 'text-[#556952] hover:text-slate-900 hover:bg-white/60'}`}
+          >
+            🕰️ Market History Lab
+          </button>
+          <button
+            onClick={() => setActiveSubTab('DAILY_QUIZ')}
+            className={`min-h-11 rounded-xl px-2 py-2 text-center text-xs font-black leading-tight transition-all cursor-pointer ${
+              activeSubTab === 'DAILY_QUIZ'
+                ? 'bg-slate-900 text-white shadow-xs'
+                : 'text-[#556952] hover:text-slate-900 hover:bg-white/60'
+            }`}
+          >
+            🎯 Investor Quiz
+          </button>
+          <button
+            onClick={() => setActiveSubTab('JARGON_BUSTER')}
+            className={`min-h-11 rounded-xl px-2 py-2 text-center text-xs font-black leading-tight transition-all cursor-pointer ${
+              activeSubTab === 'JARGON_BUSTER'
+                ? 'bg-slate-900 text-white shadow-xs'
+                : 'text-[#556952] hover:text-slate-900 hover:bg-white/60'
+            }`}
+          >
+            📖 Jargon Glossary
+          </button>
+        </div>
+      </div>
+
+      {/* VIEW 1: LESSONS & QUIZZES */}
+      {activeSubTab === 'LESSONS' && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          
+          {/* Left 4 Cols: Lesson List & Progress */}
+          <div className="lg:col-span-4 space-y-3">
+            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">
+              Learning Modules ({INITIAL_LESSONS.length} Steps to Mastery)
+            </h3>
+            <label className="relative block">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input type="search" value={lessonQuery} onChange={(event) => setLessonQuery(event.target.value)} placeholder="Search lessons and topics" className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-xs font-bold text-slate-800 outline-none focus:border-indigo-400" />
+            </label>
+            
+            <div className="space-y-2.5">
+              {filteredLessons.map((lesson) => {
+                const idx = INITIAL_LESSONS.findIndex((item) => item.id === lesson.id);
+                const isCompleted = completedLessonIds.includes(lesson.id);
+                const isActive = lesson.id === activeLessonId;
+
+                return (
+                  <div
+                    key={lesson.id}
+                    onClick={() => handleSelectLesson(lesson)}
+                    className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                      isActive
+                        ? 'bg-slate-50 border-zinc-500 shadow-sm'
+                        : isCompleted
+                        ? 'bg-white border-emerald-200 hover:border-emerald-300'
+                        : 'bg-white border-slate-200 hover:border-slate-200 '
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-extrabold text-xs shrink-0 ${
+                        isCompleted
+                          ? 'bg-emerald-600 text-white'
+                          : isActive
+                          ? 'bg-slate-900 text-white'
+                          : 'bg-slate-50 text-slate-900 border border-slate-200 '
+                      }`}>
+                        {isCompleted ? <CheckCircle2 className="w-4 h-4" /> : idx + 1}
+                      </div>
+                      <div>
+                        <h4 className={`text-xs font-extrabold ${isActive ? 'text-slate-900 ' : 'text-slate-900 '}`}>
+                          {lesson.title.split(':')[0]}
+                        </h4>
+                        <div className="flex items-center gap-2 text-[10px] text-slate-500 mt-0.5 font-medium">
+                          <span>{lesson.category}</span>
+                          <span>•</span>
+                          <span className="text-indigo-600 font-bold">+{lesson.xpReward} XP</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex shrink-0 items-center gap-1">
+                      <button type="button" onClick={(event) => { event.stopPropagation(); toggleLessonBookmark(lesson.id); }} className={`rounded-lg p-1.5 ${bookmarkedLessonIds.includes(lesson.id) ? 'bg-amber-100 text-amber-700' : 'text-slate-400 hover:bg-slate-100'}`} aria-label={`${bookmarkedLessonIds.includes(lesson.id) ? 'Remove' : 'Add'} bookmark for ${lesson.title}`}><Bookmark className={`h-3.5 w-3.5 ${bookmarkedLessonIds.includes(lesson.id) ? 'fill-current' : ''}`} /></button>
+                      <ChevronRight className={`w-4 h-4 ${isActive ? 'text-slate-900 ' : 'text-slate-500'}`} />
+                    </div>
+                  </div>
+                );
+              })}
+              {filteredLessons.length === 0 && <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center text-xs font-medium text-slate-500">No lessons match “{lessonQuery}”.</div>}
+            </div>
+          </div>
+
+          {/* Right 8 Cols: Active Lesson Reader & Interactive Quiz */}
+          <div className="lg:col-span-8 bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+            
+            {/* Lesson Title Header */}
+            <div className="border-b border-slate-200 pb-4">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-extrabold text-slate-900 bg-slate-50 border border-slate-200 px-3 py-1 rounded-full">
+                  {activeLesson.category}
+                </span>
+                <div className="flex flex-wrap items-center justify-end gap-2"><span className="text-xs text-slate-500 font-medium">{activeLesson.readTime} • +{activeLesson.xpReward} XP</span><button type="button" onClick={toggleReadAloud} className={`min-h-10 rounded-xl border px-3 text-xs font-black ${isReadingAloud ? 'border-emerald-400 bg-emerald-100 text-emerald-900' : 'border-slate-200 text-slate-600'}`} aria-pressed={isReadingAloud}>{isReadingAloud ? <VolumeX className="inline h-4 w-4" /> : <Volume2 className="inline h-4 w-4" />} <span className="ml-1">{isReadingAloud ? 'Stop' : 'Listen'}</span></button><button type="button" onClick={() => toggleLessonBookmark(activeLesson.id)} className={`min-h-10 rounded-xl border p-2.5 ${bookmarkedLessonIds.includes(activeLesson.id) ? 'border-amber-300 bg-amber-100 text-amber-700' : 'border-slate-200 text-slate-500'}`} aria-label="Toggle lesson bookmark"><Bookmark className={`h-4 w-4 ${bookmarkedLessonIds.includes(activeLesson.id) ? 'fill-current' : ''}`} /></button></div>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-slate-900 mt-3">
+                {activeLesson.title}
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-500 mt-1 italic font-medium">
+                &ldquo;{activeLesson.tagline}&rdquo;
+              </p>
+            </div>
+
+            {settings.learningLanguage === 'HINDI' && (
+              <div className="academy-reading rounded-2xl border border-indigo-200 bg-indigo-50 p-4 text-indigo-950" role="status">
+                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-indigo-700">सरल हिन्दी सारांश</p>
+                <p className="mt-2 text-sm font-semibold leading-7">{HINDI_LESSON_SUMMARIES[activeLesson.id] || 'इस पाठ को धीरे-धीरे पढ़ें, मुख्य विचार अपने शब्दों में लिखें और quiz से अपनी समझ जाँचें।'}</p>
+                <p className="mt-2 text-[11px] text-indigo-700">शेयर बाज़ार के मानक शब्द, संख्याएँ, प्रतिशत और सूत्र अपनी मूल शैली में रहेंगे ताकि उनका अर्थ सटीक बना रहे।</p>
+              </div>
+            )}
+
+            {/* Lesson Content Sections */}
+            <div className="space-y-7 text-zinc-700 text-base leading-7">
+              {activeLesson.sections.map((sec, sIdx) => (
+                <div key={sIdx} className="space-y-3">
+                  <h3 className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-slate-900 " />
+                    {sec.heading}
+                  </h3>
+                  <div className="academy-reading"><FormattedLessonContent content={sec.content} /></div>
+
+                  {/* Relatable Analogy Box */}
+                  {sec.exampleBox && (
+                    <div className="bg-indigo-600/10 border border-[#4F46E5]/30 rounded-2xl p-4 my-3">
+                      <div className="font-extrabold text-indigo-600 text-xs sm:text-sm mb-1">
+                        {sec.exampleBox.title}
+                      </div>
+                      <p className="text-xs text-indigo-600 leading-relaxed">
+                        {sec.exampleBox.description}
+                      </p>
+                      <p className="text-xs text-indigo-600 font-bold mt-2 pt-2 border-t border-[#4F46E5]/30">
+                        💡 <strong>Real-World Takeaway:</strong> {sec.exampleBox.analogy}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Key Takeaways */}
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2">
+              <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 " />
+                Key Rookie Rules to Remember
+              </h4>
+              <ul className="text-xs text-slate-500 space-y-1.5 font-medium">
+                {activeLesson.keyTakeaways.map((point, kIdx) => (
+                  <li key={kIdx} className="flex items-start gap-2">
+                    <span className="text-emerald-600 font-extrabold">✓</span>
+                    <span>{point}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* CHECKPOINT QUIZ */}
+            <div className="bg-slate-50 border-2 border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <HelpCircle className="w-5 h-5 text-slate-900 " />
+                  <h4 className="text-sm font-black text-slate-900 ">
+                    Knowledge Checkpoint (+{activeLesson.xpReward} XP)
+                  </h4>
+                </div>
+                {isCurrentCompleted && (
+                  <span className="text-xs font-black text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Module Mastered
+                  </span>
+                )}
+              </div>
+
+              <p className="text-xs sm:text-sm font-extrabold text-slate-900 ">
+                {activeLesson.quiz.question}
+              </p>
+
+              {/* Quiz Options */}
+              <div className="space-y-2.5">
+                {activeLesson.quiz.options.map((opt) => {
+                  const isSelected = selectedQuizOption?.id === opt.id;
+                  let optStyle = 'bg-white border-slate-200 text-zinc-700 hover:border-slate-200 ';
+
+                  if (isQuizSubmitted) {
+                    if (opt.isCorrect) {
+                      optStyle = 'bg-emerald-50 border-emerald-500 text-emerald-900 font-bold';
+                    } else if (isSelected && !opt.isCorrect) {
+                      optStyle = 'bg-rose-50 border-rose-400 text-rose-900';
+                    }
+                  } else if (isSelected) {
+                    optStyle = 'bg-slate-50 border-zinc-600 text-slate-900 font-bold shadow-xs';
+                  }
+
+                  return (
+                    <div
+                      key={opt.id}
+                      onClick={() => handleOptionSelect(opt)}
+                      className={`p-3.5 rounded-xl border text-xs cursor-pointer transition-all ${optStyle}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span>{opt.text}</span>
+                        {isQuizSubmitted && opt.isCorrect && (
+                          <span className="text-emerald-700 font-black text-[11px]">Correct Answer ✓</span>
+                        )}
+                      </div>
+
+                      {isQuizSubmitted && (isSelected || opt.isCorrect) && (
+                        <p className="mt-2 text-[11px] text-slate-500 border-t border-slate-200 pt-1.5 font-medium">
+                          {opt.explanation}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Submit / Retry Button */}
+              <div className="pt-2 flex items-center justify-end gap-3">
+                {!isQuizSubmitted ? (
+                  <button
+                    onClick={handleQuizSubmit}
+                    disabled={!selectedQuizOption}
+                    className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-indigo-700 disabled:opacity-50 text-white font-extrabold text-xs shadow-md shadow-indigo-600/20 transition-all"
+                  >
+                    Submit Answer & Earn XP
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setSelectedQuizOption(null);
+                      setIsQuizSubmitted(false);
+                    }}
+                    className="px-4 py-2 rounded-xl bg-white border border-slate-200 text-zinc-700 text-xs font-bold hover:bg-slate-50 flex items-center gap-1.5"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" /> Try Quiz Again
+                  </button>
+                )}
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+      )}
+
+      {/* VIEW: CASE STUDIES & COMPANY-VS-COMPANY COMPARISONS */}
+      {activeSubTab === 'CASE_STUDIES' && (
+        <div className="space-y-6">
+          {/* Category Filter Pills */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {['ALL', 'FMCG & Consumer', 'Tech & Platforms', 'Banking & BFSI', 'Automobile & EV', 'IT & Software'].map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setCaseStudyCategory(cat)}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all whitespace-nowrap cursor-pointer ${
+                  caseStudyCategory === cat
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                }`}
+              >
+                {cat === 'ALL' ? '🔥 All Case Studies' : cat}
+              </button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Left 4 Cols: Case Study Selector */}
+            <div className="lg:col-span-4 space-y-3">
+              <div className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-5 shadow-xs space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <Layers className="w-5 h-5 text-indigo-600" />
+                    <h3 className="font-extrabold text-sm text-slate-900">Case Studies ({CASE_STUDIES_DATA.length})</h3>
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    Dalal Street Battles
+                  </span>
+                </div>
+
+                <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
+                  {CASE_STUDIES_DATA.filter((cs) => caseStudyCategory === 'ALL' || cs.category === caseStudyCategory).map((cs) => {
+                    const isSelected = cs.id === activeCaseStudyId;
+
+                    return (
+                      <button
+                        key={cs.id}
+                        onClick={() => setActiveCaseStudyId(cs.id)}
+                        className={`w-full text-left p-3.5 rounded-2xl border transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                            : 'bg-white border-slate-200 text-slate-800 hover:border-slate-300 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-1 mb-1">
+                          <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                            isSelected ? 'bg-white/20 text-amber-300' : 'bg-indigo-50 text-indigo-700 border border-indigo-100'
+                          }`}>
+                            {cs.category}
+                          </span>
+                          <span className={`text-[10px] font-bold ${isSelected ? 'text-slate-300' : 'text-slate-400'}`}>
+                            {cs.readTime}
+                          </span>
+                        </div>
+
+                        <h4 className={`text-xs font-black leading-snug mb-1.5 ${isSelected ? 'text-white' : 'text-slate-900'}`}>
+                          {cs.title}
+                        </h4>
+
+                        <div className="flex flex-wrap items-center gap-1">
+                          {cs.companies.map((co) => (
+                            <span
+                              key={co}
+                              className={`text-[9px] font-black font-mono px-1.5 py-0.5 rounded ${
+                                isSelected ? 'bg-white/15 text-slate-200' : 'bg-slate-100 text-slate-700'
+                              }`}
+                            >
+                              {co}
+                            </span>
+                          ))}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Right 8 Cols: Detailed Case Study & Comparison Matrix */}
+            <div className="lg:col-span-8">
+              {(() => {
+                const currentCase = CASE_STUDIES_DATA.find((c) => c.id === activeCaseStudyId) || CASE_STUDIES_DATA[0];
+
+                return (
+                  <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xs space-y-8">
+                    
+                    {/* Header */}
+                    <div className="border-b border-slate-100 pb-6 space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-extrabold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-100 uppercase tracking-wide">
+                            {currentCase.category}
+                          </span>
+                          <span className="text-[11px] font-bold text-slate-500">
+                            ⏱️ {currentCase.readTime}
+                          </span>
+                        </div>
+                        <span className="text-xs font-black text-amber-800 bg-amber-50 px-3 py-1 rounded-full border border-amber-200 flex items-center gap-1.5">
+                          <Award className="w-3.5 h-3.5 text-amber-600" /> {currentCase.badge}
+                        </span>
+                      </div>
+
+                      <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-snug">
+                        {currentCase.title}
+                      </h2>
+
+                      <p className="text-xs sm:text-sm font-bold text-slate-500 leading-relaxed">
+                        {currentCase.tagline}
+                      </p>
+
+                      {/* Stock Badges */}
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        <span className="text-xs font-bold text-slate-500">Companies Studied:</span>
+                        {currentCase.companies.map((sym) => (
+                          <span
+                            key={sym}
+                            className="text-xs font-black font-mono text-indigo-900 bg-indigo-50 px-2.5 py-1 rounded-xl border border-indigo-200"
+                          >
+                            NSE: {sym}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Hero Highlight Box */}
+                    <div className="bg-gradient-to-r from-slate-900 to-indigo-950 text-white p-5 sm:p-6 rounded-2xl shadow-xs space-y-2">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-amber-400 block">
+                        Case Study Premise
+                      </span>
+                      <h3 className="text-base sm:text-lg font-black leading-snug text-white">
+                        {currentCase.heroHeadline}
+                      </h3>
+                      <p className="text-xs sm:text-sm text-slate-300 font-medium leading-relaxed pt-1 whitespace-pre-line">
+                        {currentCase.narrativeOverview}
+                      </p>
+                    </div>
+
+                    {/* Core Business Battles */}
+                    <div className="space-y-4">
+                      <h3 className="text-sm sm:text-base font-black text-slate-900 flex items-center gap-2">
+                        <Zap className="w-4 h-4 text-amber-500" />
+                        {currentCase.coreBusinessBattle.title}
+                      </h3>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        {currentCase.coreBusinessBattle.points.map((pt, pIdx) => (
+                          <div
+                            key={pIdx}
+                            className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2 flex flex-col justify-between"
+                          >
+                            <div>
+                              <div className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 font-black text-xs flex items-center justify-center mb-2">
+                                {pIdx + 1}
+                              </div>
+                              <h4 className="text-xs font-black text-slate-900 leading-snug mb-1">
+                                {pt.headline}
+                              </h4>
+                              <p className="text-[11px] sm:text-xs text-slate-600 leading-relaxed font-medium">
+                                {pt.detail}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* SIDE-BY-SIDE FINANCIAL METRICS COMPARISON TABLE */}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-sm sm:text-base font-black text-slate-900 flex items-center gap-2">
+                          <Calculator className="w-4 h-4 text-indigo-600" />
+                          Head-to-Head Financial Metrics Comparison
+                        </h3>
+                        <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
+                          Key Value Drivers
+                        </span>
+                      </div>
+
+                      <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left border-collapse text-xs">
+                            <thead>
+                              <tr className="bg-slate-100/80 border-b border-slate-200 text-slate-700 font-black">
+                                <th className="p-3.5">Financial Metric</th>
+                                <th className="p-3.5 text-center">{currentCase.metricsTable[0].companyA.name}</th>
+                                <th className="p-3.5 text-center">{currentCase.metricsTable[0].companyB.name}</th>
+                                {currentCase.metricsTable[0].companyC && (
+                                  <th className="p-3.5 text-center">{currentCase.metricsTable[0].companyC.name}</th>
+                                )}
+                                <th className="p-3.5 min-w-[200px]">Why This Metric Matters</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
+                              {currentCase.metricsTable.map((row, rIdx) => (
+                                <tr key={rIdx} className="hover:bg-slate-50/80 transition-colors">
+                                  <td className="p-3.5 font-bold text-slate-900">
+                                    {row.metric}
+                                    <span className="text-[10px] font-normal text-slate-400 block">({row.unit})</span>
+                                  </td>
+                                  <td className="p-3.5 text-center">
+                                    <span className="font-black font-mono text-slate-900 block text-xs sm:text-sm">
+                                      {row.companyA.value}
+                                    </span>
+                                    {row.companyA.note && (
+                                      <span className="text-[10px] text-slate-500 block leading-tight mt-0.5">
+                                        {row.companyA.note}
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="p-3.5 text-center">
+                                    <span className="font-black font-mono text-slate-900 block text-xs sm:text-sm">
+                                      {row.companyB.value}
+                                    </span>
+                                    {row.companyB.note && (
+                                      <span className="text-[10px] text-slate-500 block leading-tight mt-0.5">
+                                        {row.companyB.note}
+                                      </span>
+                                    )}
+                                  </td>
+                                  {row.companyC && (
+                                    <td className="p-3.5 text-center">
+                                      <span className="font-black font-mono text-slate-900 block text-xs sm:text-sm">
+                                        {row.companyC.value}
+                                      </span>
+                                      {row.companyC.note && (
+                                        <span className="text-[10px] text-slate-500 block leading-tight mt-0.5">
+                                          {row.companyC.note}
+                                        </span>
+                                      )}
+                                    </td>
+                                  )}
+                                  <td className="p-3.5 text-slate-600 text-[11px] leading-relaxed">
+                                    {row.importance}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Strategic Moats & Market Insights */}
+                    <div className="space-y-4">
+                      <h3 className="text-sm sm:text-base font-black text-slate-900 flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                        Strategic Moat Insights & Unfair Advantages
+                      </h3>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {currentCase.strategicInsights.map((ins, iIdx) => (
+                          <div
+                            key={iIdx}
+                            className="p-4 rounded-2xl bg-indigo-50/40 border border-indigo-100 space-y-1.5"
+                          >
+                            <h4 className="text-xs font-black text-indigo-950 flex items-center gap-1.5">
+                              <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                              {ins.title}
+                            </h4>
+                            <p className="text-xs text-indigo-900/80 font-medium leading-relaxed">
+                              {ins.description}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Lessons, Checklist & Pitfalls 3-Column Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+                      {/* Key Lessons */}
+                      <div className="bg-emerald-50/60 border border-emerald-200 rounded-2xl p-4 space-y-2">
+                        <h4 className="text-xs font-black text-emerald-950 uppercase tracking-wider flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          Key Investor Lessons
+                        </h4>
+                        <ul className="space-y-1.5">
+                          {currentCase.keyLessons.map((les, lIdx) => (
+                            <li key={lIdx} className="text-[11px] text-emerald-900 flex items-start gap-1.5 leading-relaxed font-medium">
+                              <span className="font-bold">•</span>
+                              <span>{les}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      {/* Due Diligence Checklist */}
+                      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2">
+                        <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                          <Search className="w-3.5 h-3.5 text-indigo-600" />
+                          Due Diligence Checklist
+                        </h4>
+                        <ul className="space-y-1.5">
+                          {currentCase.investorChecklist.map((chk, cIdx) => (
+                            <li key={cIdx} className="text-[11px] text-slate-700 flex items-start gap-1.5 leading-relaxed font-medium">
+                              <span className="font-bold text-indigo-600">✓</span>
+                              <span>{chk}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      {/* Pitfalls to Avoid */}
+                      <div className="bg-rose-50/60 border border-rose-200 rounded-2xl p-4 space-y-2">
+                        <h4 className="text-xs font-black text-rose-950 uppercase tracking-wider flex items-center gap-1.5">
+                          <X className="w-3.5 h-3.5 text-rose-600" />
+                          Common Pitfalls to Avoid
+                        </h4>
+                        <ul className="space-y-1.5">
+                          {currentCase.pitfallsToAvoid.map((pit, pIdx) => (
+                            <li key={pIdx} className="text-[11px] text-rose-900 flex items-start gap-1.5 leading-relaxed font-medium">
+                              <span className="font-bold text-rose-600">⚠</span>
+                              <span>{pit}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+
+                    {/* Mentor Verdict Summary */}
+                    <div className="p-4 sm:p-5 rounded-2xl bg-slate-900 text-white border border-slate-800 space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <Award className="w-4 h-4 text-amber-400" />
+                        <h4 className="text-xs font-black uppercase tracking-wider text-amber-400">
+                          Mentor's Final Compounding Verdict
+                        </h4>
+                      </div>
+                      <p className="text-xs sm:text-sm text-slate-200 font-medium leading-relaxed">
+                        {currentCase.verdictSummary}
+                      </p>
+                    </div>
+
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeSubTab === 'HISTORICAL_EVENTS' && <HistoricalEventsLab />}
+
+      {activeSubTab === 'PORTFOLIO_MODELS' && <PortfolioConstructionLab />}
+
+      {/* VIEW 3: DALAL STREET JARGON BUSTER */}
+      {activeSubTab === 'JARGON_BUSTER' && (
+        <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-7 shadow-sm space-y-6">
+          {/* Header Bar & Search */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-200 pb-5">
+            <div>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-slate-900 text-amber-300 flex items-center justify-center font-black">
+                  <Zap className="w-4 h-4" />
+                </div>
+                <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                  Dalal Street Jargon Buster
+                </h3>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">
+                Decode confusing stock market words into crystal-clear everyday investor concepts.
+              </p>
+            </div>
+
+            {/* Search Input */}
+            <div className="relative w-full lg:w-80">
+              <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search term (e.g. Bull, P/E, IPO, Demat)..."
+                value={jargonQuery}
+                onChange={(e) => setJargonQuery(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9.5 pr-8 py-2.5 text-xs text-slate-900 placeholder-[#64748B]/70 focus:outline-none focus:border-slate-900 focus:bg-white transition-all"
+              />
+              {jargonQuery && (
+                <button
+                  onClick={() => setJargonQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-500 hover:text-slate-900 rounded-full"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Category Filter Chips Bar */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1 shrink-0 mr-1">
+              <Filter className="w-3 h-3 text-slate-900" /> Categories:
+            </span>
+            {jargonCategories.map((cat) => {
+              const isActive = selectedJargonCategory === cat;
+              return (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedJargonCategory(cat)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all cursor-pointer ${
+                    isActive
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'bg-slate-50 text-slate-500 hover:text-slate-900 hover:bg-white border border-slate-200'
+                  }`}
+                >
+                  {cat}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Results Summary Bar */}
+          <div className="flex items-center justify-between text-xs font-bold text-slate-500 px-1">
+            <span>Showing {filteredJargon.length} {filteredJargon.length === 1 ? 'definition' : 'definitions'}</span>
+            {(jargonQuery || selectedJargonCategory !== 'ALL') && (
+              <button
+                onClick={() => {
+                  setJargonQuery('');
+                  setSelectedJargonCategory('ALL');
+                }}
+                className="text-amber-700 hover:text-amber-900 underline cursor-pointer"
+              >
+                Reset filters
+              </button>
+            )}
+          </div>
+
+          {/* Jargon Definitions Grid */}
+          {filteredJargon.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
+              {filteredJargon.map((item, idx) => (
+                <div 
+                  key={idx} 
+                  className="bg-slate-50 border border-slate-200 hover:border-slate-900 rounded-2xl p-5 hover:shadow-xs transition-all flex flex-col justify-between group"
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-white text-slate-900 border border-slate-200">
+                        {item.category}
+                      </span>
+                      <span className="text-[10px] font-mono font-bold text-slate-500">
+                        #{idx + 1}
+                      </span>
+                    </div>
+                    <h4 className="text-sm font-black text-slate-900 group-hover:text-amber-700 transition-colors">
+                      {item.term}
+                    </h4>
+                    <p className="text-xs text-[#556952] mt-2 leading-relaxed font-medium">
+                      {item.desc}
+                    </p>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-slate-200/60 flex items-center justify-between text-[10px] font-bold text-slate-500">
+                    <span className="flex items-center gap-1 text-emerald-800">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Simplified for Teens
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-3">
+              <BookOpen className="w-8 h-8 text-slate-500 mx-auto opacity-50" />
+              <p className="text-sm font-bold text-slate-900">No matching terms found</p>
+              <p className="text-xs text-slate-500">Try searching for different keywords or clear the category filters.</p>
+              <button
+                onClick={() => {
+                  setJargonQuery('');
+                  setSelectedJargonCategory('ALL');
+                }}
+                className="px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl cursor-pointer"
+              >
+                Clear Search
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+
+      {/* VIEW 4: INVESTOR QUIZ */}
+      {activeSubTab === 'DAILY_QUIZ' && (
+        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+          <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+            <div>
+              <h3 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                <HelpCircle className="w-5 h-5 text-slate-900" />
+                Daily Investor Quiz
+              </h3>
+              <p className="text-xs text-slate-500 font-medium mt-1">
+                Test your knowledge and earn Academy Points to level up!
+              </p>
+            </div>
+            <div className="bg-indigo-600/10 border border-[#4F46E5]/30 px-3 py-1.5 rounded-xl flex items-center gap-2">
+              <Award className="w-4 h-4 text-indigo-600" />
+              <span className="text-xs font-bold text-indigo-600">+50 XP per question</span>
+            </div>
+          </div>
+
+          <div className="max-w-2xl mx-auto">
+            {(() => {
+              const q = QUIZ_QUESTIONS[activeQuizIndex];
+              const isCompleted = completedLessonIds.includes(q.id);
+              const hasAnswered = selectedAnswerIdx !== null || isCompleted;
+              
+              return (
+                <div className="space-y-6">
+                  {/* Progress Header */}
+                  <div className="flex justify-between items-center text-xs font-bold text-slate-500">
+                    <span>Question {activeQuizIndex + 1} of {QUIZ_QUESTIONS.length}</span>
+                    <span className={isCompleted ? 'text-indigo-600' : ''}>
+                      {isCompleted ? 'Completed ✓' : 'Pending'}
+                    </span>
+                  </div>
+
+                  {/* Question */}
+                  <h4 className="text-lg font-extrabold text-slate-900 leading-snug">
+                    {q.question}
+                  </h4>
+
+                  {/* Options */}
+                  <div className="space-y-3">
+                    {q.options.map((opt, idx) => {
+                      let btnStateClass = 'bg-slate-50 border-slate-200 text-slate-900 hover:border-slate-900 hover:bg-white';
+                      
+                      if (hasAnswered) {
+                        if (idx === q.correctIndex) {
+                          btnStateClass = 'bg-indigo-600/10 border-[#4F46E5] text-indigo-600 font-bold'; // Correct
+                        } else if (idx === selectedAnswerIdx) {
+                          btnStateClass = 'bg-rose-50 border-rose-300 text-rose-700'; // Incorrect pick
+                        } else {
+                          btnStateClass = 'bg-slate-50 border-slate-200 text-slate-500 opacity-60'; // Other
+                        }
+                      } else if (selectedAnswerIdx === idx) {
+                        btnStateClass = 'bg-slate-900 border-slate-900 text-white'; // Selected (if we want to allow picking before submit, but let's just make it immediate)
+                      }
+
+                      return (
+                        <button
+                          key={idx}
+                          disabled={isCompleted || selectedAnswerIdx !== null}
+                          onClick={() => {
+                            setSelectedAnswerIdx(idx);
+                            if (idx === q.correctIndex) {
+                              completeLesson(q.id, q.xp);
+                            }
+                          }}
+                          className={`w-full text-left px-5 py-4 rounded-2xl border transition-all ${btnStateClass} ${hasAnswered ? 'cursor-default' : 'cursor-pointer'}`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-semibold">{opt}</span>
+                            {hasAnswered && idx === q.correctIndex && <CheckCircle2 className="w-5 h-5 text-indigo-600" />}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Explanation & Next */}
+                  {hasAnswered && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-slate-900 text-white p-5 rounded-2xl border border-slate-900/80 mt-6"
+                    >
+                      <h5 className="text-xs font-bold text-[#E2E8F0] uppercase tracking-wider mb-2">
+                        {selectedAnswerIdx === q.correctIndex || isCompleted ? 'Awesome! Correct Answer.' : 'Not quite right.'}
+                      </h5>
+                      <p className="text-sm font-medium leading-relaxed text-white">
+                        {q.explanation}
+                      </p>
+                      
+                      <div className="mt-5 flex justify-end">
+                        <button
+                          onClick={() => {
+                            if (activeQuizIndex < QUIZ_QUESTIONS.length - 1) {
+                              setActiveQuizIndex(activeQuizIndex + 1);
+                              setSelectedAnswerIdx(null);
+                            }
+                          }}
+                          disabled={activeQuizIndex >= QUIZ_QUESTIONS.length - 1}
+                          className="bg-indigo-600 hover:bg-[#3d4d1d] text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        >
+                          Next Question <ArrowRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+};
