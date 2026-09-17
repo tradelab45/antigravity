@@ -1,0 +1,32 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "RupeeRookie: Edge DevTools (Embedded Preview)",
+      "type": "vscode-edge-devtools.debug",
+      "request": "launch",
+      "url": "http://localhost:3005",
+      "webRoot": "${workspaceFolder}"
+    },
+    {
+      "name": "RupeeRookie: Launch Chrome Preview",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:3005",
+      "webRoot": "${workspaceFolder}"
+    },
+    {
+      "name": "RupeeRookie: Launch Edge Preview",
+      "type": "msedge",
+      "request": "launch",
+      "url": "http://localhost:3005",
+      "webRoot": "${workspaceFolder}"
+    },
+    {
+      "name": "RupeeRookie: Full Stack Dev Server (Node)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run dev"
+    }
+  ]
+}

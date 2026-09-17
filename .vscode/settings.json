@@ -1,0 +1,4 @@
+{
+  "livePreview.customExternalUrl": "http://localhost:3005",
+  "livePreview.openPreviewTarget": "EmbeddedBrowser"
+}
