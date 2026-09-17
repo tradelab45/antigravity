@@ -58,9 +58,9 @@ function SimulatorApp() {
   const [publicScreen, setPublicScreen] = useState<'LANDING' | 'LOGIN' | 'SIGNUP'>(() => {
     const params = new URLSearchParams(window.location.search);
     const authParam = params.get('auth') || params.get('mode');
-    if (authParam === 'landing') return 'LANDING';
-    if (authParam === 'signup') return 'SIGNUP';
-    return 'LOGIN';
+    if (authParam === 'login' || authParam === 'signin') return 'LOGIN';
+    if (authParam === 'signup' || authParam === 'register') return 'SIGNUP';
+    return 'LANDING';
   });
   const [activeTab, setActiveTab] = useState<AppTabType>(() => {
     const requestedView = new URLSearchParams(window.location.search).get('view') as AppTabType | null;
