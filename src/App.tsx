@@ -182,10 +182,15 @@ function SimulatorApp() {
             }
             setPublicScreen(mode);
             window.scrollTo({ top: 0, behavior: 'instant' });
-          }} /> : <>
-            <button type="button" className="fixed top-3 left-3 z-50 rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-900 shadow-sm" onClick={() => { setPublicScreen('LANDING'); window.scrollTo({ top: 0, behavior: 'instant' }); }}>← Back to RupeeRookie</button>
-            <AuthPage initialMode={publicScreen} />
-          </>}
+          }} /> : (
+            <AuthPage 
+              initialMode={publicScreen} 
+              onBackToLanding={() => {
+                setPublicScreen('LANDING');
+                window.scrollTo({ top: 0, behavior: 'instant' });
+              }} 
+            />
+          )}
         </Suspense>
         <ToastNotifier />
       </>

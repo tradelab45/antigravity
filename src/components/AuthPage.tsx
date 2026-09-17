@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   TrendingUp, 
@@ -16,6 +16,7 @@ import {
   Zap, 
   CheckCircle2, 
   ArrowRight, 
+  ArrowLeft,
   Clock, 
   Award, 
   PieChart, 
@@ -49,59 +50,59 @@ interface SampleStock {
   chanakyaInsight: string;
 }
 
-const SAMPLE_STOCKS: SampleStock[] = [
+const BASE_SAMPLE_STOCKS: SampleStock[] = [
   {
     symbol: 'RELIANCE',
     name: 'Reliance Industries Ltd.',
-    price: 2980.40,
-    change: 1.84,
+    price: 2985.40,
+    change: 1.10,
     sector: 'Energy & Telecom',
-    sparkline: [2920, 2935, 2910, 2950, 2940, 2975, 2980],
+    sparkline: [2920, 2940, 2930, 2960, 2955, 2975, 2985.40],
     chanakyaInsight: "Reliance anchors portfolios with immense cash flow from oil-to-chemicals, Jio 5G, and national retail expansion.",
   },
   {
     symbol: 'TCS',
     name: 'Tata Consultancy Services',
-    price: 4120.15,
-    change: 0.92,
-    sector: 'Information Tech',
-    sparkline: [4080, 4095, 4110, 4100, 4130, 4115, 4120],
+    price: 3940.80,
+    change: -0.47,
+    sector: 'IT & Tech Services',
+    sparkline: [3980, 3965, 3970, 3950, 3960, 3945, 3940.80],
     chanakyaInsight: "TCS represents defensive IT leadership with superior ROCE > 50% and rock-solid global balance sheet governance.",
   },
   {
     symbol: 'HDFCBANK',
     name: 'HDFC Bank Limited',
-    price: 1645.50,
-    change: 1.25,
+    price: 1742.60,
+    change: 0.86,
     sector: 'Banking & Financials',
-    sparkline: [1620, 1630, 1625, 1640, 1638, 1642, 1645],
+    sparkline: [1710, 1720, 1715, 1735, 1730, 1738, 1742.60],
     chanakyaInsight: "Private banking giant! Credit expansion and stable CASA deposits make HDFC Bank the bedrock of Dalal Street.",
   },
   {
     symbol: 'TATAMOTORS',
     name: 'Tata Motors Limited',
-    price: 985.20,
-    change: -0.65,
+    price: 984.50,
+    change: 2.30,
     sector: 'Automobile & EV',
-    sparkline: [995, 992, 988, 980, 984, 982, 985],
+    sparkline: [950, 960, 955, 970, 968, 978, 984.50],
     chanakyaInsight: "Turnaround champion in EV passenger vehicles and JLR luxury! Auto cyclicality demands strict stop-loss rules.",
   },
   {
     symbol: 'ZOMATO',
     name: 'Zomato Limited',
-    price: 245.80,
-    change: 3.42,
-    sector: 'Consumer Tech',
-    sparkline: [236, 238, 240, 242, 241, 244, 245],
+    price: 262.80,
+    change: 3.34,
+    sector: 'Consumer Internet',
+    sparkline: [250, 252, 255, 258, 256, 260, 262.80],
     chanakyaInsight: "Hyper-growth consumer platform turning profitable! Watch Blinkit quick commerce order velocity and margins.",
   },
   {
     symbol: 'INFY',
     name: 'Infosys Limited',
-    price: 1780.00,
-    change: -0.38,
-    sector: 'Information Tech',
-    sparkline: [1790, 1785, 1782, 1775, 1778, 1782, 1780],
+    price: 1845.20,
+    change: -0.45,
+    sector: 'IT & Tech Services',
+    sparkline: [1860, 1855, 1850, 1840, 1848, 1842, 1845.20],
     chanakyaInsight: "Digital transformation titan. Track large deal Total Contract Value (TCV) and BFSI vertical spending before sizing up.",
   },
 ];
@@ -124,8 +125,26 @@ const DALAL_SUTRAS = [
   },
 ];
 
-export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP' }> = ({ initialMode = 'LOGIN' }) => {
-  const { loginUser, registerUser, nseMarketInfo, marketIndices } = useSimulator();
+export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLanding?: () => void }> = ({ 
+  initialMode = 'LOGIN',
+  onBackToLanding,
+}) => {
+  const { loginUser, registerUser, nseMarketInfo, marketIndices, stocks } = useSimulator();
+
+  // Dynamically resolve live or context prices for sample stocks if available
+  const sampleStocks: SampleStock[] = useMemo(() => {
+    return BASE_SAMPLE_STOCKS.map((base) => {
+      const match = stocks?.find((s) => s.symbol === base.symbol);
+      if (match && typeof match.price === 'number' && match.price > 0) {
+        return {
+          ...base,
+          price: match.price,
+          change: typeof match.changePercent === 'number' ? match.changePercent : base.change,
+        };
+      }
+      return base;
+    });
+  }, [stocks]);
 
   const [mode, setMode] = useState<'LOGIN' | 'SIGNUP'>(initialMode);
   const [loading, setLoading] = useState(false);
@@ -145,8 +164,8 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP' }> = ({ initi
   const [selectedStockSymbol, setSelectedStockSymbol] = useState<string>('RELIANCE');
   const [playgroundQty, setPlaygroundQty] = useState<number>(5);
   const [simulatedHoldings, setSimulatedHoldings] = useState<{ [symbol: string]: { qty: number; avgPrice: number } }>({
-    'RELIANCE': { qty: 10, avgPrice: 2940.00 },
-    'TCS': { qty: 5, avgPrice: 4090.00 },
+    'RELIANCE': { qty: 10, avgPrice: 2950.00 },
+    'TCS': { qty: 5, avgPrice: 3920.00 },
   });
   const [playgroundFeedback, setPlaygroundFeedback] = useState<string>('Try virtual buying or selling to experience real-time execution!');
   const [tradeCelebration, setTradeCelebration] = useState<boolean>(false);
@@ -259,13 +278,13 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP' }> = ({ initi
   };
 
   // Playground simulation functions
-  const activeStock = SAMPLE_STOCKS.find(s => s.symbol === selectedStockSymbol) || SAMPLE_STOCKS[0];
+  const activeStock = sampleStocks.find(s => s.symbol === selectedStockSymbol) || sampleStocks[0];
   const activeHolding = simulatedHoldings[activeStock.symbol] || { qty: 0, avgPrice: 0 };
   const tradeCost = activeStock.price * playgroundQty;
 
   const handleSimulateBuy = () => {
     if (playgroundCash < tradeCost) {
-      setPlaygroundFeedback(`Insufficient virtual funds. You need ₹${tradeCost.toLocaleString('en-IN', { maximumFractionDigits: 2 })}.`);
+      setPlaygroundFeedback(`Insufficient virtual funds. You need ₹${tradeCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`);
       return;
     }
 
@@ -281,7 +300,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP' }> = ({ initi
       [activeStock.symbol]: { qty: totalQty, avgPrice: newAvg }
     }));
 
-    setPlaygroundFeedback(`Bought ${playgroundQty} shares of ${activeStock.symbol} at ₹${activeStock.price.toFixed(2)}! Virtual capital deducted: ₹${tradeCost.toLocaleString('en-IN')}.`);
+    setPlaygroundFeedback(`Bought ${playgroundQty} shares of ${activeStock.symbol} at ₹${activeStock.price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}! Virtual capital deducted: ₹${tradeCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`);
     setTradeCelebration(true);
     window.setTimeout(() => setTradeCelebration(false), 1500);
   };
@@ -305,7 +324,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP' }> = ({ initi
       }
     }));
 
-    setPlaygroundFeedback(`Sold ${playgroundQty} shares of ${activeStock.symbol} at ₹${activeStock.price.toFixed(2)}! ₹${saleProceeds.toLocaleString('en-IN')} credited to cash.`);
+    setPlaygroundFeedback(`Sold ${playgroundQty} shares of ${activeStock.symbol} at ₹${activeStock.price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}! ₹${saleProceeds.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} credited to cash.`);
     setTradeCelebration(true);
     window.setTimeout(() => setTradeCelebration(false), 1500);
   };
@@ -313,15 +332,15 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP' }> = ({ initi
   const handleResetPlayground = () => {
     setPlaygroundCash(1000000);
     setSimulatedHoldings({
-      'RELIANCE': { qty: 10, avgPrice: 2940.00 },
-      'TCS': { qty: 5, avgPrice: 4090.00 },
+      'RELIANCE': { qty: 10, avgPrice: 2950.00 },
+      'TCS': { qty: 5, avgPrice: 3920.00 },
     });
     setPlaygroundFeedback('Playground reset to ₹10,00,000 virtual capital!');
   };
 
   // Calculate simulated portfolio value
   const totalSimulatedHoldingsValue = Object.entries(simulatedHoldings).reduce((sum, [sym, hold]) => {
-    const s = SAMPLE_STOCKS.find(st => st.symbol === sym);
+    const s = sampleStocks.find(st => st.symbol === sym);
     return sum + (s ? s.price * hold.qty : 0);
   }, 0);
   const totalPortfolioWorth = playgroundCash + totalSimulatedHoldingsValue;
@@ -349,35 +368,47 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP' }> = ({ initi
 
       <a href="#main-content" className="skip-link">Skip to sign in</a>
 
-      {/* 2. Top Ticker Marquee Bar with Live NSE Status */}
-      <div className="sticky top-0 bg-[#030604]/90 backdrop-blur-xl border-b border-white/10 text-white py-2 text-xs overflow-hidden select-none z-30 shadow-md">
-        <div className="max-w-[1640px] mx-auto px-4 sm:px-8 flex items-center justify-between gap-4">
-          <div className="animate-marquee flex items-center gap-8 whitespace-nowrap overflow-hidden">
-            <div className="flex items-center gap-6 sm:gap-8 shrink-0">
-              <div className={`flex items-center gap-2 px-3 py-0.5 rounded-full text-[11px] font-black border ${
+      {/* 2. Top Ticker Bar with Back to Landing & Live NSE Status */}
+      <div className="sticky top-0 bg-[#030604]/95 backdrop-blur-xl border-b border-white/10 text-white py-2 text-xs select-none z-30 shadow-md">
+        <div className="max-w-[1640px] mx-auto px-3 sm:px-6 lg:px-8 flex items-center justify-between gap-3 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0 overflow-hidden">
+            {onBackToLanding && (
+              <button
+                type="button"
+                onClick={onBackToLanding}
+                className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-xs font-bold text-white transition-all shrink-0 hover:border-[#00f59b]/40 cursor-pointer shadow-sm active:scale-95"
+              >
+                <ArrowLeft className="w-3.5 h-3.5 text-[#00f59b]" />
+                <span className="hidden sm:inline">Back to</span>
+                <span>Landing</span>
+              </button>
+            )}
+
+            <div className="flex items-center gap-3 sm:gap-6 whitespace-nowrap overflow-x-auto no-scrollbar py-0.5">
+              <div className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-black border shrink-0 ${
                 nseMarketInfo.isNSEMarketOpen
                   ? 'bg-emerald-500/15 border-[#00f59b]/40 text-[#00f59b]'
                   : 'bg-rose-500/15 border-rose-400/40 text-rose-300'
               }`}>
                 <span className={`h-2 w-2 rounded-full ${nseMarketInfo.isNSEMarketOpen ? 'bg-[#00f59b] animate-pulse shadow-[0_0_8px_#00f59b]' : 'bg-rose-400'}`} />
-                <span>{nseMarketInfo.isNSEMarketOpen ? 'NSE MARKET OPEN' : 'NSE MARKET CLOSED'}</span>
-                <span className="opacity-70 font-mono text-[10px]">({nseMarketInfo.nextSessionCountdown})</span>
+                <span>{nseMarketInfo.isNSEMarketOpen ? 'NSE OPEN' : 'NSE CLOSED'}</span>
+                <span className="opacity-70 font-mono text-[9px] sm:text-[10px] hidden md:inline">({nseMarketInfo.nextSessionCountdown})</span>
               </div>
-              <div className="flex items-center gap-1.5 font-mono text-slate-400 font-bold">
+              <div className="hidden md:flex items-center gap-1.5 font-mono text-slate-400 font-bold text-xs shrink-0">
                 <span>🕒 IST:</span>
                 <span className="text-white">{nseMarketInfo.istTimeString}</span>
               </div>
-              <div className="flex items-center gap-1.5 text-xs font-mono">
-                <span className="text-slate-400 font-bold">NIFTY 50:</span>
+              <div className="flex items-center gap-1.5 text-xs font-mono shrink-0">
+                <span className="text-slate-400 font-bold">NIFTY:</span>
                 <span className="text-white font-bold">{marketIndices?.nifty50?.value ? marketIndices.nifty50.value.toLocaleString('en-IN') : '24,850.30'}</span>
                 <span className="text-[#00f59b] font-bold text-[10px]">+0.65%</span>
               </div>
-              <div className="flex items-center gap-1.5 text-xs font-mono">
+              <div className="hidden sm:flex items-center gap-1.5 text-xs font-mono shrink-0">
                 <span className="text-slate-400 font-bold">SENSEX:</span>
                 <span className="text-white font-bold">{marketIndices?.sensex?.value ? marketIndices.sensex.value.toLocaleString('en-IN') : '81,520.10'}</span>
                 <span className="text-[#00f59b] font-bold text-[10px]">+0.58%</span>
               </div>
-              <div className="flex items-center gap-1.5 text-xs font-mono">
+              <div className="hidden xl:flex items-center gap-1.5 text-xs font-mono shrink-0">
                 <span className="text-slate-400 font-bold">BANK NIFTY:</span>
                 <span className="text-white font-bold">{marketIndices?.niftyBank?.value ? marketIndices.niftyBank.value.toLocaleString('en-IN') : '51,480.60'}</span>
                 <span className="text-[#00f59b] font-bold text-[10px]">+0.82%</span>
@@ -864,25 +895,25 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP' }> = ({ initi
         <div className="bg-[#09140e]/95 border border-emerald-500/25 rounded-3xl p-5 sm:p-8 lg:p-10 shadow-[0_20px_50px_rgba(0,0,0,0.8)] backdrop-blur-2xl relative overflow-hidden">
           
           {/* Top Metric Bar */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pb-6 border-b border-white/10">
-            <div className="bg-[#0c1b13] p-4 rounded-2xl border border-emerald-500/20">
-              <span className="text-xs text-slate-400 font-semibold">Virtual Cash Available</span>
-              <div className="text-xl sm:text-2xl font-black text-[#00f59b] font-mono mt-1">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 pb-6 border-b border-white/10">
+            <div className="bg-[#0c1b13] p-3.5 sm:p-4 rounded-2xl border border-emerald-500/20 min-w-0">
+              <span className="text-[11px] sm:text-xs text-slate-400 font-semibold block truncate">Virtual Cash Available</span>
+              <div className="text-xl sm:text-2xl font-black text-[#00f59b] font-mono mt-1 truncate">
                 ₹{playgroundCash.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
             </div>
 
-            <div className="bg-[#0c1b13] p-4 rounded-2xl border border-emerald-500/20">
-              <span className="text-xs text-slate-400 font-semibold">Simulated Portfolio Value</span>
-              <div className="text-xl sm:text-2xl font-black text-white font-mono mt-1">
+            <div className="bg-[#0c1b13] p-3.5 sm:p-4 rounded-2xl border border-emerald-500/20 min-w-0">
+              <span className="text-[11px] sm:text-xs text-slate-400 font-semibold block truncate">Simulated Portfolio Value</span>
+              <div className="text-xl sm:text-2xl font-black text-white font-mono mt-1 truncate">
                 ₹{totalPortfolioWorth.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
             </div>
 
-            <div className="bg-[#0c1b13] p-4 rounded-2xl border border-emerald-500/20 flex items-center justify-between">
-              <div>
-                <span className="text-xs text-slate-400 font-semibold">Unrealized Demo P&L</span>
-                <div className={`text-xl sm:text-2xl font-black font-mono mt-1 flex items-center gap-1.5 ${
+            <div className="bg-[#0c1b13] p-3.5 sm:p-4 rounded-2xl border border-emerald-500/20 flex items-center justify-between gap-2 min-w-0">
+              <div className="min-w-0">
+                <span className="text-[11px] sm:text-xs text-slate-400 font-semibold block truncate">Unrealized Demo P&L</span>
+                <div className={`text-xl sm:text-2xl font-black font-mono mt-1 flex items-center gap-1.5 truncate ${
                   portfolioPnL >= 0 ? 'text-[#00f59b]' : 'text-rose-400'
                 }`}>
                   {portfolioPnL >= 0 ? '+' : ''}₹{portfolioPnL.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -891,7 +922,8 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP' }> = ({ initi
               <button
                 onClick={handleResetPlayground}
                 title="Reset Playground Sandbox"
-                className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 transition-colors"
+                aria-label="Reset Playground Sandbox"
+                className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 transition-colors shrink-0 cursor-pointer"
               >
                 <RotateCcw className="w-4 h-4" />
               </button>
@@ -900,9 +932,17 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP' }> = ({ initi
 
           {/* Stock Selector Chips */}
           <div className="pt-6">
-            <label className="text-xs font-bold text-slate-300 mb-3 block">Choose Stock to Simulate:</label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
-              {SAMPLE_STOCKS.map((st) => {
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-3">
+              <label className="text-xs sm:text-sm font-bold text-slate-200 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[#00f59b] animate-pulse" />
+                <span>Choose Stock to Simulate:</span>
+              </label>
+              <span className="text-[11px] text-slate-400 font-mono">
+                Click any share to load real-time order terminal
+              </span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
+              {sampleStocks.map((st) => {
                 const isSelected = st.symbol === selectedStockSymbol;
                 const isUp = st.change >= 0;
                 return (
@@ -911,21 +951,23 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP' }> = ({ initi
                     type="button"
                     onClick={() => {
                       setSelectedStockSymbol(st.symbol);
-                      setPlaygroundFeedback(`Selected ${st.symbol} (${st.sector}). Indicative price: ₹${st.price.toFixed(2)}.`);
+                      setPlaygroundFeedback(`Selected ${st.symbol} (${st.sector}). Indicative price: ₹${st.price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`);
                     }}
-                    className={`p-3 rounded-2xl border text-left transition-all ${
+                    className={`p-2.5 sm:p-3 rounded-2xl border text-left transition-all min-w-0 ${
                       isSelected
-                        ? 'bg-[#00f59b]/20 border-[#00f59b] shadow-[0_0_18px_rgba(0,245,155,0.3)]'
-                        : 'bg-[#08120b] border-white/10 hover:border-emerald-500/40 text-slate-300'
+                        ? 'bg-[#00f59b]/20 border-[#00f59b] shadow-[0_0_18px_rgba(0,245,155,0.3)] ring-1 ring-[#00f59b]'
+                        : 'bg-[#08120b] border-white/10 hover:border-emerald-500/40 text-slate-300 hover:bg-[#0c1811]'
                     }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono font-black text-sm text-white">{st.symbol}</span>
-                      <span className={`text-[10px] font-bold font-mono ${isUp ? 'text-[#00f59b]' : 'text-rose-400'}`}>
-                        {isUp ? '+' : ''}{st.change}%
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="font-mono font-black text-xs sm:text-sm text-white truncate">{st.symbol}</span>
+                      <span className={`text-[10px] font-bold font-mono shrink-0 ${isUp ? 'text-[#00f59b]' : 'text-rose-400'}`}>
+                        {isUp ? '+' : ''}{st.change.toFixed(2)}%
                       </span>
                     </div>
-                    <div className="text-xs font-mono text-slate-200 mt-1">₹{st.price.toFixed(2)}</div>
+                    <div className="text-xs sm:text-sm font-mono font-bold text-slate-100 mt-1 truncate">
+                      ₹{st.price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
                     <div className="text-[10px] text-slate-400 truncate mt-0.5">{st.sector}</div>
                   </button>
                 );
@@ -936,22 +978,24 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP' }> = ({ initi
           {/* Selected Stock Live Card & Action Controls */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-6 items-center bg-[#070e09] rounded-2xl p-4 sm:p-6 border border-white/10">
             {/* Stock Meta & Mini Sparkline */}
-            <div className="lg:col-span-6 space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-lg font-black text-white flex items-center gap-2">
-                    <span>{activeStock.name}</span>
-                    <span className="text-[10px] font-mono bg-white/10 px-2 py-0.5 rounded text-slate-300">NSE EQ</span>
+            <div className="lg:col-span-6 space-y-3 min-w-0">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <h4 className="text-base sm:text-lg font-black text-white flex items-center gap-2 truncate">
+                    <span className="truncate">{activeStock.name}</span>
+                    <span className="text-[10px] font-mono bg-white/10 px-2 py-0.5 rounded text-slate-300 shrink-0">NSE EQ</span>
                   </h4>
-                  <p className="text-xs text-slate-400">{activeStock.sector}</p>
+                  <p className="text-xs text-slate-400 truncate">{activeStock.sector}</p>
                 </div>
-                <div className="text-right">
-                  <div className="text-2xl font-black font-mono text-white">₹{activeStock.price.toFixed(2)}</div>
+                <div className="text-right shrink-0">
+                  <div className="text-xl sm:text-2xl font-black font-mono text-white">
+                    ₹{activeStock.price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
                   <span className={`text-xs font-mono font-bold inline-flex items-center gap-0.5 ${
                     activeStock.change >= 0 ? 'text-[#00f59b]' : 'text-rose-400'
                   }`}>
                     {activeStock.change >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-                    {activeStock.change >= 0 ? '+' : ''}{activeStock.change}% Today
+                    {activeStock.change >= 0 ? '+' : ''}{activeStock.change.toFixed(2)}% Today
                   </span>
                 </div>
               </div>
@@ -988,13 +1032,13 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP' }> = ({ initi
               </div>
 
               {/* Current Holding Status */}
-              <div className="flex items-center gap-3 text-xs text-slate-300 bg-white/5 p-2.5 rounded-xl">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-slate-300 bg-white/5 p-2.5 sm:p-3 rounded-xl">
                 <span>Holdings in sandbox:</span>
                 <span className="font-mono font-bold text-white">{activeHolding.qty} shares</span>
                 {activeHolding.qty > 0 && (
                   <>
-                    <span>•</span>
-                    <span>Avg Buy: <strong className="font-mono text-emerald-400">₹{activeHolding.avgPrice.toFixed(2)}</strong></span>
+                    <span className="text-slate-500">•</span>
+                    <span>Avg Buy: <strong className="font-mono text-emerald-400">₹{activeHolding.avgPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
                   </>
                 )}
               </div>
@@ -1002,9 +1046,9 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP' }> = ({ initi
 
             {/* Trading Order Controls */}
             <div className="lg:col-span-6 space-y-4 bg-[#09150e] p-4 sm:p-5 rounded-xl border border-white/10">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-2">
                 <span className="text-xs font-bold text-slate-300">Quantity (Shares):</span>
-                <div className="flex items-center gap-1.5">
+                <div className="flex flex-wrap items-center gap-1.5">
                   {[1, 5, 10, 25, 50].map((q) => (
                     <button
                       key={q}
@@ -1024,7 +1068,9 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP' }> = ({ initi
 
               <div className="flex items-center justify-between text-xs text-slate-300 font-mono">
                 <span>Estimated Trade Value:</span>
-                <span className="font-bold text-white text-sm">₹{tradeCost.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                <span className="font-bold text-white text-sm">
+                  ₹{tradeCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
               </div>
 
               {/* Buy & Sell Action Buttons */}
@@ -1032,7 +1078,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP' }> = ({ initi
                 <LiquidButton
                   size="default"
                   onClick={handleSimulateBuy}
-                  className="bg-[#00f59b] text-slate-950 font-black shadow-[0_0_15px_rgba(0,245,155,0.3)]"
+                  className="w-full justify-center bg-[#00f59b] text-slate-950 font-black shadow-[0_0_15px_rgba(0,245,155,0.3)]"
                 >
                   <TrendingUp className="w-4 h-4" />
                   <span>Simulate Buy</span>
@@ -1042,7 +1088,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP' }> = ({ initi
                   size="default"
                   onClick={handleSimulateSell}
                   disabled={activeHolding.qty === 0}
-                  className={`font-black ${
+                  className={`w-full justify-center font-black ${
                     activeHolding.qty > 0
                       ? 'bg-rose-500 hover:bg-rose-400 text-white shadow-[0_0_15px_rgba(244,63,94,0.3)]'
                       : 'bg-white/10 text-slate-500 cursor-not-allowed'
@@ -1056,7 +1102,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP' }> = ({ initi
               {/* Chanakya Mentor Speech Toast */}
               <div className="p-3 rounded-xl bg-amber-400/10 border border-amber-400/25 flex items-start gap-2.5 text-xs text-amber-200">
                 <Lightbulb className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                <div className="space-y-0.5">
+                <div className="space-y-0.5 min-w-0">
                   <div className="font-bold text-amber-300">Chanakya AI Wisdom:</div>
                   <p className="text-[11.5px] leading-relaxed text-amber-100/90">{activeStock.chanakyaInsight}</p>
                 </div>
@@ -1065,15 +1111,15 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP' }> = ({ initi
           </div>
 
           {/* Live Action Feedback Notice */}
-          <div className="mt-4 p-3 rounded-xl bg-white/5 border border-white/10 text-xs text-slate-300 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-[#00f59b] animate-ping" />
-              <span>{playgroundFeedback}</span>
+          <div className="mt-4 p-3 sm:p-3.5 rounded-xl bg-white/5 border border-white/10 text-xs text-slate-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="w-2 h-2 rounded-full bg-[#00f59b] animate-ping shrink-0" />
+              <span className="truncate">{playgroundFeedback}</span>
             </div>
             <a 
               href="#main-content"
               onClick={() => { setMode('SIGNUP'); }}
-              className="text-[#00f59b] font-black hover:underline inline-flex items-center gap-1"
+              className="text-[#00f59b] font-black hover:underline inline-flex items-center gap-1 shrink-0"
             >
               <span>Keep this portfolio (Sign up free)</span>
               <ArrowRight className="w-3.5 h-3.5" />
