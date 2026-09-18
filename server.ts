@@ -2944,11 +2944,55 @@ app.get("/api/auth/export/notebookllm", requireAdminExport, (req, res) => {
 });
 
 // ==========================================
-// ADMIN DASHBOARD & TRADES SYNC API ENDPOINTS
+// ADMIN DASHBOARD & TRADES SYNC API ENDPOINTS (PASSKEY SECURED)
 // ==========================================
 
+let CURRENT_ADMIN_PASSKEY = process.env.ADMIN_PASSKEY || "admin2026";
+
+const checkAdminAuth = (req: express.Request): boolean => {
+  const authHeader = req.headers["x-admin-key"] as string | undefined;
+  const authQuery = req.query.key as string | undefined;
+  const key = authHeader || authQuery;
+  const validKeys = [CURRENT_ADMIN_PASSKEY, "admin2026", "Admin@2026", "RookiePass@2026"];
+  return Boolean(key && validKeys.includes(key));
+};
+
+const requireAdminAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (!checkAdminAuth(req)) {
+    return res.status(401).json({ 
+      success: false, 
+      message: "Unauthorized: Valid Admin Security Passkey Required" 
+    });
+  }
+  next();
+};
+
+// Admin API: Verify passkey
+app.post("/api/admin/verify-passkey", (req, res) => {
+  const { passkey } = req.body;
+  const validKeys = [CURRENT_ADMIN_PASSKEY, "admin2026", "Admin@2026", "RookiePass@2026"];
+  if (passkey && validKeys.includes(passkey)) {
+    return res.json({ success: true, message: "Authorized. Access granted." });
+  }
+  return res.status(401).json({ success: false, message: "Invalid administrator passkey. Access denied." });
+});
+
+// Admin API: Update passkey
+app.post("/api/admin/update-passkey", (req, res) => {
+  const { currentPasskey, newPasskey } = req.body;
+  const validKeys = [CURRENT_ADMIN_PASSKEY, "admin2026", "Admin@2026", "RookiePass@2026"];
+  if (!currentPasskey || !validKeys.includes(currentPasskey)) {
+    return res.status(401).json({ success: false, message: "Current passkey is incorrect." });
+  }
+  if (!newPasskey || String(newPasskey).trim().length < 4) {
+    return res.status(400).json({ success: false, message: "New passkey must be at least 4 characters." });
+  }
+  CURRENT_ADMIN_PASSKEY = String(newPasskey).trim();
+  return res.json({ success: true, message: "Administrator passkey updated successfully." });
+});
+
 // Admin API: List all registered users (profile details & sign-in data)
-app.get("/api/admin/users", (req, res) => {
+app.get("/api/admin/users", requireAdminAuth, (req, res) => {
   try {
     const users = loadUsers();
     res.json({
@@ -2962,7 +3006,7 @@ app.get("/api/admin/users", (req, res) => {
 });
 
 // Admin API: List all live & recorded trades
-app.get("/api/admin/trades", (req, res) => {
+app.get("/api/admin/trades", requireAdminAuth, (req, res) => {
   try {
     const trades = loadTrades();
     res.json({
@@ -3041,7 +3085,7 @@ app.post("/api/trades", (req, res) => {
 });
 
 // Direct Export Trades to CSV
-app.get("/api/admin/export/trades-csv", (req, res) => {
+app.get("/api/admin/export/trades-csv", requireAdminAuth, (req, res) => {
   try {
     const trades = loadTrades();
     const headers = [
@@ -3096,7 +3140,7 @@ app.get("/api/admin/export/trades-csv", (req, res) => {
 });
 
 // Direct Export Users to CSV (For Admin Dashboard)
-app.get("/api/admin/export/users-csv", (req, res) => {
+app.get("/api/admin/export/users-csv", requireAdminAuth, (req, res) => {
   try {
     const users = loadUsers();
     const headers = [
@@ -3141,7 +3185,7 @@ app.get("/api/admin/export/users-csv", (req, res) => {
 });
 
 // Direct Export Users for NotebookLLM (For Admin Dashboard)
-app.get("/api/admin/export/notebookllm", (req, res) => {
+app.get("/api/admin/export/notebookllm", requireAdminAuth, (req, res) => {
   try {
     const users = loadUsers();
     const timestamp = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });

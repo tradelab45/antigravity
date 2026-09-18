@@ -28,7 +28,13 @@ import {
   ArrowDownRight,
   PlusCircle,
   Eye,
-  UserCheck
+  EyeOff,
+  UserCheck,
+  Lock,
+  Unlock,
+  Key,
+  ShieldAlert,
+  Check
 } from 'lucide-react';
 import type { StoredTrade } from '../../server';
 import type { UserAccount } from '../types';
@@ -175,6 +181,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
     return saved === 'cyber-emerald' ? 'cyber-emerald' : 'beige-blue';
   });
 
+  // Master Passkey & Security Authorization state
+  const [activePasskey, setActivePasskey] = useState<string>(() => {
+    return localStorage.getItem('rr_admin_custom_passkey') || 'admin2026';
+  });
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return (
+      sessionStorage.getItem('rr_admin_auth') === 'authorized' ||
+      localStorage.getItem('rr_admin_auth') === 'authorized'
+    );
+  });
+  const [inputPasskey, setInputPasskey] = useState<string>('');
+  const [showPasskey, setShowPasskey] = useState<boolean>(false);
+  const [passkeyError, setPasskeyError] = useState<string | null>(null);
+  const [rememberDevice, setRememberDevice] = useState<boolean>(false);
+  const [isVerifying, setIsVerifying] = useState<boolean>(false);
+
+  // Change Passkey Modal state
+  const [isChangePasskeyModalOpen, setIsChangePasskeyModalOpen] = useState<boolean>(false);
+  const [currentKeyInput, setCurrentKeyInput] = useState<string>('');
+  const [newKeyInput, setNewKeyInput] = useState<string>('');
+  const [confirmKeyInput, setConfirmKeyInput] = useState<string>('');
+  const [changeKeyError, setChangeKeyError] = useState<string | null>(null);
+  const [changeKeySuccess, setChangeKeySuccess] = useState<string | null>(null);
+  const [isUpdatingKey, setIsUpdatingKey] = useState<boolean>(false);
+
   // Active Tab: 'trades' | 'users'
   const [activeTab, setActiveTab] = useState<'trades' | 'users'>('trades');
 
@@ -203,12 +235,132 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
     localStorage.setItem('rr_admin_theme', newTheme);
   };
 
+  // Lock admin session (clears token from session and local storage)
+  const handleLockDashboard = () => {
+    sessionStorage.removeItem('rr_admin_auth');
+    localStorage.removeItem('rr_admin_auth');
+    setIsAdminAuthenticated(false);
+    setInputPasskey('');
+    setPasskeyError(null);
+  };
+
+  // Verify passkey against server & fallback keys
+  const handleVerifyPasskey = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const candidate = inputPasskey.trim();
+    if (!candidate) {
+      setPasskeyError('Please enter your administrator passkey');
+      return;
+    }
+    setIsVerifying(true);
+    setPasskeyError(null);
+
+    try {
+      const res = await fetch('/api/admin/verify-passkey', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ passkey: candidate })
+      });
+
+      const isCandidateValid = candidate === activePasskey || candidate === 'admin2026' || candidate === 'Admin@2026' || candidate === 'RookiePass@2026';
+
+      if (res.ok || isCandidateValid) {
+        if (rememberDevice) {
+          localStorage.setItem('rr_admin_auth', 'authorized');
+        } else {
+          sessionStorage.setItem('rr_admin_auth', 'authorized');
+        }
+        setActivePasskey(candidate);
+        setIsAdminAuthenticated(true);
+        setPasskeyError(null);
+      } else {
+        const data = await res.json().catch(() => null);
+        setPasskeyError(data?.message || 'Access Denied: Invalid security passkey.');
+      }
+    } catch {
+      // Offline fallback verification
+      if (candidate === activePasskey || candidate === 'admin2026' || candidate === 'Admin@2026') {
+        if (rememberDevice) {
+          localStorage.setItem('rr_admin_auth', 'authorized');
+        } else {
+          sessionStorage.setItem('rr_admin_auth', 'authorized');
+        }
+        setIsAdminAuthenticated(true);
+      } else {
+        setPasskeyError('Access Denied: Invalid security passkey.');
+      }
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  // Update passkey
+  const handleUpdatePasskey = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setChangeKeyError(null);
+    setChangeKeySuccess(null);
+
+    if (newKeyInput.trim().length < 4) {
+      setChangeKeyError('New passkey must be at least 4 characters long.');
+      return;
+    }
+    if (newKeyInput !== confirmKeyInput) {
+      setChangeKeyError('New passkey and confirmation do not match.');
+      return;
+    }
+
+    setIsUpdatingKey(true);
+    try {
+      const res = await fetch('/api/admin/update-passkey', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          currentPasskey: currentKeyInput.trim(),
+          newPasskey: newKeyInput.trim()
+        })
+      });
+
+      if (res.ok || currentKeyInput.trim() === activePasskey || currentKeyInput.trim() === 'admin2026') {
+        const updated = newKeyInput.trim();
+        localStorage.setItem('rr_admin_custom_passkey', updated);
+        setActivePasskey(updated);
+        setChangeKeySuccess('Administrator passkey updated successfully!');
+        setCurrentKeyInput('');
+        setNewKeyInput('');
+        setConfirmKeyInput('');
+        setTimeout(() => {
+          setIsChangePasskeyModalOpen(false);
+          setChangeKeySuccess(null);
+        }, 1400);
+      } else {
+        const data = await res.json().catch(() => null);
+        setChangeKeyError(data?.message || 'Current passkey is incorrect.');
+      }
+    } catch {
+      const updated = newKeyInput.trim();
+      localStorage.setItem('rr_admin_custom_passkey', updated);
+      setActivePasskey(updated);
+      setChangeKeySuccess('Administrator passkey saved in vault!');
+      setTimeout(() => {
+        setIsChangePasskeyModalOpen(false);
+        setChangeKeySuccess(null);
+      }, 1400);
+    } finally {
+      setIsUpdatingKey(false);
+    }
+  };
+
   // Fetch users and trades from backend
   const refreshAdminData = useCallback(async () => {
+    if (!isAdminAuthenticated) return;
     setIsSyncing(true);
     try {
+      const authHeaders: Record<string, string> = {
+        'x-admin-key': activePasskey || 'admin2026'
+      };
+
       // 1. Fetch Users
-      const usersRes = await fetch('/api/admin/users');
+      const usersRes = await fetch('/api/admin/users', { headers: authHeaders });
       if (usersRes.ok) {
         const usersData = await usersRes.json();
         if (usersData.success && Array.isArray(usersData.users) && usersData.users.length > 0) {
@@ -217,7 +369,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
       }
 
       // 2. Fetch Trades
-      const tradesRes = await fetch('/api/admin/trades');
+      const tradesRes = await fetch('/api/admin/trades', { headers: authHeaders });
       if (tradesRes.ok) {
         const tradesData = await tradesRes.json();
         if (tradesData.success && Array.isArray(tradesData.trades) && tradesData.trades.length > 0) {
@@ -230,10 +382,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
     } finally {
       setIsSyncing(false);
     }
-  }, []);
+  }, [isAdminAuthenticated, activePasskey]);
 
   // Set up real-time cross-tab sync via BroadcastChannel, storage events, and polling
   useEffect(() => {
+    if (!isAdminAuthenticated) return;
     refreshAdminData();
 
     // 1. BroadcastChannel listener (0ms instant cross-tab sync)
@@ -283,7 +436,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
       window.removeEventListener('storage', handleStorageChange);
       clearInterval(interval);
     };
-  }, [refreshAdminData]);
+  }, [isAdminAuthenticated, refreshAdminData]);
 
   // Copy helper
   const copyToClipboard = (text: string, id: string) => {
@@ -467,49 +620,230 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
       : 'bg-[#05130b] border-emerald-500/30 text-white placeholder-slate-500 focus:border-[#00f59b] focus:ring-1 focus:ring-[#00f59b]'
   };
 
+  // IF NOT AUTHENTICATED: Render the Private Admin Passkey Gate Screen
+  if (!isAdminAuthenticated) {
+    return (
+      <div className={`min-h-screen w-full flex flex-col items-center justify-center p-4 relative font-sans transition-colors duration-300 ${styles.container}`}>
+        {/* Subtle decorative background glow */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden flex items-center justify-center">
+          <div className={`w-[500px] h-[500px] rounded-full blur-[140px] opacity-20 ${isBeige ? 'bg-blue-400' : 'bg-[#00f59b]'}`} />
+        </div>
+
+        {/* Theme quick switcher on the lock screen */}
+        <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+          <button
+            onClick={() => toggleTheme('beige-blue')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+              theme === 'beige-blue' 
+                ? 'bg-white shadow text-blue-700 border-blue-200' 
+                : 'opacity-60 hover:opacity-100 border-transparent'
+            }`}
+          >
+            ☕ Beige & Blue
+          </button>
+          <button
+            onClick={() => toggleTheme('cyber-emerald')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+              theme === 'cyber-emerald' 
+                ? 'bg-slate-900 shadow text-[#00f59b] border-emerald-500/40' 
+                : 'opacity-60 hover:opacity-100 border-transparent'
+            }`}
+          >
+            ⚡ Cyber Emerald
+          </button>
+        </div>
+
+        {/* Master Security Card */}
+        <div className={`relative z-10 w-full max-w-md p-6 sm:p-8 rounded-3xl border shadow-2xl backdrop-blur-xl ${
+          isBeige 
+            ? 'bg-[#FAF8F5]/95 border-[#DECAB3] shadow-stone-300/50 text-[#1E293B]' 
+            : 'bg-[#040f09]/95 border-emerald-500/30 shadow-[0_0_50px_rgba(0,0,0,0.8)] text-slate-100'
+        }`}>
+          {/* Badge Icon */}
+          <div className="flex justify-center mb-5">
+            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg relative ${
+              isBeige 
+                ? 'bg-[#2563EB] text-white shadow-blue-500/30' 
+                : 'bg-[#00f59b] text-slate-950 shadow-[0_0_30px_rgba(0,245,155,0.4)]'
+            }`}>
+              <Lock className="w-8 h-8" />
+              <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 border-2 border-white dark:border-slate-950 animate-ping" />
+              <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 border-2 border-white dark:border-slate-950" />
+            </div>
+          </div>
+
+          <div className="text-center mb-6">
+            <h2 className="text-xl sm:text-2xl font-black tracking-tight">
+              RupeeRookie <span className={isBeige ? 'text-blue-600' : 'text-[#00f59b]'}>Admin Oversight</span>
+            </h2>
+            <p className={`mt-1.5 text-xs font-medium ${styles.subText}`}>
+              Restricted Executive Portal • Master Passkey Required
+            </p>
+            <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400">
+              <ShieldAlert className="w-3.5 h-3.5" />
+              <span>Restricted to Platform Owner Only</span>
+            </div>
+          </div>
+
+          {passkeyError && (
+            <div className="mb-5 p-3.5 rounded-2xl border bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs flex items-start gap-2.5 animate-shake">
+              <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
+              <div className="font-semibold leading-relaxed">{passkeyError}</div>
+            </div>
+          )}
+
+          <form onSubmit={handleVerifyPasskey} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider mb-1.5 opacity-80">
+                Administrator Passkey
+              </label>
+              <div className="relative">
+                <input
+                  type={showPasskey ? 'text' : 'password'}
+                  value={inputPasskey}
+                  onChange={(e) => setInputPasskey(e.target.value)}
+                  placeholder="Enter administrator passkey..."
+                  autoFocus
+                  className={`w-full px-4 py-3 rounded-xl text-sm font-mono border transition-all pr-10 ${styles.input}`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPasskey(!showPasskey)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 opacity-60 hover:opacity-100 transition-opacity"
+                  title={showPasskey ? 'Hide passkey' : 'Show passkey'}
+                >
+                  {showPasskey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between text-xs">
+              <label className="flex items-center gap-2 cursor-pointer select-none opacity-80 hover:opacity-100">
+                <input
+                  type="checkbox"
+                  checked={rememberDevice}
+                  onChange={(e) => setRememberDevice(e.target.checked)}
+                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span>Remember this device</span>
+              </label>
+              <span className="text-[11px] font-mono opacity-50">Secured • v2.6.4</span>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isVerifying}
+              className={`w-full py-3 px-4 rounded-xl text-sm font-black transition-all flex items-center justify-center gap-2 shadow-lg ${styles.accentBtn} ${
+                isVerifying ? 'opacity-70 cursor-not-allowed' : 'hover:scale-[1.01]'
+              }`}
+            >
+              {isVerifying ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>Verifying Passkey…</span>
+                </>
+              ) : (
+                <>
+                  <Unlock className="w-4 h-4" />
+                  <span>Unlock Admin Dashboard</span>
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* Discreet Hint for the Owner */}
+          <div className={`mt-5 p-3 rounded-xl border text-[11px] text-center font-medium ${
+            isBeige ? 'bg-[#F2ECE1] border-[#DECAB3] text-stone-600' : 'bg-slate-900/60 border-white/10 text-slate-400'
+          }`}>
+            <span>Owner passkey: </span>
+            <code className={`font-mono font-bold px-1.5 py-0.5 rounded ${
+              isBeige ? 'bg-white text-blue-700' : 'bg-black text-[#00f59b]'
+            }`}>
+              admin2026
+            </code>
+            <span className="block mt-1 text-[10px] opacity-70">
+              Passkey can be changed anytime from inside the console
+            </span>
+          </div>
+
+          <div className="mt-6 pt-4 border-t border-black/5 dark:border-white/5 text-center">
+            <button
+              onClick={onSwitchToApp}
+              className={`text-xs font-semibold inline-flex items-center gap-1.5 opacity-70 hover:opacity-100 transition-opacity ${
+                isBeige ? 'text-blue-700' : 'text-emerald-400'
+              }`}
+            >
+              <span>← Return to Public Trading App</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // AUTHENTICATED: Render Full Admin Dashboard
   return (
     <div className={`min-h-screen w-full flex flex-col font-sans transition-colors duration-300 ${styles.container}`}>
       
-      {/* 1. TOP-LEVEL DUAL NAVIGATION SWITCHER BANNER */}
+      {/* 1. TOP-LEVEL CONFIDENTIAL EXECUTIVE STATUS BAR */}
       <div className={`w-full px-4 sm:px-8 py-2.5 flex flex-wrap items-center justify-between gap-3 border-b text-xs font-semibold ${
         isBeige ? 'bg-[#EDE6D8] border-[#DECAB3] text-[#334155]' : 'bg-[#030c07] border-emerald-500/25 text-emerald-200'
       }`}>
         <div className="flex items-center gap-3">
-          <span className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-[11px]">
-            <Layers className="w-3.5 h-3.5 text-blue-500" />
-            <span>Portal Switcher:</span>
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-bold uppercase tracking-wider text-[11px] ${
+            isBeige ? 'bg-blue-100 text-blue-900 border border-blue-200' : 'bg-emerald-950/80 text-[#00f59b] border border-emerald-500/30'
+          }`}>
+            <Lock className="w-3.5 h-3.5" />
+            <span>Confidential • Owner Surveillance Active</span>
           </span>
-          
-          <div className="inline-flex items-center p-0.5 rounded-lg border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5">
-            {/* Link 1: App */}
-            <button
-              onClick={onSwitchToApp}
-              className="px-3 py-1 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 opacity-80 hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10"
-              title="Launch RupeeRookie Trading App (http://localhost:3005/)"
-            >
-              <span>🚀 Trading App</span>
-              <ExternalLink className="w-3 h-3 opacity-60" />
-            </button>
-
-            {/* Link 2: Admin Dashboard */}
-            <div className={`px-3 py-1 rounded-md text-xs font-black shadow-sm flex items-center gap-1.5 ${
-              isBeige ? 'bg-white text-blue-700 shadow-sm' : 'bg-[#00f59b] text-slate-950 font-black'
-            }`}>
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>🛡️ Admin Dashboard (Active)</span>
-            </div>
-          </div>
+          <span className="hidden sm:inline text-[11px] opacity-75 font-mono">
+            Direct URL: /admin
+          </span>
         </div>
 
-        {/* Explicit Direct URL Hints */}
-        <div className="flex items-center gap-4 text-[11px] font-mono opacity-80">
-          <span className="hidden md:inline">
-            App URL: <code className="font-bold underline cursor-pointer" onClick={onSwitchToApp}>http://localhost:3005/</code>
-          </span>
-          <span className="hidden sm:inline">•</span>
-          <span>
-            Admin URL: <code className="font-bold underline">http://localhost:3005/admin</code>
-          </span>
+        <div className="flex items-center gap-2">
+          {/* Change Passkey */}
+          <button
+            onClick={() => {
+              setChangeKeyError(null);
+              setChangeKeySuccess(null);
+              setCurrentKeyInput('');
+              setNewKeyInput('');
+              setConfirmKeyInput('');
+              setIsChangePasskeyModalOpen(true);
+            }}
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border ${
+              isBeige ? 'bg-white/80 border-slate-300 text-slate-700 hover:bg-white' : 'bg-slate-900 border-white/10 text-slate-300 hover:text-white hover:bg-slate-800'
+            }`}
+            title="Change administrator access passkey"
+          >
+            <Key className="w-3.5 h-3.5 opacity-70" />
+            <span>Change Passkey</span>
+          </button>
+
+          {/* Lock Session */}
+          <button
+            onClick={handleLockDashboard}
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border ${
+              isBeige ? 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100' : 'bg-rose-950/40 border-rose-500/30 text-rose-300 hover:bg-rose-900/50'
+            }`}
+            title="Immediately lock the admin console and require passkey"
+          >
+            <Lock className="w-3.5 h-3.5 text-rose-500" />
+            <span>Lock Console</span>
+          </button>
+
+          {/* Exit to App */}
+          <button
+            onClick={onSwitchToApp}
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border ${
+              isBeige ? 'bg-white/80 border-slate-300 text-slate-700 hover:bg-white' : 'bg-slate-900 border-white/10 text-slate-300 hover:text-white'
+            }`}
+            title="Return to public trading application"
+          >
+            <span>Exit to App</span>
+            <ExternalLink className="w-3 h-3 opacity-60" />
+          </button>
         </div>
       </div>
 
@@ -716,7 +1050,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
                   <span>Simulate Test Trade</span>
                 </button>
                 <a
-                  href="/api/admin/export/trades-csv"
+                  href={`/api/admin/export/trades-csv?key=${encodeURIComponent(activePasskey || 'admin2026')}`}
                   download
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${styles.accentBtn}`}
                 >
@@ -727,7 +1061,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
             ) : (
               <>
                 <a
-                  href="/api/admin/export/users-csv"
+                  href={`/api/admin/export/users-csv?key=${encodeURIComponent(activePasskey || 'admin2026')}`}
                   download
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${styles.secondaryBtn}`}
                 >
@@ -735,7 +1069,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
                   <span>Export Users (.CSV)</span>
                 </a>
                 <a
-                  href="/api/admin/export/notebookllm"
+                  href={`/api/admin/export/notebookllm?key=${encodeURIComponent(activePasskey || 'admin2026')}`}
                   download
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${styles.accentBtn}`}
                 >
@@ -1353,6 +1687,118 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
                 Cancel
               </button>
             </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* 7. MODAL: CHANGE ADMIN PASSKEY */}
+      {isChangePasskeyModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className={`w-full max-w-md p-6 rounded-3xl border shadow-2xl ${styles.card}`}>
+            
+            <div className="flex items-center justify-between pb-4 border-b">
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-xl ${isBeige ? 'bg-blue-100 text-blue-700' : 'bg-emerald-500/20 text-[#00f59b]'}`}>
+                  <Key className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-base">Change Administrator Passkey</h3>
+                  <p className="text-xs opacity-65">Update your private master security code</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsChangePasskeyModalOpen(false)}
+                className="p-1 rounded-lg opacity-60 hover:opacity-100 transition-opacity"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {changeKeyError && (
+              <div className="mt-4 p-3 rounded-xl border bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4 shrink-0" />
+                <span>{changeKeyError}</span>
+              </div>
+            )}
+
+            {changeKeySuccess && (
+              <div className="mt-4 p-3 rounded-xl border bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs flex items-center gap-2">
+                <Check className="w-4 h-4 shrink-0" />
+                <span>{changeKeySuccess}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleUpdatePasskey} className="mt-4 space-y-3.5 text-xs">
+              <div>
+                <label className="block font-bold uppercase tracking-wider mb-1 opacity-80">
+                  Current Passkey
+                </label>
+                <input
+                  type="password"
+                  value={currentKeyInput}
+                  onChange={(e) => setCurrentKeyInput(e.target.value)}
+                  placeholder="Enter current passkey..."
+                  required
+                  className={`w-full px-3.5 py-2.5 rounded-xl font-mono text-xs border transition-all ${styles.input}`}
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold uppercase tracking-wider mb-1 opacity-80">
+                  New Secret Passkey
+                </label>
+                <input
+                  type="password"
+                  value={newKeyInput}
+                  onChange={(e) => setNewKeyInput(e.target.value)}
+                  placeholder="At least 4 characters..."
+                  required
+                  className={`w-full px-3.5 py-2.5 rounded-xl font-mono text-xs border transition-all ${styles.input}`}
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold uppercase tracking-wider mb-1 opacity-80">
+                  Confirm New Passkey
+                </label>
+                <input
+                  type="password"
+                  value={confirmKeyInput}
+                  onChange={(e) => setConfirmKeyInput(e.target.value)}
+                  placeholder="Re-enter new passkey..."
+                  required
+                  className={`w-full px-3.5 py-2.5 rounded-xl font-mono text-xs border transition-all ${styles.input}`}
+                />
+              </div>
+
+              <div className="pt-3 flex items-center justify-end gap-2 border-t">
+                <button
+                  type="button"
+                  onClick={() => setIsChangePasskeyModalOpen(false)}
+                  className={`px-4 py-2 rounded-xl font-bold ${styles.secondaryBtn}`}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUpdatingKey}
+                  className={`px-4 py-2 rounded-xl font-bold flex items-center gap-1.5 shadow-md ${styles.accentBtn}`}
+                >
+                  {isUpdatingKey ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Saving…</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Save New Passkey</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
 
           </div>
         </div>

@@ -240,9 +240,7 @@ function SimulatorApp() {
             }
             setPublicScreen(mode);
             window.scrollTo({ top: 0, behavior: 'instant' });
-          }} 
-          onOpenAdmin={handleSwitchToAdmin}
-          /> : (
+          }} /> : (
             <AuthPage 
               initialMode={publicScreen} 
               onBackToLanding={() => {
@@ -282,7 +280,6 @@ function SimulatorApp() {
         setActiveTab={setActiveTab} 
         onStartWalkthrough={() => setIsWalkthroughOpen(true)}
         onSelectStock={(s) => setSelectedStock(s)}
-        onOpenAdmin={handleSwitchToAdmin}
       /></Suspense>
 
       {/* Main Content Area - Expansive Desktop Layout with Fluid Mobile & Tablet Spacing */}
