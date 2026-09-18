@@ -67,7 +67,13 @@ const features = [
   },
 ];
 
-export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP', view?: AppTabType) => void }) {
+export function LandingPage3D({ 
+  onEnter, 
+  onOpenAdmin 
+}: { 
+  onEnter: (mode: 'LOGIN' | 'SIGNUP', view?: AppTabType) => void;
+  onOpenAdmin?: () => void;
+}) {
   const { settings, updateSetting } = useAccessibility();
   const osReduced = useReducedMotion();
   const reduced = settings.reducedMotion || !!osReduced;
@@ -224,6 +230,18 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
           >
             {reduced ? <Play size={14} /> : <Pause size={14} />}
             <span>Motion {reduced ? 'off' : 'on'}</span>
+          </button>
+
+          <button
+            onClick={() => {
+              if (onOpenAdmin) onOpenAdmin();
+              else window.location.href = '/admin';
+            }}
+            className="hidden sm:inline-flex items-center gap-1.5 text-xs font-bold text-[#00f59b] hover:text-white transition-colors border border-emerald-500/30 px-3 py-1.5 rounded-xl bg-emerald-950/50 cursor-pointer shadow-[0_0_12px_rgba(0,245,155,0.2)]"
+            title="Open RupeeRookie Admin Operations & Oversight (http://localhost:3005/admin)"
+          >
+            <ShieldCheck size={14} />
+            <span>Admin</span>
           </button>
 
           <LiquidButton size="sm" onClick={() => onEnter('LOGIN')}>

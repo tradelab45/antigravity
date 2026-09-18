@@ -2522,6 +2522,172 @@ function saveUsers(users: StoredUser[]): void {
   }
 }
 
+// ==========================================
+// TRADES PERSISTENCE & AUDIT LEDGER
+// ==========================================
+
+export interface StoredTrade {
+  id: string;
+  orderId?: string;
+  userId?: string;
+  userName?: string;
+  userEmail?: string;
+  symbol: string;
+  stockName: string;
+  type: 'BUY' | 'SELL';
+  orderType: 'MARKET' | 'LIMIT' | 'GTT';
+  productType: 'CNC' | 'MIS';
+  quantity: number;
+  price: number;
+  totalAmount: number;
+  timestamp: string;
+  status: 'EXECUTED' | 'PENDING' | 'CANCELLED';
+  realizedPnL?: number;
+}
+
+const TRADES_FILE = path.join(process.cwd(), "data", "trades.json");
+
+function getInitialTrades(): StoredTrade[] {
+  const now = Date.now();
+  return [
+    {
+      id: "TRD-10921",
+      orderId: "ORD-9812",
+      userId: "usr_rookie_demo",
+      userName: "Aarav Jain",
+      userEmail: "aaravvjain23@gmail.com",
+      symbol: "RELIANCE",
+      stockName: "Reliance Industries Ltd.",
+      type: "BUY",
+      orderType: "MARKET",
+      productType: "CNC",
+      quantity: 10,
+      price: 2985.40,
+      totalAmount: 29854.00,
+      timestamp: new Date(now - 12 * 60 * 1000).toISOString(),
+      status: "EXECUTED",
+      realizedPnL: 0
+    },
+    {
+      id: "TRD-10920",
+      orderId: "ORD-9811",
+      userId: "usr_rookie_demo",
+      userName: "Aarav Jain",
+      userEmail: "aaravvjain23@gmail.com",
+      symbol: "TCS",
+      stockName: "Tata Consultancy Services",
+      type: "BUY",
+      orderType: "LIMIT",
+      productType: "CNC",
+      quantity: 5,
+      price: 3940.80,
+      totalAmount: 19704.00,
+      timestamp: new Date(now - 45 * 60 * 1000).toISOString(),
+      status: "EXECUTED",
+      realizedPnL: 0
+    },
+    {
+      id: "TRD-10919",
+      orderId: "ORD-9805",
+      userId: "usr_rookie_demo",
+      userName: "Aarav Jain",
+      userEmail: "aaravvjain23@gmail.com",
+      symbol: "TATAMOTORS",
+      stockName: "Tata Motors Ltd.",
+      type: "SELL",
+      orderType: "MARKET",
+      productType: "CNC",
+      quantity: 10,
+      price: 984.50,
+      totalAmount: 9845.00,
+      timestamp: new Date(now - 90 * 60 * 1000).toISOString(),
+      status: "EXECUTED",
+      realizedPnL: 450.00
+    },
+    {
+      id: "TRD-10918",
+      orderId: "ORD-9799",
+      userId: "usr_rookie_demo",
+      userName: "Aarav Jain",
+      userEmail: "aaravvjain23@gmail.com",
+      symbol: "HDFCBANK",
+      stockName: "HDFC Bank Ltd.",
+      type: "BUY",
+      orderType: "MARKET",
+      productType: "CNC",
+      quantity: 20,
+      price: 1742.60,
+      totalAmount: 34852.00,
+      timestamp: new Date(now - 180 * 60 * 1000).toISOString(),
+      status: "EXECUTED",
+      realizedPnL: 0
+    },
+    {
+      id: "TRD-10917",
+      orderId: "ORD-9792",
+      userId: "usr_rookie_demo",
+      userName: "Aarav Jain",
+      userEmail: "aaravvjain23@gmail.com",
+      symbol: "ZOMATO",
+      stockName: "Zomato Ltd.",
+      type: "BUY",
+      orderType: "MARKET",
+      productType: "MIS",
+      quantity: 50,
+      price: 262.80,
+      totalAmount: 13140.00,
+      timestamp: new Date(now - 240 * 60 * 1000).toISOString(),
+      status: "EXECUTED",
+      realizedPnL: 0
+    },
+    {
+      id: "TRD-10916",
+      orderId: "ORD-9788",
+      userId: "usr_rookie_demo",
+      userName: "Aarav Jain",
+      userEmail: "aaravvjain23@gmail.com",
+      symbol: "INFY",
+      stockName: "Infosys Ltd.",
+      type: "BUY",
+      orderType: "MARKET",
+      productType: "CNC",
+      quantity: 15,
+      price: 1845.20,
+      totalAmount: 27678.00,
+      timestamp: new Date(now - 360 * 60 * 1000).toISOString(),
+      status: "EXECUTED",
+      realizedPnL: 0
+    }
+  ];
+}
+
+function loadTrades(): StoredTrade[] {
+  try {
+    if (fs.existsSync(TRADES_FILE)) {
+      const data = fs.readFileSync(TRADES_FILE, "utf-8");
+      const parsed = JSON.parse(data) as StoredTrade[];
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch {
+    // fallback
+  }
+  const initial = getInitialTrades();
+  saveTrades(initial);
+  return initial;
+}
+
+function saveTrades(trades: StoredTrade[]): void {
+  try {
+    const tempFile = `${TRADES_FILE}.tmp`;
+    fs.writeFileSync(tempFile, JSON.stringify(trades, null, 2), "utf-8");
+    fs.renameSync(tempFile, TRADES_FILE);
+  } catch (err) {
+    console.error("Error saving trades to disk:", err);
+  }
+}
+
 // User Signup
 app.post("/api/auth/signup", async (req, res) => {
   try {
@@ -2725,6 +2891,257 @@ app.get("/api/auth/export/excel", requireAdminExport, (req, res) => {
 
 // Export Structured Knowledge Base for NotebookLLM
 app.get("/api/auth/export/notebookllm", requireAdminExport, (req, res) => {
+  try {
+    const users = loadUsers();
+    const timestamp = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+
+    let md = `# Rupee Rookie - User Registry & Cohort Knowledge Document\n\n`;
+    md += `> **Source Type:** Structured Platform Ingestion Document for Google NotebookLLM\n`;
+    md += `> **Generated On:** ${timestamp} (IST)\n`;
+    md += `> **Total Registered Investors:** ${users.length} users\n`;
+    md += `> **Platform:** Rupee Rookie Teen Paper Trading Simulator (NSE India)\n\n`;
+
+    md += `## 1. Executive Summary & Cohort Overview\n\n`;
+    md += `This dataset documents all registered student investors and platform participants on the Rupee Rookie trading simulator. Each profile contains identity attributes, skill self-assessments, virtual capital allocation (standard ₹10,00,000 INR), and session activity logs.\n\n`;
+
+    md += `### Aggregate Statistics:\n`;
+    md += `- **Total Registered Accounts:** ${users.length}\n`;
+    md += `- **Beginner Level:** ${users.filter(u => u.experienceLevel === 'BEGINNER').length}\n`;
+    md += `- **Intermediate Level:** ${users.filter(u => u.experienceLevel === 'INTERMEDIATE').length}\n`;
+    md += `- **Advanced Level:** ${users.filter(u => u.experienceLevel === 'ADVANCED').length}\n`;
+    md += `- **Total Virtual Capital Administered:** ₹${(users.length * 10).toLocaleString('en-IN')} Lakhs INR\n\n`;
+
+    md += `## 2. Master User Roster Table\n\n`;
+    md += `| User ID | Full Name | Email | Username | Phone | Age Group | Experience | Registered Date |\n`;
+    md += `| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n`;
+
+    users.forEach(u => {
+      const regDate = new Date(u.registeredAt).toLocaleDateString('en-IN');
+      md += `| \`${u.id}\` | **${u.fullName}** | \`${u.email}\` | @${u.username} | ${u.phone || 'N/A'} | ${u.ageGroup || 'Teen'} | ${u.experienceLevel} | ${regDate} |\n`;
+    });
+
+    md += `\n\n## 3. Detailed Individual User Dossiers\n\n`;
+    users.forEach((u, i) => {
+      md += `### ${i + 1}. ${u.fullName} (@${u.username})\n`;
+      md += `- **Account ID:** \`${u.id}\`\n`;
+      md += `- **Email Address:** \`${u.email}\`\n`;
+      md += `- **Contact Phone:** ${u.phone || 'Not Provided'}\n`;
+      md += `- **Demographic Cohort:** ${u.ageGroup || '13-17 Teen'}\n`;
+      md += `- **Trading Experience Tier:** ${u.experienceLevel}\n`;
+      md += `- **Virtual Balance Allocation:** ₹${u.initialCapital.toLocaleString('en-IN')} INR\n`;
+      md += `- **Signup Timestamp:** ${u.registeredAt}\n`;
+      md += `- **Last Active Session:** ${u.lastLoginAt}\n\n`;
+    });
+
+    md += `---\n*Document generated by Rupee Rookie Simulator for NotebookLLM Knowledge Grounding.*`;
+
+    res.setHeader("Content-Type", "text/markdown; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="RupeeRookie_NotebookLLM_Users_${new Date().toISOString().split("T")[0]}.md"`);
+    res.send(md);
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: "Export for NotebookLLM failed" });
+  }
+});
+
+// ==========================================
+// ADMIN DASHBOARD & TRADES SYNC API ENDPOINTS
+// ==========================================
+
+// Admin API: List all registered users (profile details & sign-in data)
+app.get("/api/admin/users", (req, res) => {
+  try {
+    const users = loadUsers();
+    res.json({
+      success: true,
+      users: users.map(toSafeUser),
+      totalUsers: users.length
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || "Failed to fetch users" });
+  }
+});
+
+// Admin API: List all live & recorded trades
+app.get("/api/admin/trades", (req, res) => {
+  try {
+    const trades = loadTrades();
+    res.json({
+      success: true,
+      trades,
+      totalTrades: trades.length
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || "Failed to fetch trades" });
+  }
+});
+
+// Record / Live Sync Trade from Trading App
+app.post("/api/trades", (req, res) => {
+  try {
+    const { 
+      orderId, 
+      userId, 
+      userName, 
+      userEmail, 
+      symbol, 
+      stockName, 
+      type, 
+      orderType, 
+      productType, 
+      quantity, 
+      price, 
+      totalAmount, 
+      status, 
+      realizedPnL 
+    } = req.body;
+
+    if (!symbol || !quantity || !price) {
+      return res.status(400).json({ success: false, message: "Symbol, quantity, and price are required." });
+    }
+
+    const trades = loadTrades();
+    const newTrade: StoredTrade = {
+      id: `TRD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      orderId: orderId || `ORD-${Date.now()}`,
+      userId: userId || "usr_rookie_demo",
+      userName: userName || "Aarav Jain",
+      userEmail: userEmail || "aaravvjain23@gmail.com",
+      symbol: String(symbol).toUpperCase(),
+      stockName: stockName || symbol,
+      type: type === "SELL" ? "SELL" : "BUY",
+      orderType: orderType || "MARKET",
+      productType: productType === "MIS" ? "MIS" : "CNC",
+      quantity: Number(quantity),
+      price: Number(price),
+      totalAmount: Number(totalAmount || (Number(price) * Number(quantity)).toFixed(2)),
+      timestamp: new Date().toISOString(),
+      status: status || "EXECUTED",
+      realizedPnL: realizedPnL !== undefined ? Number(realizedPnL) : 0
+    };
+
+    trades.unshift(newTrade);
+    // Keep last 1000 trades
+    const trimmed = trades.slice(0, 1000);
+    saveTrades(trimmed);
+
+    // Update user's trade count if matching user found
+    if (userId) {
+      const users = loadUsers();
+      const user = users.find(u => u.id === userId);
+      if (user) {
+        user.totalTrades = (user.totalTrades || 0) + 1;
+        saveUsers(users);
+      }
+    }
+
+    res.json({ success: true, trade: newTrade, message: "Trade recorded successfully" });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || "Failed to record trade" });
+  }
+});
+
+// Direct Export Trades to CSV
+app.get("/api/admin/export/trades-csv", (req, res) => {
+  try {
+    const trades = loadTrades();
+    const headers = [
+      "Trade ID",
+      "Order ID",
+      "Timestamp (IST)",
+      "Trader Name",
+      "Trader Email",
+      "Symbol",
+      "Company Name",
+      "Action",
+      "Product Type",
+      "Order Type",
+      "Quantity",
+      "Executed Price (INR)",
+      "Total Amount (INR)",
+      "Realized PnL (INR)",
+      "Status"
+    ];
+
+    const escapeCsv = (val: any) => {
+      if (val === null || val === undefined) return '""';
+      const str = String(val).replace(/"/g, '""');
+      return `"${str}"`;
+    };
+
+    const rows = trades.map(t => [
+      escapeCsv(t.id),
+      escapeCsv(t.orderId || ""),
+      escapeCsv(new Date(t.timestamp).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })),
+      escapeCsv(t.userName || "Aarav Jain"),
+      escapeCsv(t.userEmail || "aaravvjain23@gmail.com"),
+      escapeCsv(t.symbol),
+      escapeCsv(t.stockName),
+      escapeCsv(t.type),
+      escapeCsv(t.productType),
+      escapeCsv(t.orderType),
+      escapeCsv(t.quantity),
+      escapeCsv(`Rs. ${t.price.toFixed(2)}`),
+      escapeCsv(`Rs. ${t.totalAmount.toFixed(2)}`),
+      escapeCsv(t.realizedPnL !== undefined ? `Rs. ${t.realizedPnL.toFixed(2)}` : "0.00"),
+      escapeCsv(t.status)
+    ].join(","));
+
+    const csvContent = "\uFEFF" + headers.map(escapeCsv).join(",") + "\r\n" + rows.join("\r\n");
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="RupeeRookie_Trades_Export_${new Date().toISOString().split("T")[0]}.csv"`);
+    res.send(csvContent);
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: "Export trades failed" });
+  }
+});
+
+// Direct Export Users to CSV (For Admin Dashboard)
+app.get("/api/admin/export/users-csv", (req, res) => {
+  try {
+    const users = loadUsers();
+    const headers = [
+      "User ID",
+      "Full Name",
+      "Email Address",
+      "Username",
+      "Phone / WhatsApp",
+      "Age / Investor Category",
+      "Trading Experience",
+      "Virtual Capital (INR)",
+      "Registered Date (IST)",
+      "Last Login Date (IST)"
+    ];
+
+    const escapeCsv = (val: any) => {
+      if (val === null || val === undefined) return '""';
+      const str = String(val).replace(/"/g, '""');
+      return `"${str}"`;
+    };
+
+    const rows = users.map(u => [
+      escapeCsv(u.id),
+      escapeCsv(u.fullName),
+      escapeCsv(u.email),
+      escapeCsv(u.username),
+      escapeCsv(u.phone || "N/A"),
+      escapeCsv(u.ageGroup || "Teen Investor"),
+      escapeCsv(u.experienceLevel),
+      escapeCsv(`Rs. ${u.initialCapital.toLocaleString('en-IN')}`),
+      escapeCsv(new Date(u.registeredAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })),
+      escapeCsv(new Date(u.lastLoginAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }))
+    ].join(","));
+
+    const csvContent = "\uFEFF" + headers.map(escapeCsv).join(",") + "\r\n" + rows.join("\r\n");
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="RupeeRookie_Registered_Users_${new Date().toISOString().split("T")[0]}.csv"`);
+    res.send(csvContent);
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: "Export to CSV failed" });
+  }
+});
+
+// Direct Export Users for NotebookLLM (For Admin Dashboard)
+app.get("/api/admin/export/notebookllm", (req, res) => {
   try {
     const users = loadUsers();
     const timestamp = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });

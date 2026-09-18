@@ -41,6 +41,22 @@ const DataPrivacyCenter = lazy(() => import('./components/DataPrivacyCenter').th
 const HelpSupportCenter = lazy(() => import('./components/HelpSupportCenter').then((module) => ({ default: module.HelpSupportCenter })));
 const StockBattleModal = lazy(() => import('./components/StockBattleModal').then((module) => ({ default: module.StockBattleModal })));
 const OptionsChainModal = lazy(() => import('./components/OptionsChainModal').then((module) => ({ default: module.OptionsChainModal })));
+const AdminDashboard = lazy(() => import('./components/AdminDashboard').then((module) => ({ default: module.AdminDashboard })));
+
+const checkIsAdminPortal = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  const path = window.location.pathname.toLowerCase();
+  const search = new URLSearchParams(window.location.search);
+  const hash = window.location.hash.toLowerCase();
+  return (
+    path === '/admin' || 
+    path.startsWith('/admin/') || 
+    search.get('portal') === 'admin' || 
+    search.get('view') === 'admin' || 
+    hash === '#/admin' || 
+    hash === '#admin'
+  );
+};
 
 function PageLoadingState() {
   return (
@@ -55,6 +71,39 @@ function PageLoadingState() {
 
 function SimulatorApp() {
   const { currentUser, stocks } = useSimulator();
+  const [isPortalAdmin, setIsPortalAdmin] = useState<boolean>(checkIsAdminPortal);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setIsPortalAdmin(checkIsAdminPortal());
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const handleSwitchToApp = () => {
+    setIsPortalAdmin(false);
+    const url = new URL(window.location.href);
+    if (url.pathname.startsWith('/admin')) {
+      url.pathname = '/';
+    }
+    url.searchParams.delete('portal');
+    if (url.searchParams.get('view') === 'admin') {
+      url.searchParams.set('view', 'home');
+    }
+    url.hash = '';
+    window.history.pushState({}, '', url);
+  };
+
+  const handleSwitchToAdmin = () => {
+    setIsPortalAdmin(true);
+    const url = new URL(window.location.href);
+    url.pathname = '/admin';
+    url.searchParams.delete('portal');
+    url.hash = '';
+    window.history.pushState({}, '', url);
+  };
+
   const [publicScreen, setPublicScreen] = useState<'LANDING' | 'LOGIN' | 'SIGNUP'>(() => {
     const params = new URLSearchParams(window.location.search);
     const authParam = params.get('auth') || params.get('mode');
@@ -168,6 +217,15 @@ function SimulatorApp() {
     setActiveTab('chanakya');
   };
 
+  // Dedicated Standalone Admin Portal View
+  if (isPortalAdmin) {
+    return (
+      <Suspense fallback={<PageLoadingState />}>
+        <AdminDashboard onSwitchToApp={handleSwitchToApp} />
+      </Suspense>
+    );
+  }
+
   // If not logged in, gate the entire app and show the dedicated full-screen Login / Signup page
   if (!currentUser) {
     return (
@@ -182,7 +240,9 @@ function SimulatorApp() {
             }
             setPublicScreen(mode);
             window.scrollTo({ top: 0, behavior: 'instant' });
-          }} /> : (
+          }} 
+          onOpenAdmin={handleSwitchToAdmin}
+          /> : (
             <AuthPage 
               initialMode={publicScreen} 
               onBackToLanding={() => {
@@ -222,6 +282,7 @@ function SimulatorApp() {
         setActiveTab={setActiveTab} 
         onStartWalkthrough={() => setIsWalkthroughOpen(true)}
         onSelectStock={(s) => setSelectedStock(s)}
+        onOpenAdmin={handleSwitchToAdmin}
       /></Suspense>
 
       {/* Main Content Area - Expansive Desktop Layout with Fluid Mobile & Tablet Spacing */}

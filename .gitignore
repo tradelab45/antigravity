@@ -8,3 +8,5 @@ coverage/
 !.env.example
 data/users.json
 data/users.json.tmp
+data/trades.json
+data/trades.json.tmp

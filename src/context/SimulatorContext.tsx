@@ -1099,6 +1099,53 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   }, [stocks, marketHoursMode, nseMarketInfo.isNSEMarketOpen, orders, holdings, cashBalance]);
 
+  // Real-time Trade Sync to Admin Dashboard (Cross-Tab BroadcastChannel + LocalStorage + Backend API)
+  const syncTradeToAdminAndBroadcast = useCallback((tradePayload: {
+    orderId?: string;
+    symbol: string;
+    stockName: string;
+    type: 'BUY' | 'SELL';
+    orderType: 'MARKET' | 'LIMIT' | 'GTT';
+    productType: ProductType;
+    quantity: number;
+    price: number;
+    totalAmount: number;
+    realizedPnL?: number;
+    status?: 'EXECUTED' | 'PENDING' | 'CANCELLED';
+  }) => {
+    try {
+      const fullTrade = {
+        ...tradePayload,
+        userId: currentUser?.id || 'usr_rookie_demo',
+        userName: currentUser?.fullName || 'Aarav Jain',
+        userEmail: currentUser?.email || 'aaravvjain23@gmail.com',
+        timestamp: new Date().toISOString()
+      };
+
+      // 1. BroadcastChannel for instant cross-tab sync to open Admin Dashboard
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        try {
+          const channel = new BroadcastChannel('rr_trades_channel');
+          channel.postMessage({ type: 'NEW_TRADE', trade: fullTrade });
+          channel.close();
+        } catch {}
+      }
+
+      // 2. Local storage event trigger for multi-window sync
+      try {
+        localStorage.setItem('rr_last_live_trade', JSON.stringify({ trade: fullTrade, timestamp: Date.now() }));
+        window.dispatchEvent(new CustomEvent('rr_trade_executed', { detail: fullTrade }));
+      } catch {}
+
+      // 3. Post to backend server
+      fetch('/api/trades', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fullTrade)
+      }).catch(() => {});
+    } catch {}
+  }, [currentUser]);
+
   // Execute Buy Order (Supports CNC / MIS Intraday 5x leverage / Bracket / GTT)
   const executeBuyOrder = (
     symbol: string, 
@@ -1184,6 +1231,22 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       };
 
       setOrders((prev) => [newOrder, ...prev]);
+
+      // Sync trade in real-time to Admin Dashboard
+      syncTradeToAdminAndBroadcast({
+        orderId: newOrder.id,
+        symbol,
+        stockName: stock.name,
+        type: 'BUY',
+        orderType,
+        productType,
+        quantity,
+        price: executionPrice,
+        totalAmount: totalCost,
+        status: 'EXECUTED',
+        realizedPnL: 0
+      });
+
       awardXP(`order:${newOrder.id}`, 50, 'Executed a stock purchase');
       unlockBadge('badge-first-trade');
       confetti({ particleCount: 60, spread: 60, origin: { y: 0.7 } });
@@ -1359,6 +1422,22 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       };
 
       setOrders((prev) => [newOrder, ...prev]);
+
+      // Sync trade in real-time to Admin Dashboard
+      syncTradeToAdminAndBroadcast({
+        orderId: newOrder.id,
+        symbol,
+        stockName: stock.name,
+        type: 'SELL',
+        orderType,
+        productType,
+        quantity,
+        price: executionPrice,
+        totalAmount: saleProceeds,
+        status: 'EXECUTED',
+        realizedPnL: Number(realizedPnL.toFixed(2))
+      });
+
       awardXP(`order:${newOrder.id}`, 50, 'Executed a stock sale');
       if (realizedPnL > 0) {
         unlockBadge('badge-profit-hunter');
