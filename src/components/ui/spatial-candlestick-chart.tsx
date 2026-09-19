@@ -49,18 +49,8 @@ export const SpatialCandlestickChart: React.FC<SpatialCandlestickChartProps> = (
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
   const [isHovered, setIsHovered] = useState(false);
   const [coinFlipped, setCoinFlipped] = useState(false);
-  const [livePrice, setLivePrice] = useState(24850.40);
-  const [liveChange, setLiveChange] = useState(1.42);
-
-  // Live Dalal Street micro-ticker fluctuation
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const delta = (Math.random() - 0.48) * 12.5;
-      setLivePrice((prev) => +(prev + delta).toFixed(2));
-      setLiveChange((prev) => +(prev + delta * 0.005).toFixed(2));
-    }, 2400);
-    return () => clearInterval(interval);
-  }, []);
+  const [livePrice] = useState(23346.40);
+  const [liveChange] = useState(0.33);
 
   // Gyroscopic 3D Parallax Tilt Handler (Desktop pointer only, ignore touch swipes)
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {

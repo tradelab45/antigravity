@@ -236,21 +236,10 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, [themeMode]);
 
-  // Stocks initialized with technicals and DuPont enriched data (plus cached live quotes if available)
+  // Stocks initialized with technicals and DuPont enriched data
   const [stocks, setStocks] = useState<StockDetail[]>(() => {
     try {
-      const cached = localStorage.getItem('rr_live_quotes');
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const map = new Map<string, any>(parsed.map((s: any) => [s.symbol, s]));
-          return TOP_100_INDIAN_COMPANIES.map(s => {
-            const live = map.get(s.symbol);
-            const enriched = enrichStockWithTechnicalsAndDuPont(s);
-            return live ? mergeQuote(enriched, live) : enriched;
-          });
-        }
-      }
+      localStorage.removeItem('rr_live_quotes');
     } catch {}
     return TOP_100_INDIAN_COMPANIES.map(s => enrichStockWithTechnicalsAndDuPont(s));
   });
@@ -907,9 +896,6 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                   updated.push(enrichStockWithTechnicalsAndDuPont(s));
                 }
               });
-              try {
-                localStorage.setItem('rr_live_quotes', JSON.stringify(updated));
-              } catch {}
               return updated;
             });
             if (data.marketStatus) setMarketStatus(data.marketStatus);
@@ -918,68 +904,8 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }
       }
     } catch {
-      // Backend not running or static host deployment (e.g. Hostinger / Netlify / Vercel)
+      // Backend not running or static host deployment
     }
-
-    // Live Real-Time Micro-Tick Engine for static deployments & offline practice:
-    // Simulates realistic continuous NSE price order book ticks (0.05 step size)
-    setStocks(prev => {
-      if (!prev || prev.length === 0) return prev;
-
-      // Select 6 to 10 random stocks to micro-tick in this cycle
-      const numToTick = Math.min(8, prev.length);
-      const indicesToTick = new Set<number>();
-      while (indicesToTick.size < numToTick) {
-        indicesToTick.add(Math.floor(Math.random() * prev.length));
-      }
-
-      let hasChanges = false;
-      const updated = prev.map((stock, idx) => {
-        if (!indicesToTick.has(idx)) return stock;
-
-        // Micro-tick random walk between -0.15% and +0.15%
-        const deltaPct = (Math.random() - 0.49) * 0.003;
-        let newPrice = stock.price * (1 + deltaPct);
-
-        // Keep within daily boundary
-        const dayMin = stock.dayLow || (stock.price * 0.95);
-        const dayMax = stock.dayHigh || (stock.price * 1.05);
-        newPrice = Math.max(dayMin, Math.min(dayMax, newPrice));
-
-        // Standard NSE 0.05 tick size
-        newPrice = Math.round(newPrice * 20) / 20;
-        if (newPrice === stock.price) return stock;
-
-        hasChanges = true;
-        const previousClose = stock.previousClose || stock.price;
-        const change = Number((newPrice - previousClose).toFixed(2));
-        const changePercent = Number(((change / previousClose) * 100).toFixed(2));
-        const volumeDelta = Math.floor(Math.random() * 500 + 50);
-
-        return {
-          ...stock,
-          price: newPrice,
-          change,
-          changePercent,
-          dayHigh: Math.max(stock.dayHigh || newPrice, newPrice),
-          dayLow: Math.min(stock.dayLow || newPrice, newPrice),
-          volume: (stock.volume || 1000000) + volumeDelta,
-          quoteStatus: 'live' as const,
-          quoteAsOf: new Date().toISOString(),
-          quoteSource: stock.quoteSource || 'NSE Live Real-Time',
-        };
-      });
-
-      if (hasChanges) {
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('rr_stocks_updated', { detail: { stocks: updated } }));
-        }
-        try {
-          localStorage.setItem('rr_live_quotes', JSON.stringify(updated));
-        } catch {}
-      }
-      return hasChanges ? updated : prev;
-    });
   }, []);
 
   const fetchMarketSummary = useCallback(async () => {
