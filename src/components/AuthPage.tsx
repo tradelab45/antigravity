@@ -136,10 +136,13 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
     return BASE_SAMPLE_STOCKS.map((base) => {
       const match = stocks?.find((s) => s.symbol === base.symbol);
       if (match && typeof match.price === 'number' && match.price > 0) {
+        const sparkline = [...base.sparkline];
+        sparkline[sparkline.length - 1] = match.price;
         return {
           ...base,
           price: match.price,
           change: typeof match.changePercent === 'number' ? match.changePercent : base.change,
+          sparkline,
         };
       }
       return base;

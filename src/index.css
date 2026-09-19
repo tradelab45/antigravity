@@ -31,7 +31,12 @@
   :root[data-rr-text="large"] { --rr-font-scale: 1.08; }
   :root[data-rr-text="xl"] { --rr-font-scale: 1.16; }
 
-  html { font-size: calc(16px * var(--rr-font-scale)); }
+  html { 
+    font-size: calc(16px * var(--rr-font-scale)); 
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+  }
 
   :root.dark {
     color-scheme: dark;
@@ -46,6 +51,8 @@
     min-width: 320px;
     background: #f8fafc;
     overflow-x: hidden;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
     line-height: 1.5;
   }
 

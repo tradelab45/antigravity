@@ -11,14 +11,21 @@
   background: radial-gradient(circle at 50% 0%, #0e1c15 0%, #070c09 45%, #040705 100%);
   color: var(--ink);
   font-family: 'Plus Jakarta Sans', sans-serif;
-  overflow: clip;
+  overflow-x: hidden;
+  overflow-y: visible;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
   isolation: isolate;
   color-scheme: dark;
   position: relative;
 }
 
-.rr-landing button, .rr-landing a, .rr-landing input, .rr-landing select {
+.rr-landing button, .rr-landing a, .rr-landing select {
   touch-action: manipulation;
+}
+
+.rr-landing input[type="range"] {
+  touch-action: pan-y;
 }
 
 .rr-landing button, .rr-landing summary {
@@ -165,6 +172,7 @@
   top: 0;
   left: 0;
   right: 0;
+  pointer-events: none;
   background: linear-gradient(to right, #00f59b, #38bdf8);
   transform-origin: left;
   z-index: 60;
@@ -274,12 +282,14 @@
   border: 1px solid rgba(0, 245, 155, 0.25);
   border-radius: 50%;
   transform: rotate(-30deg);
+  pointer-events: none;
 }
 
 .rr-orbit-two {
   inset: 10px 85px;
   border: 1px solid rgba(56, 189, 248, 0.2);
   transform: rotate(44deg);
+  pointer-events: none;
 }
 
 .rr-orbit-three {
@@ -287,6 +297,7 @@
   border: 1px dashed rgba(0, 245, 155, 0.2);
   border-radius: 50%;
   transform: rotate(-15deg);
+  pointer-events: none;
 }
 
 .rr-art-label {
@@ -296,6 +307,11 @@
   font: 9px 'JetBrains Mono', monospace;
   letter-spacing: .2em;
   color: #64748b;
+  pointer-events: none;
+}
+
+.rr-art-coordinate {
+  pointer-events: none;
 }
 
 /* 3D Coin Architecture */
@@ -488,6 +504,7 @@
   color: #00f59b;
   opacity: 0.8;
   text-shadow: 0 0 16px rgba(0, 245, 155, 0.6);
+  pointer-events: none;
 }
 
 .rr-star-one {
@@ -721,6 +738,14 @@
   gap: 25px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   margin-top: 40px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  touch-action: pan-x pan-y;
+}
+
+.rr-feature-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .rr-feature-tabs button {
@@ -989,6 +1014,12 @@
 @media (pointer: coarse) {
   .rr-coin-tilt {
     transform: none !important;
+  }
+  .rr-ambient-spotlight {
+    display: none !important;
+  }
+  .rr-landing {
+    -webkit-overflow-scrolling: touch;
   }
 }
 

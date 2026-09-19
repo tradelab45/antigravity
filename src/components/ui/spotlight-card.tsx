@@ -37,7 +37,13 @@ const GlowCard: React.FC<GlowCardProps> = ({
   const innerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // On touch devices / phones, skip global pointermove tracking to save CPU and ensure 60fps scrolling
+    if (typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches) {
+      return;
+    }
+
     const syncPointer = (e: PointerEvent) => {
+      if (e.pointerType === 'touch') return;
       const { clientX: x, clientY: y } = e;
       
       if (cardRef.current) {
@@ -48,7 +54,7 @@ const GlowCard: React.FC<GlowCardProps> = ({
       }
     };
 
-    document.addEventListener('pointermove', syncPointer);
+    document.addEventListener('pointermove', syncPointer, { passive: true });
     return () => document.removeEventListener('pointermove', syncPointer);
   }, []);
 
@@ -87,7 +93,7 @@ const GlowCard: React.FC<GlowCardProps> = ({
       backgroundAttachment: 'fixed',
       border: 'var(--border-size) solid var(--backup-border)',
       position: 'relative' as const,
-      touchAction: 'none' as const,
+      touchAction: 'pan-y' as const,
     };
 
     // Add width and height if provided
@@ -259,6 +265,8 @@ export const SpotlightCard: React.FC<SpotlightCardProps> = ({
 
   const handlePointerMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!cardRef.current) return;
+    // Skip on touch to ensure buttery mobile scrolling
+    if ((e.nativeEvent as any)?.pointerType === 'touch') return;
     const rect = cardRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
@@ -292,6 +300,7 @@ export const SpotlightCard: React.FC<SpotlightCardProps> = ({
       onMouseLeave={handlePointerLeave}
       style={{
         ...style,
+        touchAction: 'pan-y' as const,
         transform: tiltEffect && isHovered 
           ? `perspective(1000px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)` 
           : 'perspective(1000px) rotateX(0deg) rotateY(0deg)',

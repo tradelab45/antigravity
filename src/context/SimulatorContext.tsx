@@ -679,6 +679,14 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
         const data = await res.json();
         if (data && data.stocks && Array.isArray(data.stocks) && data.stocks.length > 0) {
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('rr_stocks_updated', { detail: { stocks: data.stocks } }));
+            try {
+              const bc = new BroadcastChannel('rr_stocks_channel');
+              bc.postMessage({ type: 'STOCKS_UPDATED', stocks: data.stocks });
+              bc.close();
+            } catch {}
+          }
           setStocks(prev => {
             const apiMap = new Map<string, StockDetail>();
             data.stocks.forEach((s: StockDetail) => {
@@ -744,6 +752,42 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       clearInterval(newsInterval);
     };
   }, [fetchStocks, syncHoldingsRealTime, fetchMarketSummary]);
+
+  // Instant real-time listener for stock updates across components/tabs
+  useEffect(() => {
+    const handleStockUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<{ stocks: StockDetail[] }>;
+      if (customEvent.detail?.stocks && Array.isArray(customEvent.detail.stocks)) {
+        setStocks(prev => {
+          const apiMap = new Map<string, StockDetail>();
+          customEvent.detail.stocks.forEach((s: StockDetail) => {
+            if (s && s.symbol) apiMap.set(s.symbol, enrichStockWithTechnicalsAndDuPont(s));
+          });
+          return prev.map(stock => {
+            const apiItem = apiMap.get(stock.symbol);
+            return apiItem ? Object.assign({}, stock, apiItem) : stock;
+          });
+        });
+      }
+    };
+
+    window.addEventListener('rr_stocks_updated', handleStockUpdate);
+
+    let bc: BroadcastChannel | null = null;
+    try {
+      bc = new BroadcastChannel('rr_stocks_channel');
+      bc.onmessage = (event) => {
+        if (event.data?.type === 'STOCKS_UPDATED' && Array.isArray(event.data.stocks)) {
+          window.dispatchEvent(new CustomEvent('rr_stocks_updated', { detail: { stocks: event.data.stocks } }));
+        }
+      };
+    } catch {}
+
+    return () => {
+      window.removeEventListener('rr_stocks_updated', handleStockUpdate);
+      bc?.close();
+    };
+  }, []);
 
   useEffect(() => {
     if (selectedStock) {

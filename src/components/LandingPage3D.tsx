@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { motion, useReducedMotion, useScroll, useTransform } from 'motion/react';
 import { 
   ArrowUpRight, ArrowRight, ArrowDown, BookOpen, RotateCcw, 
@@ -6,6 +6,7 @@ import {
   Compass, CheckCircle2, Zap, BarChart3, Layers, Award, Activity
 } from 'lucide-react';
 import { useAccessibility } from '../context/AccessibilityContext';
+import { useSimulator } from '../context/SimulatorContext';
 import type { AppTabType } from './Header';
 import './landing-3d.css';
 import { LiquidButton, MetalButton } from './ui/liquid-glass-button';
@@ -78,35 +79,53 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
   const scene = useRef<HTMLDivElement>(null);
   const landingRef = useRef<HTMLDivElement>(null);
 
+  const { stocks } = useSimulator();
+  const [selectedStockSymbol, setSelectedStockSymbol] = useState<string>('RELIANCE');
   const [feature, setFeature] = useState(0);
-  const [selectedStock, setSelectedStock] = useState<PopularShare>(POPULAR_SHARES[0]);
   const [allocation, setAllocation] = useState(25);
-  const [move, setMove] = useState(selectedStock.changePct);
   const [answer, setAnswer] = useState<number | null>(null);
   const [coinFlipped, setCoinFlipped] = useState(false);
-  const [liveShares, setLiveShares] = useState<PopularShare[]>(POPULAR_SHARES);
-  const [hasLivePrices, setHasLivePrices] = useState(false);
 
+  // Directly derive live shares from SimulatorContext stocks so landing and signup pages are 100% in sync
+  const liveShares = useMemo<PopularShare[]>(() => {
+    return POPULAR_SHARES.map(share => {
+      const match = stocks?.find(s => s.symbol === share.symbol);
+      if (match && typeof match.price === 'number' && match.price > 0) {
+        return {
+          ...share,
+          price: match.price,
+          change: typeof match.change === 'number' ? match.change : share.change,
+          changePct: typeof match.changePercent === 'number' ? match.changePercent : share.changePct,
+          peRatio: match.peRatio ? match.peRatio.toString() : share.peRatio,
+          marketCap: match.marketCapCr ? `₹${(match.marketCapCr / 100000).toFixed(1)}L Cr` : share.marketCap,
+        };
+      }
+      return share;
+    });
+  }, [stocks]);
+
+  const hasLivePrices = useMemo(() => {
+    return Boolean(stocks && stocks.length > 0);
+  }, [stocks]);
+
+  const selectedStock = useMemo<PopularShare>(() => {
+    return liveShares.find(s => s.symbol === selectedStockSymbol) || liveShares[0];
+  }, [liveShares, selectedStockSymbol]);
+
+  const [move, setMove] = useState(selectedStock.changePct);
+
+  useEffect(() => {
+    setMove(selectedStock.changePct);
+  }, [selectedStock.symbol, selectedStock.changePct]);
+
+  // Immediate fetch to seed freshest quotes if app was opened on landing page directly
   useEffect(() => {
     fetch('/api/stocks')
       .then(res => res.json())
-      .then((data: any[]) => {
-        if (Array.isArray(data) && data.length > 0) {
-          setHasLivePrices(true);
-          setLiveShares(prev => prev.map(share => {
-            const match = data.find((d: any) => d.symbol === share.symbol);
-            if (match) {
-              return {
-                ...share,
-                price: match.price,
-                change: match.change,
-                changePct: match.changePercent,
-                peRatio: match.peRatio ? match.peRatio.toString() : share.peRatio,
-                marketCap: match.marketCapCr ? `₹${(match.marketCapCr / 100000).toFixed(1)}L Cr` : share.marketCap,
-              };
-            }
-            return share;
-          }));
+      .then((data: any) => {
+        const stockList = Array.isArray(data) ? data : data?.stocks;
+        if (Array.isArray(stockList) && stockList.length > 0) {
+          window.dispatchEvent(new CustomEvent('rr_stocks_updated', { detail: { stocks: stockList } }));
         }
       })
       .catch(() => {});
@@ -127,6 +146,15 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
   useEffect(() => {
     if (reduced) return;
     const fine = window.matchMedia('(hover: hover) and (pointer: fine)');
+    // If not a fine pointer (e.g. mobile/touchscreen phone), do not attach pointermove at all!
+    if (!fine.matches) {
+      if (scene.current) {
+        scene.current.style.setProperty('--tilt-x', '0deg');
+        scene.current.style.setProperty('--tilt-y', '0deg');
+      }
+      return;
+    }
+
     let frame = 0;
 
     const reset = () => {
@@ -137,7 +165,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
     };
 
     const pointer = (event: PointerEvent) => {
-      if (!fine.matches || event.pointerType === 'touch') return reset();
+      if (event.pointerType === 'touch') return;
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
         const x = event.clientX;
@@ -169,14 +197,18 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
     window.addEventListener('pointermove', pointer, { passive: true });
     document.documentElement.addEventListener('pointerleave', reset);
     window.addEventListener('blur', reset);
-    fine.addEventListener('change', reset);
+
+    const onMediaChange = (e: MediaQueryListEvent) => {
+      if (!e.matches) reset();
+    };
+    fine.addEventListener('change', onMediaChange);
 
     return () => {
       cancelAnimationFrame(frame);
       window.removeEventListener('pointermove', pointer);
       document.documentElement.removeEventListener('pointerleave', reset);
       window.removeEventListener('blur', reset);
-      fine.removeEventListener('change', reset);
+      fine.removeEventListener('change', onMediaChange);
       reset();
     };
   }, [reduced]);
@@ -327,7 +359,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                 <div 
                   key={stock.symbol}
                   onClick={() => {
-                    setSelectedStock(stock);
+                    setSelectedStockSymbol(stock.symbol);
                     setMove(stock.changePct);
                   }}
                   className="rr-share-card cursor-pointer"

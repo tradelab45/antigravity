@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect, useRef } from "react";
 import { TrendingUp, Zap, Sparkles, Activity, ShieldCheck } from "lucide-react";
@@ -62,9 +62,9 @@ export const SpatialCandlestickChart: React.FC<SpatialCandlestickChartProps> = (
     return () => clearInterval(interval);
   }, []);
 
-  // Gyroscopic 3D Parallax Tilt Handler
+  // Gyroscopic 3D Parallax Tilt Handler (Desktop pointer only, ignore touch swipes)
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!interactive || !containerRef.current) return;
+    if (!interactive || !containerRef.current || e.pointerType === 'touch') return;
     const rect = containerRef.current.getBoundingClientRect();
     const x = (e.clientX - rect.left) / rect.width - 0.5; // -0.5 to 0.5
     const y = (e.clientY - rect.top) / rect.height - 0.5; // -0.5 to 0.5
@@ -98,10 +98,11 @@ export const SpatialCandlestickChart: React.FC<SpatialCandlestickChartProps> = (
     <div
       ref={containerRef}
       onPointerMove={handlePointerMove}
-      onPointerEnter={() => setIsHovered(true)}
+      onPointerEnter={(e) => { if (e.pointerType !== 'touch') setIsHovered(true); }}
       onPointerLeave={handlePointerLeave}
+      style={{ touchAction: 'pan-y' }}
       className={cn(
-        "spatial-scene relative w-full flex items-center justify-center overflow-visible",
+        "spatial-scene relative w-full flex items-center justify-center overflow-visible select-none",
         isHero ? "min-h-[460px] md:min-h-[520px]" : isCompact ? "min-h-[260px]" : "min-h-[380px]",
         className
       )}
