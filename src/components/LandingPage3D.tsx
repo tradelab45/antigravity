@@ -30,12 +30,12 @@ interface PopularShare {
 }
 
 const POPULAR_SHARES: PopularShare[] = [
-  { symbol: 'RELIANCE', name: 'Reliance Industries', price: 2985.40, change: 32.60, changePct: 1.10, sector: 'Energy & Telecom', glow: 'green', marketCap: '₹20.2L Cr', peRatio: '27.8' },
-  { symbol: 'TCS', name: 'Tata Consultancy Services', price: 3940.80, change: -18.50, changePct: -0.47, sector: 'IT & Cloud Services', glow: 'blue', marketCap: '₹14.3L Cr', peRatio: '29.5' },
-  { symbol: 'HDFCBANK', name: 'HDFC Bank Ltd', price: 1742.60, change: 14.80, changePct: 0.86, sector: 'Banking & Financials', glow: 'green', marketCap: '₹13.2L Cr', peRatio: '18.9' },
-  { symbol: 'INFY', name: 'Infosys Limited', price: 1845.20, change: -8.40, changePct: -0.45, sector: 'IT & Tech Services', glow: 'purple', marketCap: '₹7.6L Cr', peRatio: '26.4' },
-  { symbol: 'TATAMOTORS', name: 'Tata Motors', price: 984.50, change: 22.10, changePct: 2.30, sector: 'Automotive & EV', glow: 'green', marketCap: '₹3.6L Cr', peRatio: '10.5' },
-  { symbol: 'ZOMATO', name: 'Zomato Limited', price: 262.80, change: 8.50, changePct: 3.34, sector: 'Quick Commerce & Food', glow: 'orange', marketCap: '₹2.3L Cr', peRatio: '88.0' },
+  { symbol: 'RELIANCE', name: 'Reliance Industries', price: 1226.40, change: -17.50, changePct: -1.41, sector: 'Energy & Telecom', glow: 'orange', marketCap: '₹16.6L Cr', peRatio: '22.5' },
+  { symbol: 'TCS', name: 'Tata Consultancy Services', price: 2105.00, change: -85.00, changePct: -3.88, sector: 'IT & Cloud Services', glow: 'blue', marketCap: '₹7.6L Cr', peRatio: '15.9' },
+  { symbol: 'HDFCBANK', name: 'HDFC Bank Ltd', price: 731.00, change: 18.00, changePct: 2.52, sector: 'Banking & Financials', glow: 'green', marketCap: '₹11.3L Cr', peRatio: '15.6' },
+  { symbol: 'INFY', name: 'Infosys Limited', price: 1051.40, change: -7.20, changePct: -0.68, sector: 'IT & Tech Services', glow: 'purple', marketCap: '₹4.3L Cr', peRatio: '13.6' },
+  { symbol: 'TATAMOTORS', name: 'Tata Motors', price: 303.80, change: -10.70, changePct: -3.40, sector: 'Automotive & EV', glow: 'red', marketCap: '₹1.1L Cr', peRatio: '11.2' },
+  { symbol: 'ZOMATO', name: 'Zomato Limited', price: 326.85, change: 4.50, changePct: 1.40, sector: 'Quick Commerce & Food', glow: 'green', marketCap: '₹3.0L Cr', peRatio: '710.5' },
 ];
 
 const features = [
