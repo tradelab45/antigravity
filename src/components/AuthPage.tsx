@@ -58,7 +58,7 @@ const BASE_SAMPLE_STOCKS: SampleStock[] = [
     price: 1226.40,
     change: -1.41,
     sector: 'Energy & Telecom',
-    sparkline: [1210, 1225, 1218, 1235, 1230, 1240, 1226.40],
+    sparkline: [1210, 1215, 1222, 1218, 1225, 1230, 1228, 1235, 1242, 1238, 1232, 1236, 1240, 1234, 1228, 1230, 1225, 1226.40],
     chanakyaInsight: "Reliance anchors portfolios with immense cash flow from oil-to-chemicals, Jio 5G, and national retail expansion.",
   },
   {
@@ -67,7 +67,7 @@ const BASE_SAMPLE_STOCKS: SampleStock[] = [
     price: 2105.00,
     change: -3.88,
     sector: 'IT & Tech Services',
-    sparkline: [2160, 2150, 2145, 2120, 2130, 2110, 2105.00],
+    sparkline: [2160, 2155, 2162, 2150, 2145, 2138, 2142, 2130, 2125, 2128, 2120, 2115, 2122, 2118, 2110, 2114, 2108, 2105.00],
     chanakyaInsight: "TCS represents defensive IT leadership with superior ROCE > 48% and rock-solid global balance sheet governance.",
   },
   {
@@ -76,7 +76,7 @@ const BASE_SAMPLE_STOCKS: SampleStock[] = [
     price: 731.00,
     change: 2.52,
     sector: 'Banking & Financials',
-    sparkline: [710, 715, 712, 725, 720, 728, 731.00],
+    sparkline: [710, 712, 715, 714, 718, 722, 720, 725, 724, 728, 726, 730, 728, 732, 730, 734, 732, 731.00],
     chanakyaInsight: "Private banking giant! Credit expansion and stable CASA deposits make HDFC Bank the bedrock of Dalal Street.",
   },
   {
@@ -85,7 +85,7 @@ const BASE_SAMPLE_STOCKS: SampleStock[] = [
     price: 303.80,
     change: -3.40,
     sector: 'Automobile & EV',
-    sparkline: [312, 310, 308, 305, 306, 304, 303.80],
+    sparkline: [312, 311, 313, 310, 308, 309, 307, 305, 306, 304, 305, 303, 304, 302, 303, 304, 303.5, 303.80],
     chanakyaInsight: "Turnaround champion in EV passenger vehicles and JLR luxury! Auto cyclicality demands strict stop-loss rules.",
   },
   {
@@ -94,7 +94,7 @@ const BASE_SAMPLE_STOCKS: SampleStock[] = [
     price: 326.85,
     change: 1.40,
     sector: 'Consumer Internet',
-    sparkline: [318, 320, 322, 325, 324, 325.5, 326.85],
+    sparkline: [318, 319, 321, 320, 323, 322, 325, 324, 326, 325, 327, 326, 328, 327, 329, 328, 327, 326.85],
     chanakyaInsight: "Hyper-growth consumer platform turning profitable! Watch Blinkit quick commerce order velocity and margins.",
   },
   {
@@ -103,7 +103,7 @@ const BASE_SAMPLE_STOCKS: SampleStock[] = [
     price: 1051.40,
     change: -0.68,
     sector: 'IT & Tech Services',
-    sparkline: [1060, 1058, 1055, 1050, 1052, 1048, 1051.40],
+    sparkline: [1060, 1058, 1062, 1059, 1055, 1057, 1053, 1050, 1052, 1048, 1050, 1046, 1048, 1052, 1049, 1053, 1050, 1051.40],
     chanakyaInsight: "Digital transformation titan. Track large deal Total Contract Value (TCV) and BFSI vertical spending before sizing up.",
   },
 ];
@@ -1036,17 +1036,24 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                       <stop offset="100%" stopColor="#00f59b" stopOpacity="0.0" />
                     </linearGradient>
                   </defs>
-                  {/* Generate path points */}
+                  {/* Generate smooth Bezier path points */}
                   {(() => {
                     const min = Math.min(...activeStock.sparkline);
                     const max = Math.max(...activeStock.sparkline);
                     const range = max - min || 1;
-                    const pts = activeStock.sparkline.map((v, i) => {
+                    const coords = activeStock.sparkline.map((v, i) => {
                       const x = (i / (activeStock.sparkline.length - 1)) * 300;
                       const y = 60 - ((v - min) / range) * 50;
-                      return `${x},${y}`;
+                      return { x, y };
                     });
-                    const dLine = `M ${pts.join(' L ')}`;
+
+                    let dLine = `M ${coords[0].x.toFixed(1)} ${coords[0].y.toFixed(1)}`;
+                    for (let i = 0; i < coords.length - 1; i++) {
+                      const curr = coords[i];
+                      const next = coords[i + 1];
+                      const cx = (curr.x + next.x) / 2;
+                      dLine += ` C ${cx.toFixed(1)} ${curr.y.toFixed(1)}, ${cx.toFixed(1)} ${next.y.toFixed(1)}, ${next.x.toFixed(1)} ${next.y.toFixed(1)}`;
+                    }
                     const dArea = `${dLine} L 300,70 L 0,70 Z`;
                     return (
                       <>

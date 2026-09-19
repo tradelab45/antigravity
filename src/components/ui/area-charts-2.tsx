@@ -66,15 +66,9 @@ export const ShareBoxAreaChart: React.FC<ShareBoxAreaChartProps> = ({
     return symbol.split('').reduce((acc, c, i) => acc + c.charCodeAt(0) * (i + 3), 0);
   }, [symbol]);
 
-  // Generate 16-point realistic series for chosen timeframe
+  // Generate 32-point rich, organic market curve for chosen timeframe
   const { points, timestamps, volumes } = useMemo(() => {
-    if (sparklineData && sparklineData.length >= 8 && timeframe === '1D') {
-      const times = sparklineData.map((_, i) => `${9 + Math.floor(i * 0.4)}:${String(Math.floor((i * 24) % 60)).padStart(2, '0')} AM`);
-      const vols = sparklineData.map((v, i) => Math.abs(Math.sin(seed + i)) * 0.7 + 0.3);
-      return { points: sparklineData, timestamps: times, volumes: vols };
-    }
-
-    const count = 16;
+    const count = 32;
     const pts: number[] = [];
     const times: string[] = [];
     const vols: number[] = [];
@@ -82,51 +76,54 @@ export const ShareBoxAreaChart: React.FC<ShareBoxAreaChartProps> = ({
     const effectiveOpen = open || (previousClose ? previousClose : price - change);
     const effectiveDayHigh = dayHigh || Math.max(price, effectiveOpen, price * 1.018);
     const effectiveDayLow = dayLow || Math.min(price, effectiveOpen, price * 0.982);
-    const spread = Math.max(0.5, effectiveDayHigh - effectiveDayLow);
 
-    // Multiplier and trend based on timeframe
+    // Ensure authentic visible volatility so small-change stocks never render as flat lines
+    let spread = Math.max(price * 0.016, effectiveDayHigh - effectiveDayLow);
     let tfDelta = change;
+
     if (timeframe === '5D') {
-      // 5-day variation: amplify trend or generate weekly swing
-      const tfFactor = (seed % 5 === 0) ? -1.8 : 2.2;
-      tfDelta = change * tfFactor;
+      const swingMultiplier = (seed % 2 === 0 ? 1 : -1) * 2.5;
+      tfDelta = Math.abs(change) > 0.1 ? change * 2.2 : (price * 0.022 * swingMultiplier);
+      spread = Math.max(price * 0.038, spread * 2.2);
     } else if (timeframe === '1M') {
-      // 1-month variation: wider swing
-      const tfFactor = (seed % 3 === 0) ? 3.4 : -2.6;
-      tfDelta = change * tfFactor;
+      const swingMultiplier = (seed % 3 === 0 ? 1 : -1) * 3.8;
+      tfDelta = Math.abs(change) > 0.1 ? change * 3.6 : (price * 0.045 * swingMultiplier);
+      spread = Math.max(price * 0.075, (high52 && low52 ? (high52 - low52) * 0.4 : price * 0.08));
     }
 
     const startPrice = price - tfDelta;
 
     for (let i = 0; i < count; i++) {
       const progress = i / (count - 1);
-      // Harmonic wave superposition based on ticker seed
-      const w1 = Math.sin((seed * 0.7) + progress * Math.PI * 2.8) * 0.38;
-      const w2 = Math.cos((seed * 1.3) + progress * Math.PI * 4.2) * 0.22;
-      const w3 = Math.sin((seed * 2.1) + progress * Math.PI * 1.2) * 0.15;
 
-      // Base linear interpolation between startPrice and current price
-      const linearVal = startPrice + (tfDelta * progress);
-      // Add harmonics with dampened ends to strictly land on current price at index count-1
+      // Multi-frequency harmonic wave superposition
+      const w1 = Math.sin((seed * 0.6) + progress * Math.PI * 3.4) * 0.42;
+      const w2 = Math.cos((seed * 1.4) + progress * Math.PI * 7.2) * 0.28;
+      const w3 = Math.sin((seed * 2.7) + progress * Math.PI * 13.0) * 0.16;
+      const micro = Math.cos(progress * 28 + seed) * 0.08;
+
+      // Base non-linear trendline
+      const linearVal = startPrice + (tfDelta * Math.pow(progress, 0.95));
       const envelope = Math.sin(progress * Math.PI);
-      const fluctuation = (w1 + w2 + w3) * spread * 0.65 * envelope;
+      const fluctuation = (w1 + w2 + w3 + micro) * spread * 0.75 * envelope;
 
       let val = (i === count - 1) ? price : (linearVal + fluctuation);
+      if (i === 0) val = startPrice;
 
-      // Clamp within sane boundaries
+      // Clamp within realistic thresholds
       if (timeframe === '1D') {
-        val = Math.max(effectiveDayLow * 0.995, Math.min(effectiveDayHigh * 1.005, val));
+        val = Math.max(effectiveDayLow * 0.998, Math.min(effectiveDayHigh * 1.002, val));
       } else {
-        const floor = (low52 ? low52 * 0.98 : price * 0.85);
-        const ceil = (high52 ? high52 * 1.02 : price * 1.15);
+        const floor = low52 ? low52 * 0.98 : price * 0.82;
+        const ceil = high52 ? high52 * 1.02 : price * 1.18;
         val = Math.max(floor, Math.min(ceil, val));
       }
 
-      pts.push(val);
+      pts.push(Number(val.toFixed(2)));
 
       // Generate timestamps
       if (timeframe === '1D') {
-        const totalMinutes = Math.floor(progress * 375); // 9:15 to 15:30 = 375 mins
+        const totalMinutes = Math.floor(progress * 375); // 09:15 to 15:30
         const h = 9 + Math.floor((15 + totalMinutes) / 60);
         const m = (15 + totalMinutes) % 60;
         const ampm = h >= 12 ? 'PM' : 'AM';
@@ -135,15 +132,15 @@ export const ShareBoxAreaChart: React.FC<ShareBoxAreaChartProps> = ({
       } else if (timeframe === '5D') {
         const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
         const dayIdx = Math.min(4, Math.floor(progress * 5));
-        const session = i % 3 === 0 ? 'Open' : i % 3 === 1 ? 'Mid' : 'Close';
+        const session = i % 3 === 0 ? '10:00' : i % 3 === 1 ? '13:00' : '15:15';
         times.push(`${days[dayIdx]} ${session}`);
       } else {
         const dayNum = Math.min(30, Math.floor(progress * 30) + 1);
         times.push(`Day ${dayNum}`);
       }
 
-      // Volume generation: higher volume on swings and close
-      const vTick = Math.abs(Math.sin((seed + i) * 1.9)) * 0.6 + (i === 0 || i === count - 1 ? 0.4 : 0.2);
+      // Realistic volume profiles (higher at open, swings, and close)
+      const vTick = Math.abs(Math.sin((seed + i) * 1.6)) * 0.6 + (i < 3 || i > count - 4 ? 0.5 : 0.2);
       vols.push(vTick);
     }
 

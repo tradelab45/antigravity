@@ -1768,11 +1768,14 @@ app.get("/api/stocks/:symbol", async (req, res) => {
       date1Y.setFullYear(date1Y.getFullYear() - 1);
       const date5Y = new Date();
       date5Y.setFullYear(date5Y.getFullYear() - 5);
+      const date1W = new Date();
+      date1W.setDate(date1W.getDate() - 7);
       const date1D = new Date();
       date1D.setDate(date1D.getDate() - 4);
 
-      const [res1D, res1Y, res5Y, qs] = await Promise.all([
+      const [res1D, res1W, res1Y, res5Y, qs] = await Promise.all([
         yahooFinance.chart(ticker, { period1: date1D, interval: '5m' }).catch(() => null),
+        yahooFinance.chart(ticker, { period1: date1W, interval: '15m' }).catch(() => null),
         yahooFinance.chart(ticker, { period1: date1Y, interval: '1d' }).catch(() => null),
         yahooFinance.chart(ticker, { period1: date5Y, interval: '1wk' }).catch(() => null),
         yahooFinance.quoteSummary(ticker, { modules: ['calendarEvents', 'earnings'] }).catch(() => null)
@@ -1782,62 +1785,107 @@ app.get("/api/stocks/:symbol", async (req, res) => {
         corporateActions = (qs as any).calendarEvents;
       }
 
-      const formatHistorical = (quotes: any[]) => (quotes || []).filter(d => d && d.close != null).map(d => ({
-        time: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }),
-        month: new Date(d.date).toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
-        price: Number(d.close.toFixed(2)),
-        open: Number((d.open ?? d.close).toFixed(2)),
-        high: Number((d.high ?? d.close).toFixed(2)),
-        low: Number((d.low ?? d.close).toFixed(2)),
-        close: Number(d.close.toFixed(2)),
-        volume: d.volume || 0
-      }));
+      const formatHistorical = (quotes: any[], includeTime: boolean = false) => (quotes || []).filter(d => d && d.close != null).map(d => {
+        const dt = new Date(d.date);
+        const timeLabel = includeTime
+          ? dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + dt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })
+          : dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+
+        return {
+          time: timeLabel,
+          month: dt.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+          price: Number(d.close.toFixed(2)),
+          open: Number((d.open ?? d.close).toFixed(2)),
+          high: Number((d.high ?? Math.max(d.open ?? d.close, d.close)).toFixed(2)),
+          low: Number((d.low ?? Math.min(d.open ?? d.close, d.close)).toFixed(2)),
+          close: Number(d.close.toFixed(2)),
+          volume: d.volume || 0
+        };
+      });
 
       const formatted1Y = formatHistorical(res1Y?.quotes);
       if (formatted1Y.length > 0) {
         history1Y = formatted1Y;
         history6M = formatted1Y.slice(-130);
         history1M = formatted1Y.slice(-22);
-        history1W = formatted1Y.slice(-5);
       }
       if (res5Y?.quotes && res5Y.quotes.length > 0) {
         history5Y = formatHistorical(res5Y.quotes);
       }
 
-      // Real 5m intraday data from latest market session
-      const valid1D = (res1D?.quotes || []).filter((q: any) => q && q.close != null);
-      if (valid1D.length > 0) {
-        const latestIsoDay = new Date(valid1D[valid1D.length - 1].date).toISOString().split('T')[0];
-        const dayQuotes = valid1D.filter((q: any) => new Date(q.date).toISOString().startsWith(latestIsoDay));
-        history1D = dayQuotes.map((d: any) => ({
-          time: new Date(d.date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }),
-          price: Number(d.close.toFixed(2)),
-          open: Number((d.open ?? d.close).toFixed(2)),
-          high: Number((d.high ?? d.close).toFixed(2)),
-          low: Number((d.low ?? d.close).toFixed(2)),
-          close: Number(d.close.toFixed(2)),
-          volume: d.volume || 0
-        }));
+      // 1. Rich 1W data (15m intervals across the week)
+      const valid1W = formatHistorical(res1W?.quotes, true);
+      if (valid1W.length >= 10) {
+        history1W = valid1W;
+      } else if (formatted1Y.length > 0) {
+        history1W = formatted1Y.slice(-5);
       }
 
-      // If 1D has no real quotes, generate realistic intraday steps anchored exactly to currentPrice
-      if (history1D.length === 0) {
-        const times = ["09:15", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:15", "15:30"];
-        for (let i = 0; i < times.length; i++) {
-          const progress = i / (times.length - 1);
-          const linearInterpolation = openPrice + (currentPrice - openPrice) * progress;
-          const wave = Math.sin(progress * Math.PI) * (dayHigh - dayLow) * 0.35;
-          let calculatedPrice = Math.min(dayHigh, Math.max(dayLow, linearInterpolation + wave));
-          if (i === 0) calculatedPrice = openPrice;
-          if (i === times.length - 1) calculatedPrice = currentPrice;
+      // 2. Real 5m intraday data from latest market session
+      const valid1D = (res1D?.quotes || []).filter((q: any) => q && q.close != null);
+      if (valid1D.length >= 15) {
+        const latestIsoDay = new Date(valid1D[valid1D.length - 1].date).toISOString().split('T')[0];
+        const dayQuotes = valid1D.filter((q: any) => new Date(q.date).toISOString().startsWith(latestIsoDay));
+        history1D = dayQuotes.map((d: any) => {
+          const op = Number((d.open ?? d.close).toFixed(2));
+          const cl = Number(d.close.toFixed(2));
+          const hi = Number((d.high ?? Math.max(op, cl)).toFixed(2));
+          const lo = Number((d.low ?? Math.min(op, cl)).toFixed(2));
+          return {
+            time: new Date(d.date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }),
+            price: cl,
+            open: op,
+            high: hi,
+            low: lo,
+            close: cl,
+            volume: d.volume || 0
+          };
+        });
+      }
+
+      // If 1D has no real quotes (e.g. holiday or weekend), generate high-fidelity 75-candle intraday curve
+      if (history1D.length < 15) {
+        history1D = [];
+        const totalMinutes = 375; // 09:15 to 15:30
+        const step = 5;
+        const count = totalMinutes / step; // 75 candles
+        let runningPrice = openPrice;
+        const targetClose = currentPrice;
+        const spread = Math.max((dayHigh - dayLow), currentPrice * 0.015);
+        const seedNum = symbol.split('').reduce((acc, c, i) => acc + c.charCodeAt(0) * (i + 1), 0);
+
+        for (let i = 0; i < count; i++) {
+          const progress = i / (count - 1);
+          const minsFromOpen = i * step;
+          const hr = 9 + Math.floor((15 + minsFromOpen) / 60);
+          const mn = (15 + minsFromOpen) % 60;
+          const ampm = hr >= 12 ? 'pm' : 'am';
+          const displayHr = hr > 12 ? hr - 12 : hr;
+          const timeStr = `${String(displayHr).padStart(2, '0')}:${String(mn).padStart(2, '0')} ${ampm}`;
+
+          // Harmonic waves representing Dalal Street sessions
+          const morningDrive = Math.sin(progress * Math.PI * 1.5) * spread * 0.45;
+          const midLull = Math.cos(progress * Math.PI * 3.5 + (seedNum % 7)) * spread * 0.22;
+          const noise = Math.sin(progress * 18 + (seedNum % 13)) * spread * 0.12;
+          
+          let cl = openPrice + (targetClose - openPrice) * progress + morningDrive + midLull + noise;
+          cl = Math.max(dayLow, Math.min(dayHigh, cl));
+          if (i === 0) cl = openPrice;
+          if (i === count - 1) cl = targetClose;
+
+          const op = i === 0 ? openPrice : runningPrice;
+          runningPrice = cl;
+          const hi = Math.max(op, cl, Math.min(dayHigh, Math.max(op, cl) + Math.abs(noise) * 0.5));
+          const lo = Math.min(op, cl, Math.max(dayLow, Math.min(op, cl) - Math.abs(noise) * 0.5));
+
           history1D.push({
-            time: times[i],
-            price: Number(calculatedPrice.toFixed(2)),
-            open: Number((calculatedPrice * 0.998).toFixed(2)),
-            high: Number((calculatedPrice * 1.003).toFixed(2)),
-            low: Number((calculatedPrice * 0.997).toFixed(2)),
-            close: Number(calculatedPrice.toFixed(2)),
-            volume: Math.floor(Math.random() * 35000) + 8000
+            time: timeStr,
+            price: Number(cl.toFixed(2)),
+            open: Number(op.toFixed(2)),
+            high: Number(hi.toFixed(2)),
+            low: Number(lo.toFixed(2)),
+            close: Number(cl.toFixed(2)),
+            volume: Math.floor(Math.abs(Math.sin(progress * Math.PI)) * 45000 + 12000)
           });
         }
       }
@@ -1848,6 +1896,9 @@ app.get("/api/stocks/:symbol", async (req, res) => {
     // Pass corporate actions to stock
     stock.corporateActions = corporateActions;
     
+    const history3Y = history5Y.length > 0 ? history5Y.slice(-156) : [];
+    const historyMAX = history5Y.length > 0 ? history5Y : history1Y;
+
     const generatedData = {
       chartData: {
         '1D': history1D,
@@ -1855,7 +1906,9 @@ app.get("/api/stocks/:symbol", async (req, res) => {
         '1M': history1M,
         '6M': history6M,
         '1Y': history1Y,
-        '5Y': history5Y
+        '3Y': history3Y,
+        '5Y': history5Y,
+        'MAX': historyMAX
       },
       orderBook: { bids: [], asks: [] }
     };
