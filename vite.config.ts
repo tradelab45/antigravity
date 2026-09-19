@@ -6,6 +6,13 @@ import {defineConfig} from 'vite';
 export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss()],
+    define: {
+      'import.meta.env.VITE_GOOGLE_CLIENT_ID': JSON.stringify(
+        process.env.VITE_GOOGLE_CLIENT_ID ||
+        process.env.GOOGLE_CLIENT_ID ||
+        '92444997475-pplpa69ma4mv6l6ubs1r65apboehdn9n.apps.googleusercontent.com'
+      ),
+    },
     build: {
       manifest: true,
       rollupOptions: {
