@@ -28,6 +28,7 @@ import { TOP_100_INDIAN_COMPANIES } from '../data/indianCompanies';
 import { getNSEMarketTimeInfo, NSEMarketInfo } from '../utils/marketHours';
 import { enrichStockWithTechnicalsAndDuPont } from '../utils/technicalCalculator';
 import { computeMarketIndicesFromStocks } from '../utils/indexCalculator';
+import { mergeQuote } from '../utils/quoteState';
 
 const INACTIVITY_TIMEOUT_MS = 7 * 24 * 60 * 60 * 1000;
 const LAST_ACTIVITY_PREFIX = 'rr_last_activity:';
@@ -671,7 +672,7 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             
             const updated = prev.map(stock => {
               const apiItem = apiMap.get(stock.symbol);
-              return apiItem ? Object.assign({}, stock, apiItem) : stock;
+              return apiItem ? mergeQuote(stock, apiItem) : stock;
             });
             const existingSymbols = new Set(prev.map(s => s.symbol));
             data.updatedStocks.forEach((s: StockDetail) => {
@@ -716,7 +717,7 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             });
             const updated = prev.map(stock => {
               const apiItem = apiMap.get(stock.symbol);
-              return apiItem ? Object.assign({}, stock, apiItem) : stock;
+              return apiItem ? mergeQuote(stock, apiItem) : stock;
             });
             const existingSymbols = new Set(prev.map(s => s.symbol));
             data.stocks.forEach((s: StockDetail) => {
@@ -777,6 +778,19 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // Instant real-time listener for stock updates across components/tabs
   useEffect(() => {
+    const stream = new EventSource('/api/market/stream');
+    stream.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (Array.isArray(data.stocks) && data.stocks.length > 0) {
+          window.dispatchEvent(new CustomEvent('rr_stocks_updated', { detail: { stocks: data.stocks } }));
+        }
+      } catch { /* Ignore incomplete stream messages; polling remains available. */ }
+    };
+    stream.onerror = () => {
+      setStocks(previous => previous.map(stock => stock.quoteStatus === 'live'
+        ? { ...stock, quoteStatus: 'delayed' } : stock));
+    };
     const handleStockUpdate = (e: Event) => {
       const customEvent = e as CustomEvent<{ stocks: StockDetail[] }>;
       if (customEvent.detail?.stocks && Array.isArray(customEvent.detail.stocks)) {
@@ -787,7 +801,7 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           });
           return prev.map(stock => {
             const apiItem = apiMap.get(stock.symbol);
-            return apiItem ? Object.assign({}, stock, apiItem) : stock;
+            return apiItem ? mergeQuote(stock, apiItem) : stock;
           });
         });
       }
@@ -806,6 +820,7 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     } catch {}
 
     return () => {
+      stream.close();
       window.removeEventListener('rr_stocks_updated', handleStockUpdate);
       bc?.close();
     };
@@ -814,11 +829,11 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => {
     if (selectedStock) {
       const updated = stocks.find((s) => s.symbol === selectedStock.symbol);
-      if (updated && (updated.price !== selectedStock.price || updated.change !== selectedStock.change)) {
+      if (updated && updated !== selectedStock) {
         setSelectedStock(updated);
       }
     }
-  }, [stocks, selectedStock?.symbol, selectedStock?.price, selectedStock?.change]);
+  }, [stocks, selectedStock]);
 
   const addAlert = (symbol: string, targetPrice: number, type: 'ABOVE' | 'BELOW') => {
     const newAlert: Alert = {

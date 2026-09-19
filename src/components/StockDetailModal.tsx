@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { quoteLabel } from '../utils/quoteState';
 import { 
   X, 
   TrendingUp, 
@@ -740,7 +741,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
                   </div>
                 </div>
                 <p className="mt-1.5 text-[10px] font-semibold text-slate-500">
-                  {stock.quoteSource || 'Latest available provider quote'}{quoteTimeLabel ? ` · ${quoteTimeLabel} IST` : ''} · data may be delayed
+                  {quoteLabel(stock)} · {stock.quoteSource || 'Catalog data'}{quoteTimeLabel ? ` · ${quoteTimeLabel} IST` : ''}
                 </p>
               </div>
 

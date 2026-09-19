@@ -5,6 +5,7 @@ import { randomBytes, scryptSync, timingSafeEqual } from "crypto";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 import yfPackage from "yahoo-finance2";
+import { UpstoxService } from './src/server/upstoxService';
 import { TOP_100_INDIAN_COMPANIES } from "./src/data/indianCompanies";
 import { 
   fetchGoogleFinanceQuote, 
@@ -628,6 +629,7 @@ function quoteTimestamp(raw: any): string {
  * price with a stale absolute or percentage change.
  */
 function applyVerifiedQuote(stock: StockDetail, raw: any, source: string, ticker: string): boolean {
+  if (!source.startsWith('Upstox') && upstoxFeed.getQuote(stock.symbol)) return false;
   const price = raw?.regularMarketPrice ?? raw?.price;
   const previousClose = raw?.regularMarketPreviousClose ?? raw?.previousClose;
   if (!finitePositive(price) || !finitePositive(previousClose)) return false;
@@ -655,7 +657,8 @@ function applyVerifiedQuote(stock: StockDetail, raw: any, source: string, ticker
   stock.dividendYield = typeof raw?.dividendYield === 'number' && Number.isFinite(raw.dividendYield)
     ? roundMarketValue(raw.dividendYield)
     : stock.dividendYield;
-  stock.volume = finitePositive(raw?.regularMarketVolume ?? raw?.volume) ? Math.round(raw.regularMarketVolume ?? raw.volume) : stock.volume;
+  const volume = raw?.regularMarketVolume ?? raw?.volume;
+  stock.volume = typeof volume === 'number' && Number.isFinite(volume) && volume >= 0 ? Math.round(volume) : stock.volume;
   stock.avgVolume = finitePositive(raw?.averageDailyVolume3Month ?? raw?.avgVolume) ? Math.round(raw.averageDailyVolume3Month ?? raw.avgVolume) : stock.avgVolume;
   stock.quoteSource = source;
   stock.quoteAsOf = quoteTimestamp(raw);
@@ -670,14 +673,66 @@ let marketSyncInFlight: Promise<void> | null = null;
 let lastMarketSyncAt: string | null = null;
 let lastMarketSyncCoverage = { updated: 0, total: currentStocks.length, failed: currentStocks.length };
 
+const upstoxFeed = new UpstoxService({
+  token: process.env.UPSTOX_ACCESS_TOKEN?.trim(),
+  symbols: () => currentStocks.map(stock => stock.symbol),
+  aliases: NSE_QUOTE_TICKERS,
+  onQuote(symbol, quote, key) {
+    const stock = currentStocks.find(item => item.symbol === symbol);
+    if (stock) applyVerifiedQuote(stock, quote, 'Upstox V3 - NSE', key);
+  },
+});
+void upstoxFeed.start();
+
+function stockSnapshot(stock: StockDetail) {
+  return {
+    ...stock,
+    quoteStatus: upstoxFeed.isLive(stock.symbol) && stock.quoteSource?.startsWith('Upstox')
+      ? 'live' : stock.quoteSource ? 'delayed' : 'simulated',
+  };
+}
+
+app.get('/api/upstox/status', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.json(upstoxFeed.status());
+});
+
+// One broker connection serves every browser; no access token leaves the server.
+app.get('/api/market/stream', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders();
+  const sent = new Map<string, string>();
+  const send = () => {
+    if (res.writableLength > 1_000_000) { res.destroy(); return; }
+    const stocks = currentStocks.map(stockSnapshot).filter(stock => {
+      const version = JSON.stringify([stock.price, stock.previousClose, stock.open, stock.dayHigh,
+        stock.dayLow, stock.quoteAsOf, stock.quoteStatus, stock.volume, stock.quoteSource]);
+      if (sent.get(stock.symbol) === version) return false;
+      sent.set(stock.symbol, version);
+      return true;
+    });
+    res.write(`data: ${JSON.stringify({ stocks, upstox: upstoxFeed.status() })}\n\n`);
+  };
+  send();
+  const timer = setInterval(send, 1000);
+  req.on('close', () => clearInterval(timer));
+});
+
 async function runMarketDataSync() {
+  upstoxFeed.syncSymbols();
   const updatedSymbols = new Set<string>();
+  for (const stock of currentStocks) {
+    if (upstoxFeed.getQuote(stock.symbol)) updatedSymbols.add(stock.symbol);
+  }
+  const fallbackStocks = currentStocks.filter(stock => !updatedSymbols.has(stock.symbol));
   const batchSize = 25;
 
   // Batched NSE quotes return price, previous close and exchange timestamp in
   // one atomic object, preventing mixed-session data on a stock card.
-  for (let i = 0; i < currentStocks.length; i += batchSize) {
-    const batch = currentStocks.slice(i, i + batchSize);
+  for (let i = 0; i < fallbackStocks.length; i += batchSize) {
+    const batch = fallbackStocks.slice(i, i + batchSize);
     try {
       const tickers = batch.map((stock) => yahooTickerFor(stock.symbol));
       const response = await yahooFinance.quote(tickers);
@@ -697,7 +752,7 @@ async function runMarketDataSync() {
   }
 
   // Google Finance is used only for symbols missing from the atomic NSE batch.
-  const missingStocks = currentStocks.filter((stock) => !updatedSymbols.has(stock.symbol));
+  const missingStocks = currentStocks.filter((stock) => !updatedSymbols.has(stock.symbol) && !upstoxFeed.getQuote(stock.symbol));
   await Promise.allSettled(missingStocks.map(async (stock) => {
     const currentTicker = NSE_QUOTE_TICKERS[stock.symbol] || stock.symbol;
     const quote = await fetchGoogleFinanceQuote(currentTicker, 'NSE');
@@ -1251,6 +1306,11 @@ app.post("/api/stocks/sync-holdings", async (req, res) => {
       try {
         let stock = currentStocks.find((s: StockDetail) => s.symbol === cleanSymbol);
 
+        if (stock && upstoxFeed.getQuote(cleanSymbol)) {
+          updatedList.push(stockSnapshot(stock));
+          return;
+        }
+
         if (stock) {
           const ticker = yahooTickerFor(cleanSymbol);
           const yahooQuote = await yahooFinance.quote(ticker);
@@ -1268,21 +1328,7 @@ app.post("/api/stocks/sync-holdings", async (req, res) => {
 
         if (gfQuote && gfQuote.price > 0) {
           if (stock) {
-            stock.price = gfQuote.price;
-            stock.change = gfQuote.change;
-            stock.changePercent = gfQuote.changePercent;
-            stock.dayHigh = gfQuote.dayHigh || stock.dayHigh;
-            stock.dayLow = gfQuote.dayLow || stock.dayLow;
-            stock.open = gfQuote.open || stock.open;
-            stock.previousClose = gfQuote.previousClose || stock.previousClose;
-            stock.high52 = gfQuote.high52 || stock.high52;
-            stock.low52 = gfQuote.low52 || stock.low52;
-            stock.peRatio = gfQuote.peRatio || stock.peRatio;
-            stock.marketCapCr = gfQuote.marketCapCr || stock.marketCapCr;
-            stock.eps = gfQuote.eps || stock.eps;
-            stock.dividendYield = gfQuote.dividendYield || stock.dividendYield;
-            stock.volume = gfQuote.volume || stock.volume;
-            stock.avgVolume = gfQuote.avgVolume || stock.avgVolume;
+            applyVerifiedQuote(stock, gfQuote, 'Google Finance fallback', cleanSymbol);
             updatedList.push(stock);
           } else {
             const newStock: StockDetail = {
@@ -1328,16 +1374,7 @@ app.post("/api/stocks/sync-holdings", async (req, res) => {
           const liveChangePct = Number((yfQuote.regularMarketChangePercent ?? (yfQuote.regularMarketPreviousClose ? ((liveChange / yfQuote.regularMarketPreviousClose) * 100) : 0)).toFixed(2));
           
           if (stock) {
-            stock.price = livePrice;
-            stock.change = liveChange;
-            stock.changePercent = liveChangePct;
-            stock.dayHigh = yfQuote.regularMarketDayHigh || stock.dayHigh;
-            stock.dayLow = yfQuote.regularMarketDayLow || stock.dayLow;
-            stock.open = yfQuote.regularMarketOpen || stock.open;
-            stock.previousClose = yfQuote.regularMarketPreviousClose || stock.previousClose;
-            stock.high52 = yfQuote.fiftyTwoWeekHigh || stock.high52;
-            stock.low52 = yfQuote.fiftyTwoWeekLow || stock.low52;
-            stock.volume = yfQuote.regularMarketVolume || stock.volume;
+            applyVerifiedQuote(stock, yfQuote, 'Yahoo Finance - NSE', `${cleanSymbol}.NS`);
             updatedList.push(stock);
           } else {
             const newStock: StockDetail = {
@@ -1388,7 +1425,7 @@ app.post("/api/stocks/sync-holdings", async (req, res) => {
   res.json({
     success: true,
     count: updatedList.length,
-    updatedStocks: updatedList,
+    updatedStocks: updatedList.map(stockSnapshot),
     lastSyncedAt: new Date().toISOString()
   });
 });
@@ -1638,16 +1675,22 @@ app.get("/api/stocks/search", async (req, res) => {
 
 // 1. Get all currently tracked stocks
 app.get("/api/stocks", async (req, res) => {
-  if (!lastMarketSyncAt) await updateStocksWithRealData();
+  if (!lastMarketSyncAt && !currentStocks.some(stock => upstoxFeed.getQuote(stock.symbol))) {
+    await Promise.race([updateStocksWithRealData(), new Promise(resolve => setTimeout(resolve, 3000))]);
+  }
   res.setHeader('Cache-Control', 'no-store, max-age=0');
+  const snapshots = currentStocks.map(stockSnapshot);
+  const updated = snapshots.filter(stock => stock.quoteSource).length;
+  const live = snapshots.filter(stock => stock.quoteStatus === 'live').length;
   res.json({
     success: true,
-    marketStatus: lastMarketSyncCoverage.updated > 0 ? "LATEST AVAILABLE NSE QUOTES" : "CATALOG FALLBACK",
-    dataSource: "Yahoo Finance NSE quotes · Google Finance fallback",
+    marketStatus: live > 0 ? 'UPSTOX LIVE NSE QUOTES' : updated > 0 ? 'LATEST AVAILABLE NSE QUOTES' : 'CATALOG FALLBACK',
+    dataSource: upstoxFeed.status().configured ? 'Upstox V3 with Yahoo/Google fallback' : 'Yahoo Finance NSE quotes · Google Finance fallback',
+    upstox: upstoxFeed.status(),
     lastUpdated: lastMarketSyncAt,
     coverage: lastMarketSyncCoverage,
     currency: "INR",
-    stocks: currentStocks,
+    stocks: snapshots,
   });
 });
 
@@ -1662,7 +1705,7 @@ app.get("/api/stocks/:symbol", async (req, res) => {
   // Refresh from the same primary feed as the screener so opening a detail
   // view cannot replace a verified card quote with an older snapshot.
   try {
-    if (stock) {
+    if (stock && !upstoxFeed.getQuote(symbol)) {
       const ticker = yahooTickerFor(symbol);
       const yahooQuote = await yahooFinance.quote(ticker);
       const appliedYahoo = yahooQuote && applyVerifiedQuote(stock, yahooQuote, 'Yahoo Finance · NSE', ticker);
@@ -1687,7 +1730,7 @@ app.get("/api/stocks/:symbol", async (req, res) => {
   if (chartCache[symbol] && (now - chartCache[symbol].timestamp < 120000) && (Math.abs(chartCache[symbol].price - stock.price) < 0.05)) {
     return res.json({
       success: true,
-      stock,
+      stock: stockSnapshot(stock),
       chartData: chartCache[symbol].data.chartData,
       orderBook: chartCache[symbol].data.orderBook
     });
@@ -1786,7 +1829,7 @@ app.get("/api/stocks/:symbol", async (req, res) => {
 
   res.json({
     success: true,
-    stock,
+    stock: stockSnapshot(stock),
     ...generatedData
   });
 });
@@ -3401,17 +3444,21 @@ async function startServer() {
   });
 
   process.on("SIGTERM", () => {
+    upstoxFeed.stop();
     console.log("SIGTERM received, closing HTTP server");
     server.close(() => {
       process.exit(0);
     });
+    server.closeAllConnections();
   });
 
   process.on("SIGINT", () => {
+    upstoxFeed.stop();
     console.log("SIGINT received, closing HTTP server");
     server.close(() => {
       process.exit(0);
     });
+    server.closeAllConnections();
   });
 }
 

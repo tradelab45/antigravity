@@ -73,12 +73,25 @@ ADMIN_EXPORT_TOKEN=""
 
 Never commit a real `.env` file or API key.
 
+### Upstox real-time stocks
+
+Set `UPSTOX_ACCESS_TOKEN` in your local `.env` or hosting secret settings, then restart the Node server. Generate the token through your Upstox Developer App; replace it when it expires. Do not paste tokens into the browser or commit them. No brokerage orders are submitted by this integration.
+
+The server uses the official `upstox-js-sdk` V3 full market feed and resolves NSE equity instrument keys from Upstox's instrument master at startup. Existing catalog symbol aliases are preserved. A single upstream connection supplies prices, previous close, daily OHLC, traded volume and exchange timestamps to all browser sessions through `/api/market/stream` (server-sent events). Updates are batched once per second. Newly tracked symbols are subscribed on the next market sync, up to 2,000 instruments.
+
+`/api/upstox/status` exposes connection state, subscription count and unmapped symbols, without credentials. Connection and authorization failures trigger capped reconnect backoff. Yahoo/Google remain available as fallbacks. Only recent Upstox trades in an exchange-reported open session are marked Live; stale, disconnected and closed-session quotes are labelled Latest available. Startup without a token keeps the original providers enabled.
+
+Run the Express server (`npm run dev` or `npm start`) for streaming. Static-only hosting cannot serve the broker connection. Proxies must allow long-lived SSE responses and disable response buffering. Restart daily to refresh the instrument master along with your token.
+
+Reference: [Upstox V3 market feed](https://upstox.com/developer/api-documentation/v3/get-market-data-feed/) and [instrument master](https://upstox.com/developer/api-documentation/instruments/).
+
 ## Commands
 
 | Command | Description |
 | --- | --- |
 | `npm run dev` | Runs the Express API and Vite development app. |
 | `npm run lint` | Performs TypeScript validation. |
+| `npm test` | Tests Upstox feed handling and quote freshness. |
 | `npm run build` | Builds the optimized frontend and production server. |
 | `npm start` | Runs the previously built production server. |
 | `npm run preview` | Previews the Vite frontend build. |

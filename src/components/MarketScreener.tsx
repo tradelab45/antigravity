@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { quoteLabel } from '../utils/quoteState';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Search, 
@@ -2000,7 +2001,7 @@ const StockCardItem: React.FC<StockCardItemProps> = ({
         </div>
         {quoteTimeLabel && (
           <p className="mt-1.5 text-[9px] font-bold text-slate-400" title={`Market quote source: ${stock.quoteSource || 'NSE quote provider'}`}>
-            Latest available · {quoteTimeLabel} IST · {stock.quoteSource || 'NSE quote provider'}
+            {quoteLabel(stock)} · {quoteTimeLabel} IST · {stock.quoteSource || 'Catalog data'}
           </p>
         )}
 
