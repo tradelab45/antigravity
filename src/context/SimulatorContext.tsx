@@ -75,6 +75,7 @@ interface SimulatorContextType {
   currentUser: UserAccount | null;
   loginUser: (identifier: string, password: string) => Promise<{ success: boolean; message: string; user?: UserAccount }>;
   registerUser: (data: AuthFormData) => Promise<{ success: boolean; message: string; user?: UserAccount }>;
+  loginWithGoogle: (credential: string) => Promise<{ success: boolean; message: string; user?: UserAccount; isNew?: boolean }>;
   logoutUser: () => void;
   alerts: Alert[];
   addAlert: (symbol: string, targetPrice: number, type: 'ABOVE' | 'BELOW') => void;
@@ -357,6 +358,27 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         return { success: true, message: data.message, user: data.user };
       }
       return { success: false, message: data.message || 'Registration failed' };
+    } catch {
+      return { success: false, message: 'Unable to reach the local server. Please try again.' };
+    }
+  };
+
+  const loginWithGoogle = async (credential: string): Promise<{ success: boolean; message: string; user?: UserAccount; isNew?: boolean }> => {
+    try {
+      const res = await fetch('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential }),
+      });
+      const data = await res.json();
+      if (data.success && data.user) {
+        localStorage.setItem('rr_current_user', JSON.stringify(data.user));
+        localStorage.setItem(getLastActivityKey(data.user.id), Date.now().toString());
+        localStorage.setItem('rr_auth_entry', JSON.stringify({ kind: data.isNew ? 'new' : 'returning', userId: data.user.id, at: Date.now() }));
+        setCurrentUser(data.user);
+        return { success: true, message: data.message, user: data.user, isNew: Boolean(data.isNew) };
+      }
+      return { success: false, message: data.message || 'Google sign-in failed' };
     } catch {
       return { success: false, message: 'Unable to reach the local server. Please try again.' };
     }
@@ -1675,6 +1697,7 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         currentUser,
         loginUser,
         registerUser,
+        loginWithGoogle,
         logoutUser,
         stocks,
         selectedStock,

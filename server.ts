@@ -2425,6 +2425,8 @@ interface StoredUser {
   email: string;
   username: string;
   passwordHash?: string;
+  // Set when the account signed up or was linked through Google Sign-In.
+  googleId?: string;
   // Kept temporarily so existing local prototype accounts can be migrated on login.
   password?: string;
   phone?: string;
@@ -2823,6 +2825,119 @@ app.post("/api/auth/login", (req, res) => {
     res.json({ success: true, user: toSafeUser(user), message: `Welcome back, ${user.fullName}!` });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message || "Login failed" });
+  }
+});
+
+// Helper to resolve current Google Client ID (re-reading from .env if updated)
+function getGoogleClientId(): string | null {
+  try {
+    const envPath = path.join(process.cwd(), ".env");
+    if (fs.existsSync(envPath)) {
+      const envContent = fs.readFileSync(envPath, "utf-8");
+      const match = envContent.match(/^GOOGLE_CLIENT_ID\s*=\s*["']?([^"'\r\n]+)["']?/m);
+      if (match && match[1]) {
+        process.env.GOOGLE_CLIENT_ID = match[1].trim();
+      }
+    }
+  } catch {}
+
+  const rawId = (process.env.GOOGLE_CLIENT_ID || "").trim();
+  if (rawId && rawId.includes("apps.googleusercontent.com") && !rawId.includes("YOUR_GOOGLE_CLIENT_ID")) {
+    return rawId;
+  }
+  return null;
+}
+
+// Google Sign-In: the client ID is public, so the browser reads it from here
+// instead of needing a rebuild whenever GOOGLE_CLIENT_ID changes.
+app.get("/api/auth/google/config", (req, res) => {
+  res.json({ clientId: getGoogleClientId() });
+});
+
+interface GoogleIdTokenInfo {
+  sub: string;
+  email?: string;
+  email_verified?: string | boolean;
+  name?: string;
+  aud: string;
+  iss: string;
+  exp: string;
+}
+
+async function verifyGoogleCredential(credential: string, clientId: string): Promise<GoogleIdTokenInfo | null> {
+  const verifyRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`);
+  if (!verifyRes.ok) return null;
+  const info = await verifyRes.json() as GoogleIdTokenInfo;
+  const validIssuer = info.iss === "accounts.google.com" || info.iss === "https://accounts.google.com";
+  const notExpired = Number(info.exp) * 1000 > Date.now();
+  const emailVerified = info.email_verified === true || info.email_verified === "true";
+  if (info.aud !== clientId || !validIssuer || !notExpired || !info.sub || !info.email || !emailVerified) return null;
+  return info;
+}
+
+function uniqueUsernameFromEmail(email: string, users: StoredUser[]): string {
+  const base = (email.split("@")[0].toLowerCase().replace(/[^a-z0-9_]/g, "_").slice(0, 24) || "rookie").padEnd(3, "_");
+  let candidate = base;
+  let suffix = 1;
+  while (users.some(u => u.username.toLowerCase() === candidate)) {
+    candidate = `${base}_${suffix++}`;
+  }
+  return candidate;
+}
+
+// Google Sign-In / Sign-Up: logs in an existing account (linking it by verified
+// email on first use) or creates a new one.
+app.post("/api/auth/google", async (req, res) => {
+  try {
+    const clientId = getGoogleClientId();
+    if (!clientId) {
+      return res.status(503).json({ success: false, message: "Google Sign-In is not configured on this server." });
+    }
+    const { credential } = req.body;
+    if (!credential || typeof credential !== "string") {
+      return res.status(400).json({ success: false, message: "Missing Google credential." });
+    }
+
+    const info = await verifyGoogleCredential(credential, clientId);
+    if (!info) {
+      return res.status(401).json({ success: false, message: "Google sign-in could not be verified. Please try again." });
+    }
+
+    const users = loadUsers();
+    const email = info.email!.toLowerCase();
+    let user = users.find(u => u.googleId === info.sub) || users.find(u => u.email.toLowerCase() === email);
+    const isNew = !user;
+
+    if (user) {
+      user.googleId = info.sub;
+      user.lastLoginAt = new Date().toISOString();
+    } else {
+      user = {
+        id: `usr_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+        fullName: String(info.name || email.split("@")[0]).trim().slice(0, 80),
+        email,
+        username: uniqueUsernameFromEmail(email, users),
+        googleId: info.sub,
+        ageGroup: "13-17 (Teen)",
+        experienceLevel: "BEGINNER",
+        initialCapital: 1000000,
+        registeredAt: new Date().toISOString(),
+        lastLoginAt: new Date().toISOString(),
+        portfolioValue: 1000000,
+        totalTrades: 0
+      };
+      users.unshift(user);
+    }
+    saveUsers(users);
+
+    res.json({
+      success: true,
+      isNew,
+      user: toSafeUser(user),
+      message: isNew ? "Account created with Google!" : `Welcome back, ${user.fullName}!`
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || "Google sign-in failed" });
   }
 });
 

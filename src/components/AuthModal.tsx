@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useSimulator } from '../context/SimulatorContext';
 import { AuthFormData } from '../types';
+import { GoogleSignInButton, AuthOrDivider } from './GoogleSignInButton';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -23,7 +24,7 @@ interface AuthModalProps {
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
-  const { currentUser, loginUser, registerUser, logoutUser } = useSimulator();
+  const { currentUser, loginUser, registerUser, loginWithGoogle, logoutUser } = useSimulator();
   
   const [activeTab, setActiveTab] = useState<'login' | 'signup'>(currentUser ? 'login' : 'signup');
   const [loading, setLoading] = useState(false);
@@ -55,6 +56,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
+
+  const handleGoogleCredential = async (credential: string) => {
+    setErrorMsg('');
+    setLoading(true);
+    const res = await loginWithGoogle(credential);
+    setLoading(false);
+    if (res.success) {
+      setSuccessMsg(res.message);
+      setTimeout(() => {
+        onClose();
+      }, 1200);
+    } else {
+      setErrorMsg(res.message);
+    }
+  };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -194,6 +210,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               <Check className="w-4 h-4 text-emerald-600" />
               <span>{successMsg}</span>
             </div>
+          )}
+
+          {/* Google Sign-In / Sign-Up (hidden when GOOGLE_CLIENT_ID is not configured) */}
+          {!currentUser && (
+            <GoogleSignInButton
+              onCredential={handleGoogleCredential}
+              text={activeTab === 'login' ? 'signin_with' : 'signup_with'}
+            >
+              <AuthOrDivider className="text-slate-400 border-slate-200" />
+            </GoogleSignInButton>
           )}
 
           {/* SIGNUP FORM */}

@@ -32,6 +32,7 @@ import {
   ArrowDown
 } from 'lucide-react';
 import { useSimulator } from '../context/SimulatorContext';
+import { GoogleSignInButton, AuthOrDivider } from './GoogleSignInButton';
 import { AuthFormData, UserAccount } from '../types';
 import { AuthLaunchTransition } from './AuthLaunchTransition';
 import { SpotlightCard } from './ui/spotlight-card';
@@ -129,7 +130,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
   initialMode = 'LOGIN',
   onBackToLanding,
 }) => {
-  const { loginUser, registerUser, nseMarketInfo, marketIndices, stocks } = useSimulator();
+  const { loginUser, registerUser, loginWithGoogle, nseMarketInfo, marketIndices, stocks } = useSimulator();
 
   // Dynamically resolve live or context prices for sample stocks if available
   const sampleStocks: SampleStock[] = useMemo(() => {
@@ -219,6 +220,20 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
     } else {
       setLoading(false);
       setErrorMsg(res.message || 'Demo login failed');
+    }
+  };
+
+  const handleGoogleCredential = async (credential: string) => {
+    setErrorMsg('');
+    setLoading(true);
+    const res = await loginWithGoogle(credential);
+    if (res.success && res.user) {
+      const kind = res.isNew ? 'new' : 'returning';
+      window.dispatchEvent(new CustomEvent('rr_auth_success', { detail: { kind } }));
+      setLaunchState({ user: res.user, kind });
+    } else {
+      setLoading(false);
+      setErrorMsg(res.message || 'Google sign-in failed. Please try again.');
     }
   };
 
@@ -631,6 +646,15 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                   <span>{successMsg}</span>
                 </div>
               )}
+
+              {/* Google Sign-In / Sign-Up (hidden when GOOGLE_CLIENT_ID is not configured) */}
+              <GoogleSignInButton
+                onCredential={handleGoogleCredential}
+                text={mode === 'LOGIN' ? 'signin_with' : 'signup_with'}
+                theme="filled_black"
+              >
+                <AuthOrDivider />
+              </GoogleSignInButton>
 
               {/* MODE 1: SIGN IN FORM */}
               {mode === 'LOGIN' ? (
