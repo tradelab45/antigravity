@@ -1639,7 +1639,7 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
                         <div className="flex items-center gap-1.5">
                           <span className="font-black text-slate-900 text-sm">{stock.symbol}</span>
                           {stock.psuStatus && (
-                            <span className="text-[9px] font-black bg-blue-100 text-blue-900 border border-blue-200 px-1 py-0.2 rounded">
+                            <span className="text-[9px] font-black bg-blue-100 text-blue-900 border border-blue-200 px-1 py-0.5 rounded">
                               {stock.psuStatus}
                             </span>
                           )}
@@ -1649,7 +1649,7 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
                       <td className="p-4">
                         <div className="flex flex-wrap gap-1 max-w-[180px]">
                           {indices.map(idx => (
-                            <span key={idx} className="bg-indigo-50 text-indigo-900 border border-indigo-200 text-[9px] px-1.5 py-0.2 rounded font-bold">
+                            <span key={idx} className="bg-indigo-50 text-indigo-900 border border-indigo-200 text-[9px] px-1.5 py-0.5 rounded font-bold">
                               {idx}
                             </span>
                           ))}
@@ -1692,7 +1692,7 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
                       <td className="p-4">
                         <div className="flex flex-wrap gap-1 max-w-[200px]">
                           {stock.popularBrands?.slice(0, 2).map((b, idx) => (
-                            <span key={idx} className="bg-amber-50 text-amber-900 border border-amber-200 text-[10px] px-2 py-0.2 rounded-md font-semibold">
+                            <span key={idx} className="bg-amber-50 text-amber-900 border border-amber-200 text-[10px] px-2 py-0.5 rounded-md font-semibold">
                               {b}
                             </span>
                           ))}

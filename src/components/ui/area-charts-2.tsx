@@ -225,7 +225,7 @@ export const ShareBoxAreaChart: React.FC<ShareBoxAreaChartProps> = ({
                     key={tf}
                     type="button"
                     onClick={() => setTimeframe(tf)}
-                    className={`px-1.5 py-0.2 rounded-md text-[9px] font-black transition-all cursor-pointer ${
+                    className={`px-1.5 py-0.5 rounded-md text-[9px] font-black transition-all cursor-pointer ${
                       timeframe === tf
                         ? 'bg-[#00f59b] text-slate-950 shadow-xs'
                         : 'text-slate-400 hover:text-white hover:bg-white/10'

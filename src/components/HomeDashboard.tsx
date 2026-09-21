@@ -18,8 +18,10 @@ import {
   MessageSquare,
   Megaphone,
   TrendingUp,
+  ChevronDown,
 } from 'lucide-react';
 import { useSimulator } from '../context/SimulatorContext';
+import { INITIAL_LESSONS } from '../data/lessonsData';
 import { formatINR, formatPercent } from '../utils/formatters';
 import type { AppTabType } from './Header';
 import { useAccessibility } from '../context/AccessibilityContext';
@@ -110,10 +112,10 @@ export const HomeDashboard: React.FC<{ setActiveTab: (tab: AppTabType) => void }
     {
       id: 'slide-4',
       tag: 'ACADEMY',
-      title: 'Teen Investor Academy (32 Lessons)',
-      subtitle: 'From basics of Demat to P/E ratio and DuPont analysis',
+      title: `Teen Investor Academy (${INITIAL_LESSONS.length} Lessons)`,
+      subtitle: 'From Demat basics and valuation to Indian taxation',
       description: 'Master Dalal Street with interactive bilingual Hindi/English lessons, audio readouts, and gamified quiz checkpoints.',
-      metric: '32 Lessons',
+      metric: `${INITIAL_LESSONS.length} Lessons`,
       metricLabel: 'Bilingual Course',
       metricChange: '+500 XP',
       isPositive: true,
@@ -169,12 +171,16 @@ export const HomeDashboard: React.FC<{ setActiveTab: (tab: AppTabType) => void }
       return { checked: [false, false, false], takeaway: '', completed: false };
     }
   });
+  // Mobile defaults to a simple view. The 3D market showcase is rich but heavy
+  // on a phone, so it is opt-in there and always shown on large screens.
+  const [showcaseOpen, setShowcaseOpen] = useState<boolean>(() => localStorage.getItem('rr_home_showcase') === 'open');
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [offlineReady, setOfflineReady] = useState(false);
   const [missionDifficulty, setMissionDifficulty] = useState<MissionDifficulty>(() => (localStorage.getItem(`rr_mission_difficulty:${currentUser?.id || 'guest'}`) as MissionDifficulty) || 'AUTO');
   const [feedback, setFeedback] = useState<'HELPFUL' | 'NOT_YET' | null>(() => localStorage.getItem(`rr_home_feedback:${currentUser?.id || 'guest'}:${getIstDateKey()}`) as 'HELPFUL' | 'NOT_YET' | null);
 
   useEffect(() => { localStorage.setItem(`rr_mission_difficulty:${currentUser?.id || 'guest'}`, missionDifficulty); }, [missionDifficulty, currentUser?.id]);
+  useEffect(() => { localStorage.setItem('rr_home_showcase', showcaseOpen ? 'open' : 'closed'); }, [showcaseOpen]);
 
   useEffect(() => {
     localStorage.setItem(missionKey, JSON.stringify(mission));
@@ -192,6 +198,12 @@ export const HomeDashboard: React.FC<{ setActiveTab: (tab: AppTabType) => void }
     return () => window.removeEventListener('beforeinstallprompt', onInstallPrompt);
   }, []);
 
+  // completeLesson() is shared with the daily quiz, so the raw id list can hold
+  // quiz ids as well; only real Academy modules are counted here.
+  const completedModuleCount = useMemo(
+    () => INITIAL_LESSONS.filter((lesson) => completedLessonIds.includes(lesson.id)).length,
+    [completedLessonIds],
+  );
   const missionProgress = mission.checked.filter(Boolean).length;
   const greetingName = currentUser?.fullName?.split(' ')[0] || 'Investor';
   const executedTrades = orders.filter((order) => order.status === 'EXECUTED').length;
@@ -210,8 +222,8 @@ export const HomeDashboard: React.FC<{ setActiveTab: (tab: AppTabType) => void }
     const activity = recent.length === 0
       ? 'No trades this week—and that is completely fine. Your learning activity still counts.'
       : `${recent.length} simulated trade${recent.length === 1 ? '' : 's'} this week. Review the journal before repeating a setup.`;
-    return { activity, lessons: completedLessonIds.length, riskReviews: Object.keys(holdings).length ? 'Portfolio exposure is ready for a concentration review.' : 'No portfolio exposure is currently active.' };
-  }, [completedLessonIds.length, holdings, orders]);
+    return { activity, lessons: completedModuleCount, riskReviews: Object.keys(holdings).length ? 'Portfolio exposure is ready for a concentration review.' : 'No portfolio exposure is currently active.' };
+  }, [completedModuleCount, holdings, orders]);
 
   const saveFeedback = (value: 'HELPFUL' | 'NOT_YET') => {
     setFeedback(value);
@@ -293,13 +305,13 @@ export const HomeDashboard: React.FC<{ setActiveTab: (tab: AppTabType) => void }
   return (
     <div className="space-y-4 pb-4 sm:space-y-6">
       <section className="overflow-hidden rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 p-5 text-white shadow-xl sm:p-7">
-        <div className="flex items-start justify-between gap-3">
-          <div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-indigo-300">Today at RupeeRookie</p>
             <h1 className="mt-1 text-2xl font-black tracking-tight">Namaste, {greetingName}</h1>
             <p className="mt-1 max-w-xl text-xs leading-relaxed text-slate-300">{settings.learningLanguage === 'HINDI' ? 'केवल 5 शांत मिनटों में बेहतर निर्णय क्षमता बनाएँ। सीखने की प्रगति, ट्रेड की संख्या से अधिक महत्वपूर्ण है।' : 'Build judgment in five calm minutes. Learning progress matters more than trade count.'}</p>
           </div>
-          <div className="rounded-2xl border border-white/10 bg-white/10 px-3 py-2 text-right backdrop-blur">
+          <div className="flex shrink-0 items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/10 px-3 py-2 backdrop-blur sm:flex-col sm:items-end sm:gap-0 sm:text-right">
             <p className="text-[9px] font-bold uppercase text-slate-400">Level {userLevel.level}</p>
             <p className="font-mono text-sm font-black text-amber-300">{userXP} XP</p>
           </div>
@@ -319,7 +331,7 @@ export const HomeDashboard: React.FC<{ setActiveTab: (tab: AppTabType) => void }
           <div className="rounded-2xl border border-white/10 bg-white/8 p-3">
             <GraduationCap className="h-4 w-4 text-amber-300" />
             <p className="mt-2 text-[9px] font-bold uppercase text-slate-400">Lessons</p>
-            <p className="font-mono text-sm font-black">{completedLessonIds.length} complete</p>
+            <p className="font-mono text-sm font-black">{completedModuleCount} complete</p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/8 p-3">
             <Clock3 className={`h-4 w-4 ${nseMarketInfo.isNSEMarketOpen ? 'text-emerald-300' : 'text-slate-300'}`} />
@@ -329,6 +341,26 @@ export const HomeDashboard: React.FC<{ setActiveTab: (tab: AppTabType) => void }
         </div>
       </section>
 
+      {/* Mobile keeps a simple view by default: the 3D market showcase below is
+          opt-in on small screens and always visible from lg upwards. */}
+      <button
+        type="button"
+        onClick={() => setShowcaseOpen((open) => !open)}
+        aria-expanded={showcaseOpen}
+        className="flex w-full items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:hidden"
+      >
+        <span className="min-w-0">
+          <span className="block text-xs font-black text-slate-900 dark:text-white">
+            {showcaseOpen ? 'Hide market visuals' : 'Show market visuals'}
+          </span>
+          <span className="mt-0.5 block text-[11px] text-slate-500 dark:text-slate-400">
+            3D candlesticks, the flagship deck and the live movers radar
+          </span>
+        </span>
+        <ChevronDown className={`h-5 w-5 shrink-0 text-indigo-600 transition-transform ${showcaseOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      <div className={`space-y-4 sm:space-y-6 ${showcaseOpen ? '' : 'hidden lg:block'}`}>
       {/* 3D Candlestick & Moving Rupee Live Market Pulse Card */}
       <SpotlightCard
         glowColor="green"
@@ -428,18 +460,19 @@ export const HomeDashboard: React.FC<{ setActiveTab: (tab: AppTabType) => void }
           />
         </div>
       </div>
+      </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
         <section className="rounded-3xl border border-indigo-200 bg-white p-5 shadow-sm dark:border-indigo-900 dark:bg-slate-900 lg:col-span-7">
-          <div className="flex items-start justify-between gap-3">
-            <div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <Target className="h-5 w-5 text-indigo-600" />
+                <Target className="h-5 w-5 shrink-0 text-indigo-600" />
                 <h2 className="text-base font-black text-slate-950 dark:text-white">{settings.learningLanguage === 'HINDI' ? 'आज का 5-मिनट मिशन' : 'Your five-minute mission'}</h2>
               </div>
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{settings.learningLanguage === 'HINDI' ? 'एक पाठ, एक जोखिम जाँच और एक चिंतन। कोई ट्रेड आवश्यक नहीं है।' : 'One lesson, one risk check, one reflection. Zero trades required.'}</p>
             </div>
-            <div className="flex items-center gap-2"><label className="sr-only" htmlFor="mission-difficulty">Mission difficulty</label><select id="mission-difficulty" value={missionDifficulty} onChange={(event) => setMissionDifficulty(event.target.value as MissionDifficulty)} disabled={mission.completed} className="rounded-xl border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-black text-indigo-900 dark:border-indigo-800 dark:bg-indigo-950 dark:text-indigo-200"><option value="AUTO">Auto · {resolvedDifficulty.toLowerCase()}</option><option value="GENTLE">Gentle</option><option value="STANDARD">Standard</option><option value="ADVANCED">Advanced</option></select><span className="rounded-full bg-indigo-100 px-2.5 py-1 text-[10px] font-black text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">{missionProgress}/3</span></div>
+            <div className="flex shrink-0 items-center gap-2"><label className="sr-only" htmlFor="mission-difficulty">Mission difficulty</label><select id="mission-difficulty" value={missionDifficulty} onChange={(event) => setMissionDifficulty(event.target.value as MissionDifficulty)} disabled={mission.completed} className="rounded-xl border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-black text-indigo-900 dark:border-indigo-800 dark:bg-indigo-950 dark:text-indigo-200"><option value="AUTO">Auto · {resolvedDifficulty.toLowerCase()}</option><option value="GENTLE">Gentle</option><option value="STANDARD">Standard</option><option value="ADVANCED">Advanced</option></select><span className="rounded-full bg-indigo-100 px-2.5 py-1 text-[10px] font-black text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">{missionProgress}/3</span></div>
           </div>
 
           <div className="mt-4 space-y-2.5">

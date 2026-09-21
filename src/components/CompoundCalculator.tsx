@@ -361,7 +361,7 @@ export const CompoundCalculator: React.FC = () => {
           >
             <TrendingUp className="w-3.5 h-3.5 text-amber-400" />
             <span>Step-Up SIP (+10%/yr)</span>
-            <span className="bg-amber-400/20 text-amber-300 text-[9px] px-1.5 py-0.2 rounded-full font-bold">Fast-Track</span>
+            <span className="bg-amber-400/20 text-amber-300 text-[9px] px-1.5 py-0.5 rounded-full font-bold">Fast-Track</span>
           </button>
 
           <button

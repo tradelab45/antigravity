@@ -1,6 +1,7 @@
 import { Lesson, Badge } from '../types';
+import { TAXATION_LESSONS } from './taxationLessons';
 
-export const INITIAL_LESSONS: Lesson[] = [
+const CORE_LESSONS: Lesson[] = [
   {
     id: 'lesson-1',
     title: 'The Stock Market Playground: What is a Share & Equity?',
@@ -761,6 +762,13 @@ export const INITIAL_LESSONS: Lesson[] = [
     }
   }
 ];
+
+/**
+ * The full Academy curriculum: the core investing path followed by the
+ * taxation track. Taxation modules live in their own file because they carry
+ * reference tables (slabs, capital-gains rates, charges) used by the Tax Centre.
+ */
+export const INITIAL_LESSONS: Lesson[] = [...CORE_LESSONS, ...TAXATION_LESSONS];
 
 export const INITIAL_BADGES: Badge[] = [
   {

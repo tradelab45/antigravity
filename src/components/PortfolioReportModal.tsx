@@ -463,7 +463,7 @@ export const PortfolioReportModal: React.FC<PortfolioReportModalProps> = ({
                           <span className="font-medium text-slate-700 truncate max-w-[180px]">{s.sector}</span>
                           <div className="flex items-center gap-2 font-mono">
                             <span className="text-slate-900 font-bold">{formatINR(s.value)}</span>
-                            <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.2 rounded font-bold">
+                            <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-bold">
                               {s.percent.toFixed(1)}%
                             </span>
                           </div>

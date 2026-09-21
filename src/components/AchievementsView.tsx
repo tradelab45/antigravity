@@ -459,7 +459,7 @@ export const AchievementsView: React.FC = () => {
                             {user.name}
                           </span>
                           {isUser && (
-                            <span className="text-[9px] bg-slate-900 text-white font-black px-1.5 py-0.2 rounded">
+                            <span className="text-[9px] bg-slate-900 text-white font-black px-1.5 py-0.5 rounded">
                               YOU
                             </span>
                           )}

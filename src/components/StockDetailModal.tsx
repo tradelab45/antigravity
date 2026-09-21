@@ -3026,7 +3026,7 @@ function generateRealisticChartSeries(
                         >
                           <Zap className="w-3.5 h-3.5 text-amber-500" />
                           <span>Chanakya Pre-Flight Trade Check</span>
-                          <span className={`text-[10px] font-mono px-2 py-0.2 rounded-full border ${
+                          <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
                             passCount === 4
                               ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border-emerald-300'
                               : passCount === 3

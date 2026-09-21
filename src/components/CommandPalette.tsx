@@ -224,7 +224,7 @@ export function CommandPalette({ stocks, onNavigate, onSelectStock }: CommandPal
                               <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate flex items-center gap-2 mt-0.5">
                                 <span>{stock.sector}</span>
                                 {stock.popularBrands && stock.popularBrands.length > 0 && (
-                                  <span className="text-[10px] bg-slate-100 dark:bg-white/10 px-1.5 py-0.2 rounded font-sans text-slate-600 dark:text-slate-300">
+                                  <span className="text-[10px] bg-slate-100 dark:bg-white/10 px-1.5 py-0.5 rounded font-sans text-slate-600 dark:text-slate-300">
                                     {stock.popularBrands[0]}
                                   </span>
                                 )}
@@ -272,7 +272,7 @@ export function CommandPalette({ stocks, onNavigate, onSelectStock }: CommandPal
                               <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5">
                                 {item.label}
                                 {item.badge && (
-                                  <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
+                                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
                                     {item.badge}
                                   </span>
                                 )}

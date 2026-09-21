@@ -140,7 +140,7 @@ export const ExpandableTabs: React.FC<ExpandableTabsProps> = ({
 
             {tab.badge !== undefined && (
               <span className={cn(
-                "px-1.5 py-0.2 text-[9px] rounded-md font-mono font-bold",
+                "px-1.5 py-0.5 text-[9px] rounded-md font-mono font-bold",
                 isSelected
                   ? "bg-slate-950/25 text-slate-950"
                   : "bg-slate-200 dark:bg-white/15 text-slate-800 dark:text-[#00f59b]"

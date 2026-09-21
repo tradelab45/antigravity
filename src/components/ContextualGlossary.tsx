@@ -67,10 +67,12 @@ export const ContextualGlossary: React.FC<{ activeTab: AppTabType }> = ({ active
 
   return (
     <>
+      {/* Pinned to the left so it does not land on top of the quick-actions
+          dock, which sits at the same height on the right. */}
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-[5.1rem] right-3 z-50 flex items-center gap-1.5 rounded-full border border-indigo-200 bg-white px-3 py-2 text-[11px] font-black text-indigo-800 shadow-lg dark:border-indigo-800 dark:bg-slate-900 dark:text-indigo-300 lg:hidden"
+        className="fixed bottom-[5.1rem] left-3 z-50 flex items-center gap-1.5 rounded-full border border-indigo-200 bg-white px-3 py-2 text-[11px] font-black text-indigo-800 shadow-lg dark:border-indigo-800 dark:bg-slate-900 dark:text-indigo-300 lg:hidden"
         aria-label="Open contextual investing glossary"
       >
         <BookMarked className="h-4 w-4" /> {isHindi ? 'शब्दावली' : 'Glossary'}

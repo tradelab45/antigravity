@@ -41,6 +41,7 @@ import {
   Cell 
 } from 'recharts';
 import { useSimulator } from '../context/SimulatorContext';
+import { INITIAL_LESSONS } from '../data/lessonsData';
 import { StockDetail, Holding, Order } from '../types';
 import { formatINR, formatPercent, formatIndianShort, formatNumberIndian } from '../utils/formatters';
 import { PortfolioEquityAreaChart } from './ui/area-charts-2';
@@ -218,7 +219,10 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ onSelectStock, onN
     try { journalReviews = JSON.parse(localStorage.getItem(`rr_trade_reviews:${profileId}`) || '{}'); } catch { journalReviews = {}; }
     const planCoverage = executedTrades > 0 ? Math.min(1, tradePlans.length / executedTrades) : 0;
     const journalCoverage = executedTrades > 0 ? Math.min(1, Object.keys(journalReviews).length / executedTrades) : 0;
-    const learningCoverage = Math.min(1, completedLessonIds.length / 12);
+    // Counted against the real curriculum size so adding modules does not
+    // silently change everyone's health score.
+    const completedModules = INITIAL_LESSONS.filter((lesson) => completedLessonIds.includes(lesson.id)).length;
+    const learningCoverage = Math.min(1, completedModules / INITIAL_LESSONS.length);
     const largestHoldingWeight = riskAnalysis.largestHolding?.weight || 0;
 
     // Health rewards diversification and decision process—not profit.
@@ -628,7 +632,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ onSelectStock, onN
           >
             <FileText className="w-3.5 h-3.5 text-indigo-600" />
             <span>Export Summary Report</span>
-            <span className="bg-indigo-50 text-indigo-700 text-[9px] px-1.5 py-0.2 rounded-full font-bold border border-indigo-200">
+            <span className="bg-indigo-50 text-indigo-700 text-[9px] px-1.5 py-0.5 rounded-full font-bold border border-indigo-200">
               CSV/PDF
             </span>
           </button>
@@ -749,7 +753,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ onSelectStock, onN
                           <div>
                             <div className="flex items-center gap-2">
                               <span className="font-black text-slate-900 text-sm">{h.symbol}</span>
-                              <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-1.5 py-0.2 rounded-md">
+                              <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-1.5 py-0.5 rounded-md">
                                 {h.quantity} Shares
                               </span>
                             </div>
@@ -873,7 +877,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ onSelectStock, onN
                             <td className="py-3 px-3">
                               <div className="font-extrabold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors flex items-center gap-1.5">
                                 <span>{h.symbol}</span>
-                                <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-1.5 py-0.2 rounded-md">
+                                <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-1.5 py-0.5 rounded-md">
                                   {h.quantity} shares
                                 </span>
                               </div>

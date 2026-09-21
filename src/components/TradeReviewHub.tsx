@@ -39,6 +39,7 @@ import {
   NotebookTabs
 } from 'lucide-react';
 import { useSimulator } from '../context/SimulatorContext';
+import { formatINR } from '../utils/formatters';
 import { TraderDNA, SkillScoreBreakdown, TradeJournalEntry, ProductType, Order } from '../types';
 
 export interface TradeHistoryTransaction {
@@ -83,6 +84,19 @@ interface StoredTradeReview {
   annotations?: Array<{ kind: 'ENTRY' | 'STOP' | 'TARGET' | 'EXIT'; x: number; y: number }>;
   updatedAt: string;
 }
+
+// A standard deviation estimated from a handful of trades is noise, so the
+// Sharpe ratio stays hidden until the sample is large enough to mean something.
+const SHARPE_MINIMUM_TRADES = 8;
+
+/** Plain-language band for a per-trade Sharpe ratio. */
+const describeSharpe = (ratio: number): string => {
+  if (ratio < 0) return 'Negative';
+  if (ratio < 0.5) return 'Weak';
+  if (ratio < 1) return 'Fair';
+  if (ratio < 2) return 'Good';
+  return 'Strong';
+};
 
 const REVIEW_TAGS = ['FOMO', 'Earnings', 'Breakout', 'Value thesis', 'Revenge trade', 'Long-term'];
 const EMOTIONS = ['Calm', 'Confident', 'Uncertain', 'Excited', 'Fearful', 'Frustrated'];
@@ -436,6 +450,28 @@ export function TradeReviewHub({ initialTab = 'HISTORY' }: { initialTab?: 'HISTO
     const winRate = closedItems.length > 0 ? (winTrades.length / closedItems.length) * 100 : 0;
     const profitFactor = lossSum > 0 ? (winSum / lossSum) : winSum > 0 ? 9.99 : 0;
 
+    // Per-trade Sharpe ratio measured on this account's own realised returns.
+    // Sharpe = mean(return) / standard deviation(return). Capital only carries
+    // market risk while a position is open, so the per-trade risk-free rate is
+    // 0% and the mean return is already the excess return.
+    // A ratio needs dispersion to mean anything, so it stays unavailable until
+    // there are enough closed trades to estimate a standard deviation.
+    const tradeReturns = closedItems
+      .map((item) => item.realizedPnLPercent)
+      .filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+    const sharpeSampleSize = tradeReturns.length;
+    const sharpeMinimumTrades = SHARPE_MINIMUM_TRADES;
+    let sharpeRatio: number | null = null;
+
+    if (sharpeSampleSize >= sharpeMinimumTrades) {
+      const meanReturn = tradeReturns.reduce((acc, value) => acc + value, 0) / sharpeSampleSize;
+      const variance = tradeReturns.reduce((acc, value) => acc + (value - meanReturn) ** 2, 0) / (sharpeSampleSize - 1);
+      const standardDeviation = Math.sqrt(variance);
+      if (standardDeviation > 0.0001) {
+        sharpeRatio = meanReturn / standardDeviation;
+      }
+    }
+
     return {
       totalTradesCount: allTransactions.length,
       closedTradesCount: closedItems.length,
@@ -446,7 +482,48 @@ export function TradeReviewHub({ initialTab = 'HISTORY' }: { initialTab?: 'HISTO
       avgWin,
       avgLoss,
       profitFactor,
-      totalTurnover
+      totalTurnover,
+      sharpeRatio,
+      sharpeSampleSize,
+      sharpeMinimumTrades
+    };
+  }, [allTransactions]);
+
+  // Equity curve built from this account's own realised P&L, oldest trade first.
+  // `allTransactions` is newest-first, so it is reversed before accumulating.
+  const equityCurve = useMemo(() => {
+    const closedOldestFirst = [...allTransactions]
+      .reverse()
+      .filter((item) => item.isClosedPosition && typeof item.realizedPnL === 'number');
+
+    const startingCapital = 1000000;
+    let running = startingCapital;
+    const points = [{ index: 0, equity: startingCapital }];
+    closedOldestFirst.forEach((item, position) => {
+      running += item.realizedPnL || 0;
+      points.push({ index: position + 1, equity: running });
+    });
+
+    const equities = points.map((point) => point.equity);
+    const minEquity = Math.min(...equities);
+    const maxEquity = Math.max(...equities);
+    const span = maxEquity - minEquity || 1;
+
+    // Chart viewBox is 700x180 with a 40px left gutter and 20px vertical padding.
+    const plotted = points.map((point) => {
+      const x = points.length === 1 ? 40 : 40 + (point.index / (points.length - 1)) * 620;
+      const y = 160 - ((point.equity - minEquity) / span) * 140;
+      return { x, y, equity: point.equity };
+    });
+
+    return {
+      hasTrades: closedOldestFirst.length > 0,
+      tradeCount: closedOldestFirst.length,
+      startingCapital,
+      finalEquity: running,
+      path: plotted.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(' '),
+      lastPoint: plotted[plotted.length - 1],
+      baselineY: 160 - ((startingCapital - minEquity) / span) * 140,
     };
   }, [allTransactions]);
 
@@ -746,15 +823,15 @@ export function TradeReviewHub({ initialTab = 'HISTORY' }: { initialTab?: 'HISTO
           </div>
 
           {/* Quick Actions */}
-          <div className="flex items-center gap-2">
+          <div className="flex w-full shrink-0 items-center gap-2 md:w-auto">
             <button
               id="export-csv-top-btn"
               type="button"
               onClick={handleExportCSV}
-              className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-bold rounded-xl flex items-center gap-2 border border-slate-700 transition-all cursor-pointer"
+              className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-slate-700 bg-slate-800 px-3.5 py-2.5 text-xs font-bold text-slate-200 transition-all hover:bg-slate-700 hover:text-white cursor-pointer md:flex-none"
               title="Export filtered trade history to CSV"
             >
-              <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+              <FileSpreadsheet className="w-4 h-4 shrink-0 text-emerald-400" />
               <span>Export CSV</span>
             </button>
             <button
@@ -762,23 +839,24 @@ export function TradeReviewHub({ initialTab = 'HISTORY' }: { initialTab?: 'HISTO
               type="button"
               onClick={() => allTransactions[0] && handleOpenShareModal(allTransactions[0])}
               disabled={allTransactions.length === 0}
-              className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black rounded-xl flex items-center gap-2 shadow-lg transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-black text-white shadow-lg transition-all hover:bg-indigo-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 md:flex-none"
             >
-              <Share2 className="w-4 h-4" />
-              <span>VERIFIED TRADE CARD</span>
+              <Share2 className="w-4 h-4 shrink-0" />
+              <span className="sm:hidden">Trade Card</span>
+              <span className="hidden sm:inline">VERIFIED TRADE CARD</span>
             </button>
           </div>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex items-center gap-2 mt-6 border-t border-slate-800 pt-4 overflow-x-auto">
+        <div className="mt-6 grid grid-cols-2 gap-2 border-t border-slate-800 pt-4 sm:flex sm:items-center sm:overflow-x-auto">
           {[
-            { id: 'HISTORY', label: 'Trade History Log', icon: Clock, countBadge: allTransactions.length },
-            { id: 'PERFORMANCE', label: 'Performance Analytics', icon: BarChart3 },
-            { id: 'JOURNAL', label: 'Trade Journal & AI Notes', icon: BookOpen },
-            { id: 'BEHAVIOR', label: 'Behavioral Analytics', icon: AlertTriangle },
-            { id: 'DNA', label: 'Trader DNA Radar', icon: Dna },
-            { id: 'SKILL', label: 'Skill Score (0-1000)', icon: Award }
+            { id: 'HISTORY', label: 'Trade History Log', shortLabel: 'History', icon: Clock, countBadge: allTransactions.length },
+            { id: 'PERFORMANCE', label: 'Performance Analytics', shortLabel: 'Performance', icon: BarChart3 },
+            { id: 'JOURNAL', label: 'Trade Journal & AI Notes', shortLabel: 'Journal', icon: BookOpen },
+            { id: 'BEHAVIOR', label: 'Behavioral Analytics', shortLabel: 'Behaviour', icon: AlertTriangle },
+            { id: 'DNA', label: 'Trader DNA Radar', shortLabel: 'Trader DNA', icon: Dna },
+            { id: 'SKILL', label: 'Skill Score (0-1000)', shortLabel: 'Skill Score', icon: Award }
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -788,14 +866,15 @@ export function TradeReviewHub({ initialTab = 'HISTORY' }: { initialTab?: 'HISTO
                 id={`trade-hub-tab-${tab.id.toLowerCase()}`}
                 type="button"
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`px-4 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+                className={`flex min-h-11 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-3 py-2.5 text-xs font-black transition-all cursor-pointer sm:justify-start sm:px-4 ${
                   isActive
                     ? 'bg-indigo-600 text-white shadow-md'
                     : 'bg-slate-800/60 text-slate-400 hover:bg-slate-800 hover:text-white'
                 }`}
               >
-                <Icon className="w-4 h-4" />
-                <span>{tab.label}</span>
+                <Icon className="w-4 h-4 shrink-0" />
+                <span className="sm:hidden">{tab.shortLabel}</span>
+                <span className="hidden sm:inline">{tab.label}</span>
                 {tab.countBadge !== undefined && (
                   <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${
                     isActive ? 'bg-indigo-700 text-white' : 'bg-slate-700 text-slate-300'
@@ -1291,8 +1370,15 @@ export function TradeReviewHub({ initialTab = 'HISTORY' }: { initialTab?: 'HISTO
             </div>
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 text-white">
               <span className="text-[10px] text-slate-400 font-bold uppercase block">Sharpe Ratio</span>
-              <span className="text-xl font-black font-mono text-amber-300 mt-1 block">
-                1.85 (Strong)
+              <span className={`text-xl font-black font-mono mt-1 block ${closedPositionStats.sharpeRatio === null ? 'text-slate-500' : closedPositionStats.sharpeRatio >= 1 ? 'text-emerald-400' : closedPositionStats.sharpeRatio >= 0 ? 'text-amber-300' : 'text-rose-400'}`}>
+                {closedPositionStats.sharpeRatio === null
+                  ? '—'
+                  : `${closedPositionStats.sharpeRatio.toFixed(2)} (${describeSharpe(closedPositionStats.sharpeRatio)})`}
+              </span>
+              <span className="mt-1 block text-[10px] font-medium leading-snug text-slate-400">
+                {closedPositionStats.sharpeRatio === null
+                  ? `${closedPositionStats.sharpeSampleSize}/${closedPositionStats.sharpeMinimumTrades} closed trades needed`
+                  : `Per-trade, from ${closedPositionStats.sharpeSampleSize} closed trades`}
               </span>
             </div>
           </div>
@@ -1303,22 +1389,42 @@ export function TradeReviewHub({ initialTab = 'HISTORY' }: { initialTab?: 'HISTO
               <h3 className="text-sm font-black uppercase tracking-wider text-slate-300">
                 Simulated Equity Curve Progression
               </h3>
-              <span className="text-xs text-slate-400 font-mono">Benchmark: NIFTY 50 (+1.2%)</span>
+              <span className="text-xs text-slate-400 font-mono">
+                {equityCurve.hasTrades ? `${equityCurve.tradeCount} closed trade${equityCurve.tradeCount === 1 ? '' : 's'}` : 'No closed trades yet'}
+              </span>
             </div>
             <div className="w-full bg-slate-950/80 rounded-2xl p-4 border border-slate-800">
-              <svg viewBox="0 0 700 180" className="w-full h-auto select-none">
-                <line x1="40" y1="90" x2="660" y2="90" stroke="#334155" strokeDasharray="3,3" />
-                <path
-                  d="M 40 100 Q 180 80, 320 60 T 500 45 T 660 30"
-                  fill="none"
-                  stroke="#10b981"
-                  strokeWidth="3"
-                />
-                <circle cx="660" cy="30" r="5" fill="#10b981" />
-                <text x="660" y="20" fill="#10b981" fontSize="10" fontWeight="bold" textAnchor="end" fontFamily="monospace">
-                  ₹{(1000000 + totalPnL).toLocaleString('en-IN')}
-                </text>
-              </svg>
+              {equityCurve.hasTrades ? (
+                <>
+                  <svg viewBox="0 0 700 180" className="w-full h-auto select-none" role="img" aria-label={`Equity curve across ${equityCurve.tradeCount} closed trades, ending at ${formatINR(equityCurve.finalEquity)}`}>
+                    <line x1="40" y1={equityCurve.baselineY} x2="660" y2={equityCurve.baselineY} stroke="#334155" strokeDasharray="3,3" />
+                    <text x="40" y={equityCurve.baselineY - 5} fill="#64748b" fontSize="9" fontFamily="monospace">
+                      Start ₹{equityCurve.startingCapital.toLocaleString('en-IN')}
+                    </text>
+                    <path
+                      d={equityCurve.path}
+                      fill="none"
+                      stroke={equityCurve.finalEquity >= equityCurve.startingCapital ? '#10b981' : '#f43f5e'}
+                      strokeWidth="3"
+                      strokeLinejoin="round"
+                      strokeLinecap="round"
+                    />
+                    <circle
+                      cx={equityCurve.lastPoint.x}
+                      cy={equityCurve.lastPoint.y}
+                      r="5"
+                      fill={equityCurve.finalEquity >= equityCurve.startingCapital ? '#10b981' : '#f43f5e'}
+                    />
+                  </svg>
+                  <p className="mt-2 text-right font-mono text-xs font-bold text-slate-300">
+                    Realised equity: {formatINR(equityCurve.finalEquity)}
+                  </p>
+                </>
+              ) : (
+                <p className="py-8 text-center text-xs font-medium text-slate-400">
+                  Close your first simulated position to plot a real equity curve. Nothing is drawn from sample data.
+                </p>
+              )}
             </div>
           </div>
         </div>

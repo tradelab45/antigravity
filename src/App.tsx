@@ -272,7 +272,7 @@ function SimulatorApp() {
   }
 
   return (
-    <div className="min-h-screen max-w-full overflow-x-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans selection:bg-indigo-600 selection:text-white antialiased transition-colors duration-200">
+    <div className="rr-app-canvas min-h-screen max-w-full overflow-x-hidden text-slate-900 dark:text-slate-100 flex flex-col font-sans selection:bg-indigo-600 selection:text-white antialiased transition-colors duration-200">
       <a href="#main-content" className="skip-link">Skip to main content</a>
       {/* Top Fixed Header with live tickers & Net Worth */}
       <Suspense fallback={<div role="status" className="h-40 border-b border-slate-200 dark:border-slate-800"><span className="sr-only">Loading navigation…</span></div>}><Header 

@@ -258,7 +258,7 @@ export const ThumbnailCarousel: React.FC<ThumbnailCarouselProps> = ({
                   0{idx + 1}
                 </span>
                 {item.badge && (
-                  <span className="text-[9px] font-black px-1.5 py-0.2 rounded-full bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300">
+                  <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300">
                     {item.badge}
                   </span>
                 )}
