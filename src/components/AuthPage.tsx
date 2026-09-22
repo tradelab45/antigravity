@@ -474,7 +474,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
           
           {/* LEFT COLUMN: Brand Hero, Liquid Glass Logo & Value Highlights */}
           <div 
-            className="lg:col-span-6 space-y-6 sm:space-y-8 text-left" 
+            className="order-2 lg:order-1 lg:col-span-6 space-y-6 sm:space-y-8 text-left" 
             onPointerMove={handleAuthPointerMove} 
             onPointerLeave={() => setCardTilt({ x: 0, y: 0 })}
             style={{ transform: `rotateX(${cardTilt.x * 0.4}deg) rotateY(${cardTilt.y * 0.4}deg)`, transition: 'transform 0.15s ease' }}
@@ -603,7 +603,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
           </div>
 
           {/* RIGHT COLUMN: Dedicated 3D Tilt Login / Signup Card */}
-          <div className="lg:col-span-6">
+          <div className="order-1 lg:order-2 lg:col-span-6">
             <SpotlightCard
               glowColor="green"
               spotlightSize={500}
@@ -621,6 +621,9 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                     { title: "Sign In", icon: Lock },
                     { title: "Create Student Account", icon: GraduationCap, badge: "₹10L FREE" },
                   ]}
+                  /* Without this the tabs render icon-only until tapped, so on a
+                     phone there is nothing saying which mode you are in. */
+                  defaultSelected={mode === 'LOGIN' ? 0 : 1}
                   activeColor="text-mint"
                   className="border-white/10 bg-slate-950/80 shadow-inner"
                   onChange={(index) => {

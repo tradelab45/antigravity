@@ -1,14 +1,23 @@
 .rr-landing {
-  --ink: #f1f5f9;
-  --cream: #060a08;
-  --bg-deep: #060a08;
-  --bg-surface: #0c1410;
-  --bg-card: rgba(12, 20, 16, 0.75);
-  --lime: #00f59b;
-  --lime-glow: rgba(0, 245, 155, 0.18);
+  /* The page used a green-black base with a single acid-mint accent, which
+     read as murky and gave every element the same visual weight. The base is
+     now a deep indigo-navy, mint is reserved for data and positive movement,
+     and a violet carries brand and actions — matching the app's indigo. */
+  --ink: #f4f6fb;
+  --cream: #080a14;
+  --bg-deep: #080a14;
+  --bg-surface: #12162c;
+  --bg-card: rgba(18, 22, 44, 0.78);
+  --lime: #2ee6a8;
+  --lime-glow: rgba(46, 230, 168, 0.16);
   --emerald: #10b981;
-  --gold: #f59e0b;
-  background: radial-gradient(circle at 50% 0%, #0e1c15 0%, #070c09 45%, #040705 100%);
+  --gold: #f5b642;
+  --brand: #7c6cff;
+  --brand-strong: #6355f5;
+  --brand-glow: rgba(124, 108, 255, 0.3);
+  background:
+    radial-gradient(900px 620px at 78% 8%, rgba(124, 108, 255, 0.18), transparent 62%),
+    radial-gradient(circle at 50% 0%, #1b1d43 0%, #0e1126 45%, #070812 100%);
   color: var(--ink);
   font-family: 'Plus Jakarta Sans', sans-serif;
   overflow-x: hidden;
@@ -96,7 +105,7 @@
   justify-content: space-between;
   gap: 20px;
   padding: 0 5.5%;
-  background: rgba(6, 10, 8, 0.88);
+  background: rgba(10, 12, 24, 0.9);
   backdrop-filter: blur(16px);
   position: sticky;
   top: 0;
@@ -120,7 +129,7 @@
   width: 34px;
   height: 36px;
   background: #00f59b;
-  color: #060a08;
+  color: #080a14;
   border-radius: 50% 50% 6px 6px;
   font-size: 24px;
   font-weight: 900;
@@ -262,15 +271,15 @@
   height: 520px;
   min-width: 0;
   perspective: 1200px;
-  background: radial-gradient(ellipse at 50% 50%, rgba(0, 245, 155, 0.12), transparent 70%);
+  background: radial-gradient(ellipse at 50% 50%, rgba(124, 108, 255, 0.16), transparent 70%);
 }
 
 .rr-grid-plane {
   position: absolute;
   inset: 0;
   background-image: 
-    linear-gradient(to right, rgba(0, 245, 155, 0.08) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(0, 245, 155, 0.08) 1px, transparent 1px);
+    linear-gradient(to right, rgba(148, 163, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(148, 163, 255, 0.07) 1px, transparent 1px);
   background-size: 36px 36px;
   mask-image: radial-gradient(ellipse at 50% 50%, black 30%, transparent 75%);
   pointer-events: none;
@@ -279,7 +288,7 @@
 .rr-orbit {
   position: absolute;
   inset: 45px 5px;
-  border: 1px solid rgba(0, 245, 155, 0.25);
+  border: 1px solid rgba(124, 108, 255, 0.28);
   border-radius: 50%;
   transform: rotate(-30deg);
   pointer-events: none;
@@ -420,7 +429,7 @@
 /* 3D Floating Badges */
 .rr-float-tag {
   position: absolute;
-  background: rgba(12, 20, 16, 0.92);
+  background: rgba(18, 22, 44, 0.92);
   backdrop-filter: blur(14px);
   border: 1px solid rgba(0, 245, 155, 0.25);
   box-shadow: 0 18px 36px -6px rgba(0, 0, 0, 0.7), 0 0 20px rgba(0, 245, 155, 0.1);
@@ -535,7 +544,7 @@
   gap: 30px;
   align-items: center;
   justify-content: space-between;
-  background: #090e0c;
+  background: #0d1022;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   color: #94a3b8;
@@ -577,7 +586,7 @@
 }
 
 .rr-shares-section {
-  background: #080d0a;
+  background: #0b0e1e;
 }
 
 /* Playground / Sandbox */
@@ -586,7 +595,7 @@
   grid-template-columns: .9fr 1.1fr;
   gap: 8%;
   align-items: center;
-  background: #0a100d;
+  background: #101430;
 }
 
 .rr-section-heading > p:not(.rr-eyebrow) {
@@ -695,7 +704,7 @@
   gap: 10px;
   font-size: 11.5px;
   min-height: 52px;
-  background: rgba(15, 24, 20, 0.7);
+  background: rgba(20, 25, 50, 0.72);
   border: 1px solid rgba(255, 255, 255, 0.06);
   padding: 10px 12px;
   border-radius: 8px;
@@ -710,7 +719,7 @@
 
 /* Learning Section */
 .rr-learning {
-  background: #080d0a;
+  background: #0b0e1e;
 }
 
 .rr-learning-heading {
@@ -729,7 +738,7 @@
 
 /* Explore Section */
 .rr-explore {
-  background: #060a08;
+  background: #080a14;
   color: #f1f5f9;
 }
 
@@ -794,7 +803,7 @@
   border-radius: 6px;
   font-size: 9.5px;
   color: #94a3b8;
-  background: rgba(15, 24, 20, 0.5);
+  background: rgba(20, 25, 50, 0.55);
 }
 
 /* FAQ Section */
@@ -802,7 +811,7 @@
   display: grid;
   grid-template-columns: 1fr 1.25fr;
   gap: 50px;
-  background: #080d0a;
+  background: #0b0e1e;
 }
 
 .rr-faq details {
@@ -848,7 +857,7 @@
 .rr-final-cta {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(135deg, #091712 0%, #0e271f 50%, #06110d 100%);
+  background: linear-gradient(135deg, #141539 0%, #1d1f52 50%, #0c0e22 100%);
   border: 1px solid rgba(0, 245, 155, 0.2);
   padding: 85px 7%;
   display: flex;
@@ -886,7 +895,7 @@
   gap: 25px;
   padding: 32px 5.5%;
   flex-wrap: wrap;
-  background: #040705;
+  background: #070812;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 

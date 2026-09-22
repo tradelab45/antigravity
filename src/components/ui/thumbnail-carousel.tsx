@@ -237,8 +237,10 @@ export const ThumbnailCarousel: React.FC<ThumbnailCarouselProps> = ({
         </div>
       </div>
 
-      {/* Clickable Thumbnail Rail */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
+      {/* Clickable Thumbnail Rail
+          On a phone a two-column grid truncates every title, so the rail
+          becomes a single scrolling row of toggles that can show them in full. */}
+      <div className="-mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1 scrollbar-none sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-2.5 sm:overflow-visible sm:px-0 md:grid-cols-5">
         {activeList.map((item, idx) => {
           const isActive = idx === currentIndex;
           return (
@@ -246,8 +248,9 @@ export const ThumbnailCarousel: React.FC<ThumbnailCarouselProps> = ({
               key={item.id}
               type="button"
               onClick={() => goToSlide(idx)}
+              aria-pressed={isActive}
               className={cn(
-                "p-3 rounded-2xl text-left border transition-all cursor-pointer relative overflow-hidden flex flex-col justify-between",
+                "relative flex shrink-0 snap-start flex-col justify-between overflow-hidden rounded-2xl border p-3 text-left transition-all cursor-pointer sm:shrink",
                 isActive
                   ? "border-indigo-500 dark:border-mint bg-indigo-50/70 dark:bg-mint/10 shadow-md ring-1 ring-indigo-500/50 dark:ring-mint/40"
                   : "border-slate-200/80 dark:border-white/10 bg-white/70 dark:bg-white/5 hover:bg-slate-50 dark:hover:bg-white/10"
@@ -265,13 +268,13 @@ export const ThumbnailCarousel: React.FC<ThumbnailCarouselProps> = ({
               </div>
               <div className="mt-2">
                 <div className={cn(
-                  "text-xs font-black truncate",
+                  "text-xs font-black whitespace-nowrap sm:whitespace-normal sm:truncate",
                   isActive ? "text-indigo-900 dark:text-mint" : "text-slate-900 dark:text-white"
                 )}>
                   {item.title}
                 </div>
                 {item.subtitle && (
-                  <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                  <div className="mt-0.5 hidden text-[10px] text-slate-500 dark:text-slate-400 sm:block sm:truncate">
                     {item.subtitle}
                   </div>
                 )}

@@ -183,6 +183,7 @@ type ColorVariant =
   | "default"
   | "primary"
   | "success"
+  | "brand"
   | "error"
   | "gold"
   | "bronze";
@@ -215,6 +216,15 @@ const colorVariants: Record<
     button: "bg-gradient-to-b from-primary to-primary/40",
     textColor: "text-white",
     textShadow: "[text-shadow:_0_-1px_0_rgb(30_58_138_/_100%)]",
+  },
+  /* Violet primary action, so the main call to action carries more weight than
+     the muted sage of `success`. */
+  brand: {
+    outer: "bg-gradient-to-b from-[#3b2fb8] to-[#a99bff]",
+    inner: "bg-gradient-to-b from-[#ded8ff] via-[#2f2596] to-[#cfc6ff]",
+    button: "bg-gradient-to-b from-[#8c7dff] to-[#5546e0]",
+    textColor: "text-white",
+    textShadow: "[text-shadow:_0_-1px_0_rgb(49_39_138_/_100%)]",
   },
   success: {
     outer: "bg-gradient-to-b from-[#005A43] to-[#7CCB9B]",

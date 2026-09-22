@@ -991,15 +991,17 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
           </div>
 
           {/* Clean Controls: Sector Dropdown, Index Dropdown, Sort Dropdown, View Switcher */}
-          <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 min-w-0">
+          {/* On a phone these were a two-column grid of boxes stacked above the
+              list; a single scrolling row keeps the shares in view. */}
+          <div className="-mx-1 flex items-center gap-2 overflow-x-auto px-1 pb-1 scrollbar-none sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0 min-w-0">
             {/* Sector Dropdown */}
-            <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 min-w-0">
+            <div className="flex shrink-0 items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 min-w-0">
               <span className="text-[10px] text-slate-500 font-bold uppercase">Sector:</span>
               <select
                 aria-label="Filter by sector"
                 value={selectedSector}
                 onChange={(e) => setSelectedSector(e.target.value)}
-                className="bg-transparent text-xs font-bold text-slate-900 focus:outline-none cursor-pointer py-1 min-w-0 w-full sm:max-w-[110px]"
+                className="bg-transparent text-xs font-bold text-slate-900 focus:outline-none cursor-pointer py-1 min-w-0 w-[104px] sm:w-full sm:max-w-[110px]"
               >
                 {sectors.map(sec => (
                   <option key={sec} value={sec}>{sec === 'ALL' ? 'All Sectors' : sec}</option>
@@ -1008,13 +1010,13 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
             </div>
 
             {/* Benchmark Index Dropdown */}
-            <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 min-w-0">
+            <div className="flex shrink-0 items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 min-w-0">
               <span className="text-[10px] text-slate-500 font-bold uppercase">Index:</span>
               <select
                 aria-label="Filter by market index"
                 value={selectedBenchmark}
                 onChange={(e) => setSelectedBenchmark(e.target.value)}
-                className="bg-transparent text-xs font-bold text-slate-900 focus:outline-none cursor-pointer py-1 min-w-0 w-full sm:max-w-[120px]"
+                className="bg-transparent text-xs font-bold text-slate-900 focus:outline-none cursor-pointer py-1 min-w-0 w-[104px] sm:w-full sm:max-w-[120px]"
               >
                 <option value="ALL">All Indices</option>
                 {BENCHMARK_INDEX_SUBHEADINGS.map(b => (
@@ -1074,7 +1076,7 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
             <button
               type="button"
               onClick={() => setAdvancedFiltersOpen(true)}
-              className="col-span-2 flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-black text-slate-800 hover:border-indigo-400 sm:col-span-1"
+              className="flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-black text-slate-800 hover:border-indigo-400"
             >
               <SlidersHorizontal className="h-4 w-4 text-indigo-600" /> Advanced screeners
               {strategyPreset !== 'ALL' && <span className="h-2 w-2 rounded-full bg-amber-500" />}
@@ -1555,7 +1557,30 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
 
                   {/* Grid of Stocks under this Subheading */}
                   {!isCollapsed && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-5 sm:gap-6">
+                    <>
+                    {/* Phones get a scannable row list; cards return at sm. */}
+                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 sm:hidden">
+                      {groupStocks.map((stock) => (
+                        <StockRowItem
+                          key={stock.symbol}
+                          stock={stock}
+                          onSelectStock={onSelectStock}
+                          watchlist={watchlist}
+                          toggleWatchlist={toggleWatchlist}
+                          searchQuery={searchQuery}
+                          matchReason={getStockMatchReason(stock, searchQuery)}
+                          indices={getStockIndices(stock.symbol)}
+                          onOpenAlert={(s) => {
+                            setQuickAlertStock(s);
+                            setIsAlertModalOpen(true);
+                          }}
+                          onQuickBuy={(s) => {
+                            executeBuyOrder(s.symbol, 1, 'MARKET');
+                          }}
+                        />
+                      ))}
+                    </div>
+                    <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-5 sm:gap-6">
                       {groupStocks.map((stock) => (
                         <StockCardItem
                           key={stock.symbol}
@@ -1576,13 +1601,37 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
                         />
                       ))}
                     </div>
+                    </>
                   )}
                 </div>
               );
             })
           ) : (
             /* FLAT GRID OF ALL FILTERED STOCKS */
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-5 sm:gap-6">
+            <>
+            {/* Phones get a scannable row list; cards return at sm. */}
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 sm:hidden">
+              {displayedStocks.map((stock) => (
+                <StockRowItem
+                  key={stock.symbol}
+                  stock={stock}
+                  onSelectStock={onSelectStock}
+                  watchlist={watchlist}
+                  toggleWatchlist={toggleWatchlist}
+                  searchQuery={searchQuery}
+                  matchReason={getStockMatchReason(stock, searchQuery)}
+                  indices={getStockIndices(stock.symbol)}
+                  onOpenAlert={(s) => {
+                    setQuickAlertStock(s);
+                    setIsAlertModalOpen(true);
+                  }}
+                  onQuickBuy={(s) => {
+                    executeBuyOrder(s.symbol, 1, 'MARKET');
+                  }}
+                />
+              ))}
+            </div>
+            <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-5 sm:gap-6">
               {displayedStocks.map((stock) => (
                 <StockCardItem
                   key={stock.symbol}
@@ -1603,6 +1652,7 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
                 />
               ))}
             </div>
+            </>
           )}
         </div>
       )}
@@ -1810,6 +1860,72 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
 };
 
 // Reusable Individual Stock Card Component with Angel One Quick Actions & Price Alerts
+/**
+ * Compact one-line row used on phones in place of the full stock card.
+ *
+ * The card carries a chart, a 52-week meter, ratio tiles and brand chips,
+ * which at 390px means roughly one company per screen. A broker-style row puts
+ * symbol, price and change on a single line so a list can be scanned.
+ */
+const StockRowItem: React.FC<StockCardItemProps> = ({
+  stock,
+  onSelectStock,
+  watchlist,
+  toggleWatchlist,
+  indices,
+}) => {
+  const isUp = stock.change >= 0;
+  const isWatchlisted = watchlist.includes(stock.symbol);
+  const moveClass = isUp
+    ? 'text-emerald-600 dark:text-emerald-400'
+    : 'text-rose-600 dark:text-rose-400';
+
+  return (
+    <div className="flex items-center border-b border-slate-200 last:border-b-0 dark:border-slate-800">
+      <button
+        type="button"
+        onClick={() => onSelectStock(stock)}
+        className="flex min-w-0 flex-1 items-center gap-3 py-3 pl-4 pr-2 text-left active:bg-slate-50 dark:active:bg-slate-800"
+      >
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-1.5">
+            <span className="truncate font-mono text-sm font-black text-slate-900 dark:text-white">
+              {stock.symbol}
+            </span>
+            {stock.psuStatus && (
+              <span className="shrink-0 rounded bg-blue-100 px-1 py-0.5 text-[9px] font-black text-blue-900 dark:bg-blue-950 dark:text-blue-200">
+                {stock.psuStatus}
+              </span>
+            )}
+          </span>
+          <span className="mt-0.5 block truncate text-[11px] font-medium text-slate-500 dark:text-slate-400">
+            {indices[0] ? `${indices[0]} · ` : ''}{stock.name}
+          </span>
+        </span>
+
+        <span className="shrink-0 text-right">
+          <span className="block font-mono text-sm font-black text-slate-900 dark:text-white">
+            {formatINR(stock.price)}
+          </span>
+          <span className={`mt-0.5 block font-mono text-[11px] font-bold ${moveClass}`}>
+            {isUp ? '+' : ''}{stock.change.toFixed(2)} ({isUp ? '+' : ''}{stock.changePercent.toFixed(2)}%)
+          </span>
+        </span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => toggleWatchlist(stock.symbol)}
+        aria-label={`${isWatchlisted ? 'Remove' : 'Add'} ${stock.symbol} ${isWatchlisted ? 'from' : 'to'} watchlist`}
+        aria-pressed={isWatchlisted}
+        className="shrink-0 p-3 pr-4 text-slate-400 active:text-rose-500 dark:text-slate-500"
+      >
+        <Heart className={`h-4 w-4 ${isWatchlisted ? 'fill-rose-500 text-rose-500' : ''}`} />
+      </button>
+    </div>
+  );
+};
+
 interface StockCardItemProps {
   stock: StockDetail;
   onSelectStock: (stock: StockDetail) => void;
