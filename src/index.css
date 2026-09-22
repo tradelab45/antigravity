@@ -232,6 +232,13 @@
   background-attachment: fixed;
 }
 
+/* slate-400 is 2.63:1 on a white card, below the 3:1 floor the contrast check
+   enforces, so secondary label text drops one step in light mode. On the dark
+   panels that also use it this reads slightly dimmer and still clears 5:1.
+   Declared before the scoped blocks below so their tokens keep priority. */
+:root:not(.dark) :where(.text-slate-400) { color: #64748b; }
+:root:not(.dark) :where(.text-zinc-400) { color: #71717a; }
+
 /* =========================================================================
    Semantic dark surfaces (.rr-surfaces)
    The Academy, Tax Centre, Screener and Portfolio were authored with light

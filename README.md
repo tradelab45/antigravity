@@ -95,6 +95,8 @@ Reference: [Upstox V3 market feed](https://upstox.com/developer/api-documentatio
 | `npm run build` | Builds the optimized frontend and production server. |
 | `npm start` | Runs the previously built production server. |
 | `npm run preview` | Previews the Vite frontend build. |
+| `npm run test:contrast` | Drives the built app in Chromium and fails if any view has unreadable text. Requires `npm run build` first. |
+| `npm run test:all` | Runs the lint, unit test, build and contrast steps in the order CI uses. |
 
 ### Production
 
@@ -189,11 +191,29 @@ Private browsing, clearing site data or changing browser profiles can remove bro
 Before distribution, run:
 
 ```bash
-npm run lint
-npm run build
+npm run test:all
 ```
 
+That is the same sequence CI runs: typecheck, unit tests, production build, then the contrast audit.
+
 Review at least 390px mobile, 768px tablet, 1024px laptop and 1440px desktop widths. Test keyboard navigation, reduced motion, high contrast, offline messaging, market timestamps and genuine new-user empty states.
+
+### Contrast audit
+
+`npm run test:contrast` loads every routed view in both light and dark mode, measures each text node against the colour actually painted behind it, and fails when anything falls below 3:1. It exists because the app themes several views by remapping utility classes rather than by writing a `dark:` variant on each element, which makes it easy to add markup that is invisible in one mode. A failure names the view, the text, the measured ratio and both colours:
+
+```
+watchlist (dark) has 2 text node(s) below 3:1.
+  1.10:1  "Your watchlist is empty"
+        colour rgb(241, 245, 249) on rgb(255, 255, 255)
+        text-xl sm:text-2xl font-black text-slate-900 mb-2
+```
+
+Usually the fix is a `dark:` variant on that element, or moving it off a shade that collides with its surface. Elements whose backdrop cannot be measured — a gradient with no solid colour under it — are skipped rather than reported, so the check never fails on a value it could not read.
+
+Add new routed views to `VIEWS` in `tests/visual/contrastAudit.ts` so they are covered too.
+
+Locally, Playwright needs a matching Chromium (`npx playwright install chromium`). To point it at a browser you already have, set `CHROMIUM_PATH`.
 
 ## Responsible use
 
