@@ -57,7 +57,7 @@ export const ToastNotifier: React.FC = () => {
           <X className="w-4 h-4" />
         </button>
       </div>
-      <div className="h-1 w-full bg-[#E2E8F0]">
+      <div className="h-1 w-full bg-slate-200">
         <div 
           className="h-full bg-slate-900 animate-[shrink_5s_linear_forwards]" 
           style={{ transformOrigin: 'left' }}

@@ -34,7 +34,7 @@ export interface ExpandableTabsProps {
 export const ExpandableTabs: React.FC<ExpandableTabsProps> = ({
   tabs,
   className,
-  activeColor = "text-emerald-600 dark:text-[#00f59b]",
+  activeColor = "text-emerald-600 dark:text-mint",
   onChange,
   defaultSelected = null,
   autoCollapseOnOutsideClick = true,
@@ -116,7 +116,7 @@ export const ExpandableTabs: React.FC<ExpandableTabsProps> = ({
             className={cn(
               "relative flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-black transition-all cursor-pointer select-none outline-none",
               isSelected
-                ? "bg-[#00f59b] text-slate-950 shadow-[0_0_15px_rgba(0,245,155,0.45)]"
+                ? "bg-mint text-slate-950 shadow-[0_0_15px_rgba(0,245,155,0.45)]"
                 : "text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white hover:bg-white/80 dark:hover:bg-white/10"
             )}
             layout
@@ -143,7 +143,7 @@ export const ExpandableTabs: React.FC<ExpandableTabsProps> = ({
                 "px-1.5 py-0.5 text-[9px] rounded-md font-mono font-bold",
                 isSelected
                   ? "bg-slate-950/25 text-slate-950"
-                  : "bg-slate-200 dark:bg-white/15 text-slate-800 dark:text-[#00f59b]"
+                  : "bg-slate-200 dark:bg-white/15 text-slate-800 dark:text-mint"
               )}>
                 {tab.badge}
               </span>

@@ -251,7 +251,7 @@ export const ThematicBasketsModal: React.FC<ThematicBasketsModalProps> = ({
                 <div className="flex items-center justify-between text-base">
                   <span>{basket.icon}</span>
                   <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-md ${
-                    isSelected ? 'bg-amber-400 text-slate-900' : 'bg-[#E2E8F0] text-zinc-800'
+                    isSelected ? 'bg-amber-400 text-slate-900' : 'bg-slate-200 text-zinc-800'
                   }`}>
                     {basket.tag}
                   </span>

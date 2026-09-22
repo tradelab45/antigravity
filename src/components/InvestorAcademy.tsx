@@ -29,6 +29,9 @@ import { formatINR } from '../utils/formatters';
 import { HistoricalEventsLab } from './HistoricalEventsLab';
 import { PortfolioConstructionLab } from './PortfolioConstructionLab';
 import { TaxCentre } from './TaxCentre';
+import { startPracticeTask } from './PracticeTaskBanner';
+import { getPracticeAction } from '../data/practiceActions';
+import type { AppTabType } from './Header';
 import { useAccessibility } from '../context/AccessibilityContext';
 
 const HINDI_LESSON_SUMMARIES: Record<string, string> = {
@@ -242,7 +245,12 @@ function renderInlineFormatting(text: string) {
   });
 }
 
-export const InvestorAcademy: React.FC = () => {
+interface InvestorAcademyProps {
+  /** Lets a finished lesson send the learner to the view its task belongs in. */
+  setActiveTab?: (tab: AppTabType) => void;
+}
+
+export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }) => {
   const { completedLessonIds, completeLesson, currentUser } = useSimulator();
   const { settings } = useAccessibility();
 
@@ -390,6 +398,7 @@ export const InvestorAcademy: React.FC = () => {
   };
 
   const isCurrentCompleted = completedLessonIds.includes(activeLesson.id);
+  const practiceAction = getPracticeAction(activeLesson.id);
 
   const handleOptionSelect = (option: LessonQuizOption) => {
     if (isQuizSubmitted) return;
@@ -694,14 +703,14 @@ export const InvestorAcademy: React.FC = () => {
 
                   {/* Relatable Analogy Box */}
                   {sec.exampleBox && (
-                    <div className="bg-indigo-600/10 border border-[#4F46E5]/30 rounded-2xl p-4 my-3">
+                    <div className="bg-indigo-600/10 border border-indigo-600/30 rounded-2xl p-4 my-3">
                       <div className="font-extrabold text-indigo-600 text-xs sm:text-sm mb-1">
                         {sec.exampleBox.title}
                       </div>
                       <p className="text-xs text-indigo-600 leading-relaxed">
                         {sec.exampleBox.description}
                       </p>
-                      <p className="text-xs text-indigo-600 font-bold mt-2 pt-2 border-t border-[#4F46E5]/30">
+                      <p className="text-xs text-indigo-600 font-bold mt-2 pt-2 border-t border-indigo-600/30">
                         💡 <strong>Real-World Takeaway:</strong> {sec.exampleBox.analogy}
                       </p>
                     </div>
@@ -807,6 +816,37 @@ export const InvestorAcademy: React.FC = () => {
                   </button>
                 )}
               </div>
+
+              {/* Hand the finished lesson over to the part of the app where it
+                  can actually be used. */}
+              {isCurrentCompleted && practiceAction && (
+                <div className="rounded-2xl border border-indigo-300 bg-indigo-50 p-4">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-indigo-700">
+                    Put it into practice
+                  </p>
+                  <p className="mt-1 text-sm font-black leading-snug text-indigo-950">{practiceAction.task}</p>
+                  <p className="mt-1 text-[11px] font-medium leading-relaxed text-indigo-900/80">
+                    {practiceAction.reason}
+                  </p>
+                  {setActiveTab ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        startPracticeTask(practiceAction, activeLesson.title.split(':')[0]);
+                        setActiveTab(practiceAction.tab);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className="mt-3 inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-black text-white hover:bg-indigo-700"
+                    >
+                      {practiceAction.label} <ArrowRight className="h-3.5 w-3.5" />
+                    </button>
+                  ) : (
+                    <p className="mt-3 text-[11px] font-bold text-indigo-800">
+                      Open the {practiceAction.tab} section to try this.
+                    </p>
+                  )}
+                </div>
+              )}
 
             </div>
 
@@ -1204,7 +1244,7 @@ export const InvestorAcademy: React.FC = () => {
                 placeholder="Search term (e.g. Bull, P/E, IPO, Demat)..."
                 value={jargonQuery}
                 onChange={(e) => setJargonQuery(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9.5 pr-8 py-2.5 text-xs text-slate-900 placeholder-[#64748B]/70 focus:outline-none focus:border-slate-900 focus:bg-white transition-all"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9.5 pr-8 py-2.5 text-xs text-slate-900 placeholder-slate-500/70 focus:outline-none focus:border-slate-900 focus:bg-white transition-all"
               />
               {jargonQuery && (
                 <button
@@ -1322,7 +1362,7 @@ export const InvestorAcademy: React.FC = () => {
                 Test your knowledge and earn Academy Points to level up!
               </p>
             </div>
-            <div className="bg-indigo-600/10 border border-[#4F46E5]/30 px-3 py-1.5 rounded-xl flex items-center gap-2">
+            <div className="bg-indigo-600/10 border border-indigo-600/30 px-3 py-1.5 rounded-xl flex items-center gap-2">
               <Award className="w-4 h-4 text-indigo-600" />
               <span className="text-xs font-bold text-indigo-600">+50 XP per question</span>
             </div>
@@ -1356,7 +1396,7 @@ export const InvestorAcademy: React.FC = () => {
                       
                       if (hasAnswered) {
                         if (idx === q.correctIndex) {
-                          btnStateClass = 'bg-indigo-600/10 border-[#4F46E5] text-indigo-600 font-bold'; // Correct
+                          btnStateClass = 'bg-indigo-600/10 border-indigo-600 text-indigo-600 font-bold'; // Correct
                         } else if (idx === selectedAnswerIdx) {
                           btnStateClass = 'bg-rose-50 border-rose-300 text-rose-700'; // Incorrect pick
                         } else {
@@ -1394,7 +1434,7 @@ export const InvestorAcademy: React.FC = () => {
                       animate={{ opacity: 1, y: 0 }}
                       className="bg-slate-900 text-white p-5 rounded-2xl border border-slate-900/80 mt-6"
                     >
-                      <h5 className="text-xs font-bold text-[#E2E8F0] uppercase tracking-wider mb-2">
+                      <h5 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-2">
                         {selectedAnswerIdx === q.correctIndex || isCompleted ? 'Awesome! Correct Answer.' : 'Not quite right.'}
                       </h5>
                       <p className="text-sm font-medium leading-relaxed text-white">

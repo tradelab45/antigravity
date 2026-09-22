@@ -286,7 +286,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
             </div>
 
             <p className="rr-small-note">
-              <ShieldCheck size={16} className="text-[#00f59b]" />
+              <ShieldCheck size={16} className="text-mint" />
               <span>₹10,00,000 Virtual Capital · Spotlights on Live Shares · 100% Educational Sandbox</span>
             </p>
           </div>
@@ -342,7 +342,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
               type="button"
               id="go-to-shares-btn"
               onClick={() => onEnter('LOGIN', 'screener')}
-              className="px-6 py-3.5 bg-gradient-to-r from-[#00f59b] to-[#10b981] hover:brightness-110 text-slate-950 font-black text-xs sm:text-sm rounded-2xl shadow-[0_0_20px_rgba(0,245,155,0.4)] flex items-center justify-center gap-2 cursor-pointer transition-all shrink-0 hover:scale-102"
+              className="px-6 py-3.5 bg-gradient-to-r from-mint to-emerald-500 hover:brightness-110 text-slate-950 font-black text-xs sm:text-sm rounded-2xl shadow-[0_0_20px_rgba(0,245,155,0.4)] flex items-center justify-center gap-2 cursor-pointer transition-all shrink-0 hover:scale-102"
             >
               <BarChart3 className="w-4 h-4 text-slate-950" />
               <span>Go to Shares (75+ Equities)</span>
@@ -369,12 +369,12 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                     customSize 
                     className={`w-full min-h-[210px] p-6 transition-all duration-300 relative overflow-hidden isolate ${
                       isSelected 
-                        ? 'ring-2 ring-[#00f59b] bg-gradient-to-br from-[#020503] via-[#08150c] to-[#010402] shadow-[0_0_35px_rgba(0,245,155,0.35),inset_0_1px_1.5px_rgba(255,255,255,0.25)] scale-[1.02]' 
-                        : 'bg-gradient-to-br from-[#020503] via-[#050f09] to-[#010302] border border-emerald-950/80 shadow-[inset_0_1px_1.5px_rgba(255,255,255,0.16),0_20px_45px_-12px_rgba(0,0,0,0.9)] hover:border-[#00f59b]/40 hover:shadow-[0_20px_40px_-10px_rgba(0,245,155,0.2)] hover:scale-[1.01]'
+                        ? 'ring-2 ring-mint bg-gradient-to-br from-[#020503] via-[#08150c] to-[#010402] shadow-[0_0_35px_rgba(0,245,155,0.35),inset_0_1px_1.5px_rgba(255,255,255,0.25)] scale-[1.02]' 
+                        : 'bg-gradient-to-br from-[#020503] via-[#050f09] to-[#010302] border border-emerald-950/80 shadow-[inset_0_1px_1.5px_rgba(255,255,255,0.16),0_20px_45px_-12px_rgba(0,0,0,0.9)] hover:border-mint/40 hover:shadow-[0_20px_40px_-10px_rgba(0,245,155,0.2)] hover:scale-[1.01]'
                     }`}
                   >
                     {/* Polymo Lighting Specular Top Bevel & Ambient Gradient Wash */}
-                    <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#00f59b]/60 to-transparent pointer-events-none z-10" />
+                    <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-mint/60 to-transparent pointer-events-none z-10" />
                     <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_120%_80%_at_50%_-20%,rgba(0,245,155,0.2),transparent_70%),radial-gradient(ellipse_at_100%_100%,rgba(16,185,129,0.12),transparent_50%)] -z-10" />
 
                     <div className="flex flex-col justify-between h-full relative z-[1]">
@@ -384,12 +384,12 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                           <div className="flex items-center gap-2">
                             <span className="font-mono font-bold text-lg text-white">{stock.symbol}</span>
                             {isSelected && (
-                              <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full bg-[#00f59b]/20 text-[#00f59b] border border-[#00f59b]/30">
+                              <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full bg-mint/20 text-mint border border-mint/30">
                                 ACTIVE
                               </span>
                             )}
                             {hasLivePrices && (
-                              <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-[#00f59b] border border-emerald-500/30">
+                              <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-mint border border-emerald-500/30">
                                 LIVE
                               </span>
                             )}
@@ -436,7 +436,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                               e.stopPropagation();
                               onEnter('LOGIN', 'screener');
                             }}
-                            className="px-2.5 py-1 rounded-lg bg-[#00f59b]/20 hover:bg-[#00f59b] text-[#00f59b] hover:text-slate-950 border border-[#00f59b]/40 font-sans font-bold text-[11px] transition-all flex items-center gap-1 cursor-pointer"
+                            className="px-2.5 py-1 rounded-lg bg-mint/20 hover:bg-mint text-mint hover:text-slate-950 border border-mint/40 font-sans font-bold text-[11px] transition-all flex items-center gap-1 cursor-pointer"
                             title="Open in live Dalal Street screener"
                           >
                             <span>Go to Shares</span>
@@ -472,7 +472,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
             <div className="rr-experiment-content">
               <div className="rr-experiment-top">
                 <div>
-                  <span className="rr-eyebrow flex items-center gap-2 text-[#00f59b]">
+                  <span className="rr-eyebrow flex items-center gap-2 text-mint">
                     <Layers size={14} />
                     LIVE SHARES ALLOCATION SIMULATOR
                   </span>
@@ -500,7 +500,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
 
                     <div className="text-right">
                       <span className="text-[10px] font-mono text-slate-400 uppercase">Purchasable Quantity</span>
-                      <div className="text-base font-bold text-[#00f59b] font-mono">
+                      <div className="text-base font-bold text-mint font-mono">
                         {sharesQuantity} Shares
                       </div>
                     </div>
@@ -533,7 +533,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                     onClick={() => setAllocation(pct)}
                     className={`text-xs px-2.5 py-1 rounded-md border transition-all ${
                       allocation === pct 
-                        ? 'bg-[#00f59b] text-slate-950 border-[#00f59b] font-bold shadow-md' 
+                        ? 'bg-mint text-slate-950 border-mint font-bold shadow-md' 
                         : 'border-slate-700 hover:bg-slate-800 text-slate-300'
                     }`}
                   >
@@ -545,7 +545,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
               {/* Position Size Slider */}
               <div className="rr-slider-heading">
                 <label htmlFor="rr-allocation">Capital allocation to {selectedStock.symbol}</label>
-                <strong className="text-base text-[#00f59b]">{allocation}% ({money(position)})</strong>
+                <strong className="text-base text-mint">{allocation}% ({money(position)})</strong>
               </div>
               <input 
                 id="rr-allocation" 
@@ -602,7 +602,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
 
               {/* Insight Callout */}
               <div className="rr-experiment-insight">
-                <ShieldCheck size={20} className={change < 0 ? 'text-rose-400' : 'text-[#00f59b]'} />
+                <ShieldCheck size={20} className={change < 0 ? 'text-rose-400' : 'text-mint'} />
                 <span>
                   {allocation > 35 
                     ? `Caution: ${allocation}% is concentrated in ${selectedStock.symbol}. If this share drops by ${Math.abs(move)}%, your total virtual net worth suffers a ${money(Math.abs(change))} hit.` 
@@ -651,7 +651,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                 <div>
                   <div className="flex justify-between items-center mb-6 font-mono text-xs">
                     <span className="font-bold text-slate-400">{item.n} / STAGE</span>
-                    <item.icon size={26} className="text-[#00f59b]" />
+                    <item.icon size={26} className="text-mint" />
                   </div>
                   <h3 className="text-2xl font-bold tracking-tight mb-2 text-white">{item.title}</h3>
                   <p className="text-sm text-slate-400 leading-relaxed">{item.text}</p>
@@ -694,7 +694,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                       onClick={() => setAnswer(0)}
                       className={`px-4 py-2.5 text-xs font-semibold rounded-lg border transition-all ${
                         answer === 0 
-                          ? 'bg-[#00f59b] text-slate-950 border-[#00f59b] font-bold shadow-md' 
+                          ? 'bg-mint text-slate-950 border-mint font-bold shadow-md' 
                           : 'border-slate-700 bg-slate-900/60 hover:bg-slate-800 text-slate-300'
                       }`}
                     >
@@ -706,7 +706,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                       onClick={() => setAnswer(1)}
                       className={`px-4 py-2.5 text-xs font-semibold rounded-lg border transition-all ${
                         answer === 1 
-                          ? 'bg-[#00f59b] text-slate-950 border-[#00f59b] font-bold shadow-md' 
+                          ? 'bg-mint text-slate-950 border-mint font-bold shadow-md' 
                           : 'border-slate-700 bg-slate-900/60 hover:bg-slate-800 text-slate-300'
                       }`}
                     >
@@ -722,7 +722,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                       <span className="text-slate-500 italic">Choose an answer above to reveal the insight.</span>
                     ) : answer === 1 ? (
                       <span className="flex items-start gap-2">
-                        <CheckCircle2 size={16} className="text-[#00f59b] shrink-0 mt-0.5" />
+                        <CheckCircle2 size={16} className="text-mint shrink-0 mt-0.5" />
                         <span><strong>Spot on!</strong> Company count alone is not diversification. If all five belong to one sector, a single regulatory shift strikes all five simultaneously. True diversification seeks uncorrelated revenue engines.</span>
                       </span>
                     ) : (
@@ -765,7 +765,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                 </span>
 
                 <div>
-                  <span className="text-xs font-mono uppercase tracking-widest text-[#00f59b]">
+                  <span className="text-xs font-mono uppercase tracking-widest text-mint">
                     MODULE {selected.number} OF 03
                   </span>
                   <h3 className="text-3xl font-bold tracking-tight mt-1 mb-3 text-white">

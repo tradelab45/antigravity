@@ -372,14 +372,14 @@ export const HomeDashboard: React.FC<{ setActiveTab: (tab: AppTabType) => void }
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
           <div>
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#00f59b] shadow-[0_0_8px_#00f59b] animate-pulse" />
-              <p className="text-[10px] font-mono font-bold uppercase tracking-widest text-[#00f59b]">
+              <span className="w-2.5 h-2.5 rounded-full bg-mint shadow-[0_0_8px_#00f59b] animate-pulse" />
+              <p className="text-[10px] font-mono font-bold uppercase tracking-widest text-mint">
                 Dalal Street 3D Arena · Live Spatial Simulation
               </p>
             </div>
             <h2 className="mt-1 text-lg sm:text-xl font-black tracking-tight text-white flex items-center gap-2">
               <span>Interactive Candlestick Breakout</span>
-              <span className="text-xs text-[#00f59b] bg-[#00f59b]/15 px-2 py-0.5 rounded-full border border-[#00f59b]/30 font-mono">
+              <span className="text-xs text-mint bg-mint/15 px-2 py-0.5 rounded-full border border-mint/30 font-mono">
                 MOVE IT 3D
               </span>
             </h2>
@@ -391,7 +391,7 @@ export const HomeDashboard: React.FC<{ setActiveTab: (tab: AppTabType) => void }
           <button
             type="button"
             onClick={() => setActiveTab('screener')}
-            className="self-start sm:self-center px-4 py-2 rounded-xl bg-[#00f59b] hover:bg-[#00f59b]/90 text-slate-950 font-black text-xs transition-all shadow-[0_0_15px_rgba(0,245,155,0.3)] flex items-center gap-1.5 cursor-pointer shrink-0"
+            className="self-start sm:self-center px-4 py-2 rounded-xl bg-mint hover:bg-mint/90 text-slate-950 font-black text-xs transition-all shadow-[0_0_15px_rgba(0,245,155,0.3)] flex items-center gap-1.5 cursor-pointer shrink-0"
           >
             <span>Go to Screener (75+ Equities)</span>
             <ArrowRight className="w-3.5 h-3.5" />

@@ -19,6 +19,10 @@
      default Tailwind slate ramp, so the utilities generated nothing. */
   --color-slate-750: #293548;
   --color-slate-850: #172033;
+  /* The terminal accent, previously repeated as a raw hex in ~320 class names.
+     As a theme colour it gains the usual utilities and opacity modifiers. */
+  --color-mint: #00f59b;
+  --color-mint-deep: #00dc8b;
 }
 :root { --rr-ui-primary:#122019; --rr-ui-primary-foreground:#f5f4e9; --rr-ui-secondary:#d3f780; --rr-ui-background:#f5f4e9; --rr-ui-input:#87947b; --rr-ui-ring:#618334; }
 :root.dark { --rr-ui-primary:#d3f780; --rr-ui-primary-foreground:#122019; --rr-ui-secondary:#324633; --rr-ui-background:#122019; --rr-ui-input:#78906a; --rr-ui-ring:#d3f780; }
@@ -284,22 +288,34 @@
 .dark .rr-surfaces :where(.divide-slate-100 > * + *),
 .dark .rr-surfaces :where(.divide-slate-200 > * + *) { border-color: var(--rr-border); }
 
-/* An element that paints its own arbitrary background (bg-[#...]) keeps its
-   original text colour: the remap cannot see that background, so lightening
-   the text would leave it unreadable on a bright chip. */
-.dark .rr-surfaces :where(.text-slate-950, .text-slate-900):not([class*="dark:text-"]):not([class*="bg-["]) { color: var(--rr-text); }
-.dark .rr-surfaces :where(.text-slate-800):not([class*="dark:text-"]):not([class*="bg-["]) { color: #e2e8f0; }
-.dark .rr-surfaces :where(.text-slate-700, .text-slate-600, .text-zinc-700):not([class*="dark:text-"]):not([class*="bg-["]) { color: var(--rr-text-muted); }
-.dark .rr-surfaces :where(.text-slate-500, .text-zinc-500):not([class*="dark:text-"]):not([class*="bg-["]) { color: var(--rr-text-subtle); }
-.dark .rr-surfaces :where(.text-slate-400, .text-zinc-400):not([class*="dark:text-"]):not([class*="bg-["]) { color: #7c8ba1; }
+/* Text is only lightened when it sits directly on the page or on one of the
+   surfaces this scope darkens. An element painting any other background is a
+   coloured chip or button, and lightening its text would leave it unreadable
+   — which is what happened when the mint accent became a named token. */
+.dark .rr-surfaces :where(.text-slate-950, .text-slate-900):not([class*="dark:text-"]):not([class*="bg-"]),
+.dark .rr-surfaces :where(.bg-white, .bg-slate-50, .bg-slate-100, .bg-slate-200, .bg-gray-50, .bg-indigo-50, .bg-indigo-100, .bg-emerald-50, .bg-emerald-100, .bg-rose-50, .bg-rose-100, .bg-amber-50, .bg-amber-100, .bg-violet-50, .bg-violet-100, .bg-blue-50, .bg-blue-100):where(.text-slate-950, .text-slate-900):not([class*="dark:text-"]) { color: var(--rr-text); }
+.dark .rr-surfaces :where(.text-slate-800):not([class*="dark:text-"]):not([class*="bg-"]),
+.dark .rr-surfaces :where(.bg-white, .bg-slate-50, .bg-slate-100, .bg-slate-200, .bg-gray-50, .bg-indigo-50, .bg-indigo-100, .bg-emerald-50, .bg-emerald-100, .bg-rose-50, .bg-rose-100, .bg-amber-50, .bg-amber-100, .bg-violet-50, .bg-violet-100, .bg-blue-50, .bg-blue-100):where(.text-slate-800):not([class*="dark:text-"]) { color: #e2e8f0; }
+.dark .rr-surfaces :where(.text-slate-700, .text-slate-600, .text-zinc-700):not([class*="dark:text-"]):not([class*="bg-"]),
+.dark .rr-surfaces :where(.bg-white, .bg-slate-50, .bg-slate-100, .bg-slate-200, .bg-gray-50, .bg-indigo-50, .bg-indigo-100, .bg-emerald-50, .bg-emerald-100, .bg-rose-50, .bg-rose-100, .bg-amber-50, .bg-amber-100, .bg-violet-50, .bg-violet-100, .bg-blue-50, .bg-blue-100):where(.text-slate-700, .text-slate-600, .text-zinc-700):not([class*="dark:text-"]) { color: var(--rr-text-muted); }
+.dark .rr-surfaces :where(.text-slate-500, .text-zinc-500):not([class*="dark:text-"]):not([class*="bg-"]),
+.dark .rr-surfaces :where(.bg-white, .bg-slate-50, .bg-slate-100, .bg-slate-200, .bg-gray-50, .bg-indigo-50, .bg-indigo-100, .bg-emerald-50, .bg-emerald-100, .bg-rose-50, .bg-rose-100, .bg-amber-50, .bg-amber-100, .bg-violet-50, .bg-violet-100, .bg-blue-50, .bg-blue-100):where(.text-slate-500, .text-zinc-500):not([class*="dark:text-"]) { color: var(--rr-text-subtle); }
+.dark .rr-surfaces :where(.text-slate-400, .text-zinc-400):not([class*="dark:text-"]):not([class*="bg-"]),
+.dark .rr-surfaces :where(.bg-white, .bg-slate-50, .bg-slate-100, .bg-slate-200, .bg-gray-50, .bg-indigo-50, .bg-indigo-100, .bg-emerald-50, .bg-emerald-100, .bg-rose-50, .bg-rose-100, .bg-amber-50, .bg-amber-100, .bg-violet-50, .bg-violet-100, .bg-blue-50, .bg-blue-100):where(.text-slate-400, .text-zinc-400):not([class*="dark:text-"]) { color: #7c8ba1; }
 /* The mid shades sit on the tinted -50 chips that are darkened above, so they
    have to lighten with them. */
-.dark .rr-surfaces :where(.text-indigo-950, .text-indigo-900, .text-indigo-800, .text-indigo-700, .text-indigo-600):not([class*="dark:text-"]):not([class*="bg-["]) { color: #a5b4fc; }
-.dark .rr-surfaces :where(.text-violet-900, .text-violet-800, .text-violet-700):not([class*="dark:text-"]):not([class*="bg-["]) { color: #c4b5fd; }
-.dark .rr-surfaces :where(.text-emerald-950, .text-emerald-900, .text-emerald-800, .text-emerald-700):not([class*="dark:text-"]):not([class*="bg-["]) { color: #6ee7b7; }
-.dark .rr-surfaces :where(.text-rose-950, .text-rose-900, .text-rose-800, .text-rose-700):not([class*="dark:text-"]):not([class*="bg-["]) { color: #fda4af; }
-.dark .rr-surfaces :where(.text-amber-950, .text-amber-900, .text-amber-800, .text-amber-700):not([class*="dark:text-"]):not([class*="bg-["]) { color: #fcd34d; }
-.dark .rr-surfaces :where(.text-blue-900, .text-blue-800, .text-blue-700):not([class*="dark:text-"]):not([class*="bg-["]) { color: #93c5fd; }
+.dark .rr-surfaces :where(.text-indigo-950, .text-indigo-900, .text-indigo-800, .text-indigo-700, .text-indigo-600):not([class*="dark:text-"]):not([class*="bg-"]),
+.dark .rr-surfaces :where(.bg-white, .bg-slate-50, .bg-slate-100, .bg-slate-200, .bg-gray-50, .bg-indigo-50, .bg-indigo-100, .bg-emerald-50, .bg-emerald-100, .bg-rose-50, .bg-rose-100, .bg-amber-50, .bg-amber-100, .bg-violet-50, .bg-violet-100, .bg-blue-50, .bg-blue-100):where(.text-indigo-950, .text-indigo-900, .text-indigo-800, .text-indigo-700, .text-indigo-600):not([class*="dark:text-"]) { color: #a5b4fc; }
+.dark .rr-surfaces :where(.text-violet-900, .text-violet-800, .text-violet-700):not([class*="dark:text-"]):not([class*="bg-"]),
+.dark .rr-surfaces :where(.bg-white, .bg-slate-50, .bg-slate-100, .bg-slate-200, .bg-gray-50, .bg-indigo-50, .bg-indigo-100, .bg-emerald-50, .bg-emerald-100, .bg-rose-50, .bg-rose-100, .bg-amber-50, .bg-amber-100, .bg-violet-50, .bg-violet-100, .bg-blue-50, .bg-blue-100):where(.text-violet-900, .text-violet-800, .text-violet-700):not([class*="dark:text-"]) { color: #c4b5fd; }
+.dark .rr-surfaces :where(.text-emerald-950, .text-emerald-900, .text-emerald-800, .text-emerald-700):not([class*="dark:text-"]):not([class*="bg-"]),
+.dark .rr-surfaces :where(.bg-white, .bg-slate-50, .bg-slate-100, .bg-slate-200, .bg-gray-50, .bg-indigo-50, .bg-indigo-100, .bg-emerald-50, .bg-emerald-100, .bg-rose-50, .bg-rose-100, .bg-amber-50, .bg-amber-100, .bg-violet-50, .bg-violet-100, .bg-blue-50, .bg-blue-100):where(.text-emerald-950, .text-emerald-900, .text-emerald-800, .text-emerald-700):not([class*="dark:text-"]) { color: #6ee7b7; }
+.dark .rr-surfaces :where(.text-rose-950, .text-rose-900, .text-rose-800, .text-rose-700):not([class*="dark:text-"]):not([class*="bg-"]),
+.dark .rr-surfaces :where(.bg-white, .bg-slate-50, .bg-slate-100, .bg-slate-200, .bg-gray-50, .bg-indigo-50, .bg-indigo-100, .bg-emerald-50, .bg-emerald-100, .bg-rose-50, .bg-rose-100, .bg-amber-50, .bg-amber-100, .bg-violet-50, .bg-violet-100, .bg-blue-50, .bg-blue-100):where(.text-rose-950, .text-rose-900, .text-rose-800, .text-rose-700):not([class*="dark:text-"]) { color: #fda4af; }
+.dark .rr-surfaces :where(.text-amber-950, .text-amber-900, .text-amber-800, .text-amber-700):not([class*="dark:text-"]):not([class*="bg-"]),
+.dark .rr-surfaces :where(.bg-white, .bg-slate-50, .bg-slate-100, .bg-slate-200, .bg-gray-50, .bg-indigo-50, .bg-indigo-100, .bg-emerald-50, .bg-emerald-100, .bg-rose-50, .bg-rose-100, .bg-amber-50, .bg-amber-100, .bg-violet-50, .bg-violet-100, .bg-blue-50, .bg-blue-100):where(.text-amber-950, .text-amber-900, .text-amber-800, .text-amber-700):not([class*="dark:text-"]) { color: #fcd34d; }
+.dark .rr-surfaces :where(.text-blue-900, .text-blue-800, .text-blue-700):not([class*="dark:text-"]):not([class*="bg-"]),
+.dark .rr-surfaces :where(.bg-white, .bg-slate-50, .bg-slate-100, .bg-slate-200, .bg-gray-50, .bg-indigo-50, .bg-indigo-100, .bg-emerald-50, .bg-emerald-100, .bg-rose-50, .bg-rose-100, .bg-amber-50, .bg-amber-100, .bg-violet-50, .bg-violet-100, .bg-blue-50, .bg-blue-100):where(.text-blue-900, .text-blue-800, .text-blue-700):not([class*="dark:text-"]) { color: #93c5fd; }
 
 /* Form controls follow the same surfaces. */
 .dark .rr-surfaces :where(input, textarea, select):not([class*="dark:bg-"]) { color: var(--rr-text); }
@@ -394,8 +410,8 @@
 .rr-terminal-card :where(.border-white\/10) { border-color: var(--tc-line); }
 .rr-terminal-card :where(.border-white\/15) { border-color: var(--tc-line-strong); }
 .rr-terminal-card :where(.bg-black\/40) { background-color: var(--tc-well); }
-.rr-terminal-card :where(.text-\[\#00f59b\]) { color: var(--tc-accent); }
-.rr-terminal-card :where(.group:hover .group-hover\:text-\[\#00f59b\]) { color: var(--tc-accent); }
+.rr-terminal-card :where(.text-mint) { color: var(--tc-accent); }
+.rr-terminal-card :where(.group:hover .group-hover\:text-mint) { color: var(--tc-accent); }
 
 /* Recharts sets grid and axis colours as SVG presentation attributes, which a
    CSS property overrides, so the charts follow the card tokens without

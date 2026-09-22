@@ -141,11 +141,11 @@ export function CommandPalette({ stocks, onNavigate, onSelectStock }: CommandPal
           {/* Liquid Glass Command Modal */}
           <div className="relative w-full max-w-2xl overflow-hidden rounded-3xl border border-slate-200/90 dark:border-white/15 bg-white/95 dark:bg-[#060e0a]/95 backdrop-blur-2xl shadow-2xl shadow-black/40 text-left">
             {/* Liquid Glass Bevel Sheen along top edge */}
-            <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#00f59b]/70 to-transparent pointer-events-none" />
+            <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-mint/70 to-transparent pointer-events-none" />
 
             {/* Search Input Field with Glowing Icon */}
             <div className="flex items-center gap-3 border-b border-slate-200/80 dark:border-white/10 p-4">
-              <Search className="h-5 w-5 text-emerald-600 dark:text-[#00f59b] shrink-0" />
+              <Search className="h-5 w-5 text-emerald-600 dark:text-mint shrink-0" />
               <input 
                 ref={inputRef} 
                 value={query} 
@@ -182,7 +182,7 @@ export function CommandPalette({ stocks, onNavigate, onSelectStock }: CommandPal
                     onClick={() => { onSelectStock(stock); close(); }}
                     className="px-2.5 py-1 rounded-xl bg-white dark:bg-white/5 hover:bg-emerald-500/10 dark:hover:bg-emerald-500/20 border border-slate-200/80 dark:border-white/10 text-slate-800 dark:text-slate-200 text-xs font-black transition-all shrink-0 cursor-pointer flex items-center gap-1.5 group"
                   >
-                    <span className="group-hover:text-emerald-600 dark:group-hover:text-[#00f59b]">{stock.symbol}</span>
+                    <span className="group-hover:text-emerald-600 dark:group-hover:text-mint">{stock.symbol}</span>
                     <span className="text-[10px] font-mono text-slate-400">₹{stock.price.toFixed(0)}</span>
                   </button>
                 ))}
@@ -196,7 +196,7 @@ export function CommandPalette({ stocks, onNavigate, onSelectStock }: CommandPal
                 <div>
                   <div className="px-2 pb-1.5 text-[10px] font-mono font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center justify-between">
                     <span>Dalal Street Companies ({filteredStocks.length})</span>
-                    <span className="text-emerald-600 dark:text-[#00f59b]">NSE Live Feed</span>
+                    <span className="text-emerald-600 dark:text-mint">NSE Live Feed</span>
                   </div>
                   <div className="space-y-1">
                     {filteredStocks.map((stock) => {
@@ -214,7 +214,7 @@ export function CommandPalette({ stocks, onNavigate, onSelectStock }: CommandPal
                             </div>
                             <div className="min-w-0">
                               <div className="text-xs sm:text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5 truncate">
-                                <span className="group-hover:text-emerald-600 dark:group-hover:text-[#00f59b] transition-colors">
+                                <span className="group-hover:text-emerald-600 dark:group-hover:text-mint transition-colors">
                                   {stock.symbol}
                                 </span>
                                 <span className="text-xs font-medium text-slate-400 dark:text-slate-400 truncate">
@@ -236,7 +236,7 @@ export function CommandPalette({ stocks, onNavigate, onSelectStock }: CommandPal
                             <div className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">
                               ₹{stock.price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </div>
-                            <div className={`text-[11px] font-bold flex items-center justify-end gap-0.5 ${isUp ? 'text-emerald-600 dark:text-[#00f59b]' : 'text-rose-600'}`}>
+                            <div className={`text-[11px] font-bold flex items-center justify-end gap-0.5 ${isUp ? 'text-emerald-600 dark:text-mint' : 'text-rose-600'}`}>
                               {isUp ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
                               <span>{isUp ? '+' : ''}{stock.changePercent?.toFixed(2)}%</span>
                             </div>
@@ -265,7 +265,7 @@ export function CommandPalette({ stocks, onNavigate, onSelectStock }: CommandPal
                           className="flex w-full items-center justify-between gap-3 rounded-2xl p-2.5 text-left hover:bg-slate-100 dark:hover:bg-white/10 focus:bg-slate-100 dark:focus:bg-white/10 focus:outline-none transition-colors cursor-pointer group"
                         >
                           <div className="flex items-center gap-3 min-w-0">
-                            <span className="rounded-xl bg-slate-100 dark:bg-white/10 p-2 text-slate-700 dark:text-slate-300 group-hover:text-emerald-600 dark:group-hover:text-[#00f59b] group-hover:scale-105 transition-all shrink-0">
+                            <span className="rounded-xl bg-slate-100 dark:bg-white/10 p-2 text-slate-700 dark:text-slate-300 group-hover:text-emerald-600 dark:group-hover:text-mint group-hover:scale-105 transition-all shrink-0">
                               <Icon className="h-4 w-4" />
                             </span>
                             <div className="min-w-0">
@@ -308,7 +308,7 @@ export function CommandPalette({ stocks, onNavigate, onSelectStock }: CommandPal
                 <span><kbd className="px-1 py-0.5 rounded bg-slate-200 dark:bg-white/10 font-mono text-[9px]">↵</kbd> to select</span>
                 <span><kbd className="px-1 py-0.5 rounded bg-slate-200 dark:bg-white/10 font-mono text-[9px]">esc</kbd> to close</span>
               </div>
-              <span className="font-mono text-[10px] text-emerald-600 dark:text-[#00f59b] font-bold">
+              <span className="font-mono text-[10px] text-emerald-600 dark:text-mint font-bold">
                 RupeeRookie Dalal Street Search
               </span>
             </div>

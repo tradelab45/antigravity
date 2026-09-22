@@ -94,7 +94,7 @@ export const ThumbnailCarousel: React.FC<ThumbnailCarouselProps> = ({
       {/* Main Display Stage with Polymo Specular Card Treatment */}
       <div className="relative w-full overflow-hidden rounded-3xl border border-slate-200/90 dark:border-white/15 bg-white/95 dark:bg-[#071018]/95 backdrop-blur-2xl shadow-xl shadow-slate-900/5 dark:shadow-black/60 transition-all p-6 sm:p-7 min-h-[220px] flex flex-col justify-between">
         {/* Specular Bevel Sheen */}
-        <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#00f59b]/60 to-transparent pointer-events-none" />
+        <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-mint/60 to-transparent pointer-events-none" />
 
         <AnimatePresence mode="wait" custom={direction}>
           <motion.div
@@ -110,7 +110,7 @@ export const ThumbnailCarousel: React.FC<ThumbnailCarouselProps> = ({
             <div className="flex-1 space-y-3">
               <div className="flex items-center gap-2.5 flex-wrap">
                 {currentItem.tag && (
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-700 dark:text-[#00f59b] border border-emerald-500/30">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-700 dark:text-mint border border-emerald-500/30">
                     {currentItem.tag}
                   </span>
                 )}
@@ -171,7 +171,7 @@ export const ThumbnailCarousel: React.FC<ThumbnailCarouselProps> = ({
                     <span className={cn(
                       "font-mono text-sm sm:text-base font-black flex items-center gap-1",
                       st.isPositive !== undefined
-                        ? st.isPositive ? "text-emerald-600 dark:text-[#00f59b]" : "text-rose-600"
+                        ? st.isPositive ? "text-emerald-600 dark:text-mint" : "text-rose-600"
                         : "text-slate-900 dark:text-white"
                     )}>
                       {st.isPositive !== undefined && (
@@ -249,7 +249,7 @@ export const ThumbnailCarousel: React.FC<ThumbnailCarouselProps> = ({
               className={cn(
                 "p-3 rounded-2xl text-left border transition-all cursor-pointer relative overflow-hidden flex flex-col justify-between",
                 isActive
-                  ? "border-indigo-500 dark:border-[#00f59b] bg-indigo-50/70 dark:bg-[#00f59b]/10 shadow-md ring-1 ring-indigo-500/50 dark:ring-[#00f59b]/40"
+                  ? "border-indigo-500 dark:border-mint bg-indigo-50/70 dark:bg-mint/10 shadow-md ring-1 ring-indigo-500/50 dark:ring-mint/40"
                   : "border-slate-200/80 dark:border-white/10 bg-white/70 dark:bg-white/5 hover:bg-slate-50 dark:hover:bg-white/10"
               )}
             >
@@ -266,7 +266,7 @@ export const ThumbnailCarousel: React.FC<ThumbnailCarouselProps> = ({
               <div className="mt-2">
                 <div className={cn(
                   "text-xs font-black truncate",
-                  isActive ? "text-indigo-900 dark:text-[#00f59b]" : "text-slate-900 dark:text-white"
+                  isActive ? "text-indigo-900 dark:text-mint" : "text-slate-900 dark:text-white"
                 )}>
                   {item.title}
                 </div>

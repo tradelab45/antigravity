@@ -297,11 +297,11 @@ export const SpatialCandlestickChart: React.FC<SpatialCandlestickChartProps> = (
             >
               {/* Outer Radiant Glow Rings */}
               <div
-                className="absolute -inset-4 rounded-full border border-[#00f59b]/30 animate-pulse pointer-events-none"
+                className="absolute -inset-4 rounded-full border border-mint/30 animate-pulse pointer-events-none"
                 style={{ transform: "translateZ(-10px)" }}
               />
               <div
-                className="absolute -inset-8 rounded-full border border-[#00f59b]/15 pointer-events-none"
+                className="absolute -inset-8 rounded-full border border-mint/15 pointer-events-none"
                 style={{ transform: "translateZ(-20px)" }}
               />
 
@@ -347,7 +347,7 @@ export const SpatialCandlestickChart: React.FC<SpatialCandlestickChartProps> = (
                 >
                   ₹
                 </span>
-                <span className="text-[8px] sm:text-[9px] font-mono tracking-widest text-[#a7f3d0] font-bold mt-1 uppercase">
+                <span className="text-[8px] sm:text-[9px] font-mono tracking-widest text-emerald-200 font-bold mt-1 uppercase">
                   Dalal Street
                 </span>
                 <span className="text-[7px] font-mono text-emerald-200/70 tracking-tighter">
@@ -391,16 +391,16 @@ export const SpatialCandlestickChart: React.FC<SpatialCandlestickChartProps> = (
             <motion.div
               animate={{ y: [0, -6, 0] }}
               transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-              className="absolute -top-3 left-4 sm:left-8 px-3 py-2 rounded-xl bg-[#09140e]/90 border border-[#00f59b]/30 backdrop-blur-md shadow-[0_8px_20px_rgba(0,0,0,0.4)] z-30 pointer-events-none"
+              className="absolute -top-3 left-4 sm:left-8 px-3 py-2 rounded-xl bg-[#09140e]/90 border border-mint/30 backdrop-blur-md shadow-[0_8px_20px_rgba(0,0,0,0.4)] z-30 pointer-events-none"
               style={{ transform: "translateZ(75px)" }}
             >
-              <div className="flex items-center gap-1.5 text-[#00f59b] text-[10px] font-mono font-bold tracking-wide">
+              <div className="flex items-center gap-1.5 text-mint text-[10px] font-mono font-bold tracking-wide">
                 <Activity size={12} className="animate-pulse" />
                 <span>NIFTY 50 BREAKOUT</span>
               </div>
               <div className="text-sm sm:text-base font-extrabold text-white font-mono mt-0.5">
                 ₹{livePrice.toLocaleString("en-IN")}
-                <span className="text-xs text-[#00f59b] font-bold ml-1.5">
+                <span className="text-xs text-mint font-bold ml-1.5">
                   ▲ +{liveChange}%
                 </span>
               </div>
@@ -414,10 +414,10 @@ export const SpatialCandlestickChart: React.FC<SpatialCandlestickChartProps> = (
               style={{ transform: "translateZ(85px)" }}
             >
               <div className="flex items-center gap-1.5 text-slate-400 text-[10px] font-mono font-bold tracking-wide">
-                <ShieldCheck size={12} className="text-[#00f59b]" />
+                <ShieldCheck size={12} className="text-mint" />
                 <span>PRACTICE PORTFOLIO</span>
               </div>
-              <div className="text-sm sm:text-base font-extrabold text-[#00f59b] font-mono mt-0.5">
+              <div className="text-sm sm:text-base font-extrabold text-mint font-mono mt-0.5">
                 ₹10,00,000
                 <span className="text-[10px] text-slate-400 font-normal ml-1">
                   100% Risk-Free
@@ -432,7 +432,7 @@ export const SpatialCandlestickChart: React.FC<SpatialCandlestickChartProps> = (
       {showRupee && (
         <div className="absolute bottom-0 inset-x-0 flex items-center justify-center pointer-events-none">
           <span className="text-[10px] font-mono text-slate-500/80 tracking-wider uppercase flex items-center gap-1 bg-black/40 px-2.5 py-0.5 rounded-full border border-white/5">
-            <Sparkles size={11} className="text-[#00f59b]" />
+            <Sparkles size={11} className="text-mint" />
             Click coin to flip · Hover to orbit in 3D
           </span>
         </div>

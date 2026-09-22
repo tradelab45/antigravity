@@ -118,7 +118,7 @@ export const IndianStockApiModal: React.FC<IndianStockApiModalProps> = ({
                 <span className="bg-emerald-100 text-emerald-800 text-[11px] font-extrabold px-2.5 py-0.5 rounded-full border border-emerald-300">
                   LIVE INTEGRATION
                 </span>
-                <span className="bg-[#E2E8F0]/50 text-slate-900 text-[10px] font-mono font-bold px-2 py-0.5 rounded-md">
+                <span className="bg-slate-200/50 text-slate-900 text-[10px] font-mono font-bold px-2 py-0.5 rounded-md">
                   by @0xramm
                 </span>
               </div>

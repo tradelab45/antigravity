@@ -304,7 +304,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
             className="relative w-11 h-11 sm:w-12 sm:h-12 rounded-2xl p-[1.5px] overflow-hidden shrink-0 shadow-[0_8px_25px_rgba(99,102,241,0.35),0_0_15px_rgba(0,245,155,0.2)] group"
           >
             {/* Liquid Glass Dynamic Iridescent Perimeter Glow */}
-            <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500 via-indigo-500 to-[#00f59b] rounded-2xl animate-[spin_6s_linear_infinite] opacity-80 blur-[2px]" />
+            <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500 via-indigo-500 to-mint rounded-2xl animate-[spin_6s_linear_infinite] opacity-80 blur-[2px]" />
 
             {/* Frosted Glass Body */}
             <div className="relative w-full h-full rounded-[14px] bg-slate-900/85 backdrop-blur-xl flex items-center justify-center overflow-hidden border border-white/30 shadow-[inset_0_1px_2px_rgba(255,255,255,0.5),inset_0_-1px_2px_rgba(0,0,0,0.6)]">
@@ -324,7 +324,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
                   transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
                   className="absolute -top-1 -right-2"
                 >
-                  <TrendingUp className="w-4 h-4 text-[#00f59b] stroke-[3.5] drop-shadow-[0_0_6px_#00f59b]" />
+                  <TrendingUp className="w-4 h-4 text-mint stroke-[3.5] drop-shadow-[0_0_6px_#00f59b]" />
                 </motion.div>
               </div>
             </div>
@@ -947,7 +947,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
               aria-label="Open Dalal Street search dialog"
             >
               <div className="flex items-center gap-2">
-                <Search className="w-3.5 h-3.5 text-emerald-600 dark:text-[#00f59b] group-hover:scale-110 transition-transform" />
+                <Search className="w-3.5 h-3.5 text-emerald-600 dark:text-mint group-hover:scale-110 transition-transform" />
                 <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Search shares...</span>
               </div>
               <kbd className="ml-2.5 inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-mono font-black text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/10 border border-slate-200/60 dark:border-white/10 rounded-md">

@@ -101,191 +101,6 @@ const describeSharpe = (ratio: number): string => {
 const REVIEW_TAGS = ['FOMO', 'Earnings', 'Breakout', 'Value thesis', 'Revenge trade', 'Long-term'];
 const EMOTIONS = ['Calm', 'Confident', 'Uncertain', 'Excited', 'Fearful', 'Frustrated'];
 
-// Curated realistic past trades to seed trade log history
-export const SAMPLE_PAST_TRADES: TradeHistoryTransaction[] = [
-  {
-    id: 'th-seed-1',
-    orderId: 'ORD-8921',
-    symbol: 'TATAMOTORS',
-    stockName: 'Tata Motors Ltd.',
-    type: 'SELL',
-    productType: 'CNC',
-    orderType: 'LIMIT',
-    quantity: 120,
-    price: 895.50,
-    totalAmount: 107460.00,
-    buyAvgPrice: 852.00,
-    realizedPnL: 5220.00,
-    realizedPnLPercent: 5.11,
-    rMultiple: 2.4,
-    exitReason: 'TARGET_HIT',
-    charges: 112.50,
-    holdTime: '3 Days',
-    status: 'EXECUTED',
-    timestamp: 'Today, 02:45 PM',
-    executionTime: '02:45:12 PM IST',
-    isClosedPosition: true,
-    setup: 'Opening Range Breakout',
-    notes: 'Exited at upper resistance band near all-time high.',
-    aiFeedback: 'Flawless target execution. Position was sized within 8% portfolio cap and trailing stop was protected.',
-    executionScore: 94,
-    riskScore: 96
-  },
-  {
-    id: 'th-seed-2',
-    orderId: 'ORD-8919',
-    symbol: 'TATAMOTORS',
-    stockName: 'Tata Motors Ltd.',
-    type: 'BUY',
-    productType: 'CNC',
-    orderType: 'MARKET',
-    quantity: 120,
-    price: 852.00,
-    totalAmount: 102240.00,
-    status: 'EXECUTED',
-    timestamp: '3 Days ago, 10:15 AM',
-    executionTime: '10:15:30 AM IST',
-    isClosedPosition: false,
-    setup: 'Opening Range Breakout',
-    notes: 'Long entry on confirmed high-volume 15-min candle breakout.',
-    aiFeedback: 'Strong entry criteria satisfied. Stop-loss was placed precisely under previous swing low.',
-    executionScore: 91,
-    riskScore: 92
-  },
-  {
-    id: 'th-seed-3',
-    orderId: 'ORD-8874',
-    symbol: 'RELIANCE',
-    stockName: 'Reliance Industries Ltd.',
-    type: 'SELL',
-    productType: 'MIS',
-    orderType: 'LIMIT',
-    quantity: 60,
-    price: 1416.20,
-    totalAmount: 84972.00,
-    buyAvgPrice: 1432.00,
-    realizedPnL: -948.00,
-    realizedPnLPercent: -1.10,
-    rMultiple: -0.9,
-    exitReason: 'STOP_LOSS_HIT',
-    charges: 41.20,
-    holdTime: '45 Mins (Intraday)',
-    status: 'EXECUTED',
-    timestamp: 'Yesterday, 01:20 PM',
-    executionTime: '01:20:05 PM IST',
-    isClosedPosition: true,
-    setup: 'VWAP Pullback',
-    notes: 'Stop loss triggered when price dipped below morning VWAP anchor.',
-    aiFeedback: 'Disciplined exit! You took a small, controlled loss rather than letting an intraday position bleed.',
-    executionScore: 82,
-    riskScore: 95
-  },
-  {
-    id: 'th-seed-4',
-    orderId: 'ORD-8869',
-    symbol: 'RELIANCE',
-    stockName: 'Reliance Industries Ltd.',
-    type: 'BUY',
-    productType: 'MIS',
-    orderType: 'MARKET',
-    quantity: 60,
-    price: 1432.00,
-    totalAmount: 85920.00,
-    status: 'EXECUTED',
-    timestamp: 'Yesterday, 12:35 PM',
-    executionTime: '12:35:18 PM IST',
-    isClosedPosition: false,
-    setup: 'VWAP Pullback',
-    notes: 'Intraday long with 5x leverage on pullback to support.',
-    aiFeedback: 'Entry was executed with acceptable slippage, though RSI was slightly stretched.',
-    executionScore: 78,
-    riskScore: 84
-  },
-  {
-    id: 'th-seed-5',
-    orderId: 'ORD-8812',
-    symbol: 'HDFCBANK',
-    stockName: 'HDFC Bank Ltd.',
-    type: 'SELL',
-    productType: 'CNC',
-    orderType: 'LIMIT',
-    quantity: 80,
-    price: 1742.00,
-    totalAmount: 139360.00,
-    buyAvgPrice: 1690.00,
-    realizedPnL: 4160.00,
-    realizedPnLPercent: 3.08,
-    rMultiple: 1.9,
-    exitReason: 'TARGET_HIT',
-    charges: 145.00,
-    holdTime: '5 Days',
-    status: 'EXECUTED',
-    timestamp: '26 Aug, 03:10 PM',
-    executionTime: '03:10:44 PM IST',
-    isClosedPosition: true,
-    setup: 'Double Bottom Reversal',
-    notes: 'Swing trade target hit at 200 EMA resistance.',
-    aiFeedback: 'Patiently held through consolidation to capture the full mean reversion move.',
-    executionScore: 95,
-    riskScore: 94
-  },
-  {
-    id: 'th-seed-6',
-    orderId: 'ORD-8801',
-    symbol: 'INFY',
-    stockName: 'Infosys Ltd.',
-    type: 'SELL',
-    productType: 'MIS',
-    orderType: 'MARKET',
-    quantity: 100,
-    price: 1820.00,
-    totalAmount: 182000.00,
-    buyAvgPrice: 1820.00,
-    realizedPnL: 0.00,
-    realizedPnLPercent: 0.00,
-    rMultiple: 0.0,
-    exitReason: 'SQUARE_OFF',
-    charges: 45.00,
-    holdTime: '2 Hours (Intraday)',
-    status: 'EXECUTED',
-    timestamp: '25 Aug, 03:20 PM',
-    executionTime: '03:20:00 PM IST',
-    isClosedPosition: true,
-    setup: 'Range Scalp',
-    notes: 'Breakeven auto square-off before market close.',
-    aiFeedback: 'Neutral exit. Stock lacked intraday volume follow-through.',
-    executionScore: 80,
-    riskScore: 90
-  },
-  {
-    id: 'th-seed-7',
-    orderId: 'ORD-8760',
-    symbol: 'ZOMATO',
-    stockName: 'Zomato Ltd.',
-    type: 'SELL',
-    productType: 'CNC',
-    orderType: 'LIMIT',
-    quantity: 350,
-    price: 242.50,
-    totalAmount: 84875.00,
-    buyAvgPrice: 226.00,
-    realizedPnL: 5775.00,
-    realizedPnLPercent: 7.30,
-    rMultiple: 3.1,
-    exitReason: 'TARGET_HIT',
-    charges: 90.00,
-    holdTime: '1 Week',
-    status: 'EXECUTED',
-    timestamp: '24 Aug, 11:45 AM',
-    executionTime: '11:45:22 AM IST',
-    isClosedPosition: true,
-    setup: 'Earnings Momentum',
-    notes: 'Surged following quarterly delivery volume updates.',
-    aiFeedback: 'Exceptional R-Multiple (+3.1R). Rode the momentum wave without premature exit.',
-    executionScore: 98,
-    riskScore: 92
-  }
-];
 
 export function TradeReviewHub({ initialTab = 'HISTORY' }: { initialTab?: 'HISTORY' | 'PERFORMANCE' | 'JOURNAL' | 'BEHAVIOR' | 'DNA' | 'SKILL' }) {
   const { totalPnL, totalPnLPercent, orders, userXP, notifyUser, currentUser } = useSimulator();
@@ -334,11 +149,18 @@ export function TradeReviewHub({ initialTab = 'HISTORY' }: { initialTab?: 'HISTO
         ? ord.realizedPnLPercent
         : (isSell && buyPrice > 0 ? Number((((ord.price - buyPrice) / buyPrice) * 100).toFixed(2)) : undefined);
 
+      // An R-multiple is profit measured against the capital genuinely put at
+      // risk, so it only exists when the trade carried a stop-loss. Assigning
+      // a figure from the sign of the P&L would be circular, so it stays
+      // undefined and the UI omits it.
+      const stopLossPrice = ord.bracketOrder?.stopLossPrice;
+      const riskPerShare = stopLossPrice && buyPrice > stopLossPrice ? buyPrice - stopLossPrice : 0;
       const rMult = ord.rMultiple !== undefined
         ? ord.rMultiple
-        : (isSell && realizedPnL !== undefined ? (realizedPnL >= 0 ? 1.8 : -0.9) : undefined);
+        : (isSell && riskPerShare > 0 ? Number(((ord.price - buyPrice) / riskPerShare).toFixed(2)) : undefined);
 
-      const exitReason = ord.exitReason || (isSell ? (realizedPnL && realizedPnL >= 0 ? 'TARGET_HIT' : 'STOP_LOSS_HIT') : undefined);
+      // Without a recorded stop or target, why a position closed is not known.
+      const exitReason = ord.exitReason || undefined;
       const charges = ord.charges || (ord.productType === 'MIS' ? 20.0 + (ord.totalAmount * 0.00025) : ord.totalAmount * 0.001);
 
       return {
@@ -363,13 +185,18 @@ export function TradeReviewHub({ initialTab = 'HISTORY' }: { initialTab?: 'HISTO
         exitReason,
         charges: Number(charges.toFixed(2)),
         holdTime: ord.holdTime || (ord.productType === 'MIS' ? 'Intraday (Same Day)' : '1 Day+'),
-        setup: ord.notes || (isSell ? 'Technical Profit Target' : 'Momentum Entry'),
+        // The setup is whatever the trader actually wrote. Naming it
+        // "Technical Profit Target" on their behalf invents a rationale.
+        setup: ord.notes || undefined,
         notes: ord.notes || `${ord.type} order of ${ord.quantity} shares of ${ord.symbol}`,
-        aiFeedback: isSell 
-          ? (realizedPnL && realizedPnL >= 0 ? 'Disciplined target harvest. Risk-to-reward ratio maintained.' : 'Risk contained within predefined maximum daily loss limits.')
-          : `Entry filled at ₹${ord.price.toFixed(2)}. Stop-loss monitored in real time.`,
-        executionScore: isSell ? (realizedPnL && realizedPnL >= 0 ? 92 : 84) : 88,
-        riskScore: ord.productType === 'MIS' ? 86 : 94
+        // A factual note about the fill, rather than a verdict on discipline
+        // that nothing in the order measured.
+        aiFeedback: isSell && riskPerShare > 0
+          ? `Exited at ₹${ord.price.toFixed(2)} against a stop at ₹${stopLossPrice!.toFixed(2)}.`
+          : `${isSell ? 'Exit' : 'Entry'} filled at ₹${ord.price.toFixed(2)}${riskPerShare > 0 ? '' : ' · no stop-loss recorded'}.`,
+        // executionScore and riskScore are intentionally absent: nothing in an
+        // order supports a 0-100 quality grade, and a fabricated one reads as
+        // evidence of skill.
       };
     });
 
@@ -641,20 +468,23 @@ export function TradeReviewHub({ initialTab = 'HISTORY' }: { initialTab?: 'HISTO
       plannedTarget: (t.buyAvgPrice || t.price) * 1.05,
       pnl: t.realizedPnL || 0,
       pnlPercent: t.realizedPnLPercent || 0,
-      mfe: Math.abs(t.realizedPnLPercent || 2.4) + 1.2,
-      mae: 0.7,
-      rMultiple: t.rMultiple || 1.6,
-      slippage: 1.5,
-      charges: t.charges || 35.0,
-      holdTimeMinutes: 120,
-      setup: t.setup || 'Breakout Continuation',
-      tags: ['Planned', 'Breakout'],
-      emotion: (t.realizedPnL || 0) >= 0 ? 'Calm & Disciplined' : 'Hesitant',
-      executionScore: t.executionScore || 88,
-      riskScore: t.riskScore || 92,
-      disciplineScore: 90,
-      ruleCompliance: true,
-      aiFeedback: t.aiFeedback || 'Solid trade execution adhering to predefined risk management constraints.',
+      // Excursion, slippage and hold time are not recorded by the simulator,
+      // so they are left at zero rather than invented. Scores and tags are
+      // omitted for the same reason: the trader supplies those in a review.
+      mfe: 0,
+      mae: 0,
+      rMultiple: t.rMultiple ?? 0,
+      slippage: 0,
+      charges: t.charges || 0,
+      holdTimeMinutes: 0,
+      setup: t.setup || 'Not recorded',
+      tags: [],
+      emotion: '',
+      executionScore: 0,
+      riskScore: 0,
+      disciplineScore: 0,
+      ruleCompliance: false,
+      aiFeedback: t.aiFeedback || '',
       timestamp: t.timestamp
     }));
   }, [allTransactions]);
@@ -1958,8 +1788,10 @@ export function TradeReviewHub({ initialTab = 'HISTORY' }: { initialTab?: 'HISTO
               </div>
 
               <div className="flex justify-between items-center text-xs text-slate-400 font-mono pt-1">
-                <span>Execution: {activeShareCardTrade.executionScore || 90}/100</span>
-                <span>Risk Control: {activeShareCardTrade.riskScore || 92}/100</span>
+                {/* Facts from the order, not a skill grade. A shareable card
+                    is the last place to assert a score nothing measured. */}
+                <span>Charges: ₹{(activeShareCardTrade.charges ?? 0).toFixed(2)}</span>
+                <span>Held: {activeShareCardTrade.holdTime || '—'}</span>
               </div>
             </div>
 

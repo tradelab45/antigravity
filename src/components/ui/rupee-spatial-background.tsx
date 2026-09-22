@@ -89,7 +89,7 @@ export const RupeeSpatialBackground: React.FC<RupeeSpatialBackgroundProps> = ({
           style={{ transform: "translateZ(-140px) rotateX(65deg)" }}
         />
         <div
-          className="absolute w-[840px] h-[840px] rounded-full border border-dashed border-[#00f59b]/15 animate-[spin_90s_linear_infinite_reverse]"
+          className="absolute w-[840px] h-[840px] rounded-full border border-dashed border-mint/15 animate-[spin_90s_linear_infinite_reverse]"
           style={{ transform: "translateZ(-180px) rotateX(65deg)" }}
         />
         <div
@@ -118,9 +118,9 @@ export const RupeeSpatialBackground: React.FC<RupeeSpatialBackgroundProps> = ({
 
           {/* Candle Right (Massive Breakout Green) */}
           <div className="flex flex-col items-center opacity-45 animate-[pulse_5.2s_ease-in-out_infinite]">
-            <div className="w-0.5 h-20 bg-[#00f59b]/60" />
-            <div className="w-10 h-44 rounded-md bg-gradient-to-b from-[#00f59b]/40 to-emerald-900/50 border border-[#00f59b]/45 shadow-[0_0_35px_rgba(0,245,155,0.35)]" />
-            <div className="w-0.5 h-10 bg-[#00f59b]/60" />
+            <div className="w-0.5 h-20 bg-mint/60" />
+            <div className="w-10 h-44 rounded-md bg-gradient-to-b from-mint/40 to-emerald-900/50 border border-mint/45 shadow-[0_0_35px_rgba(0,245,155,0.35)]" />
+            <div className="w-0.5 h-10 bg-mint/60" />
           </div>
 
           {/* Candle Far Right (Indigo Tech Rally) */}
@@ -158,18 +158,18 @@ export const RupeeSpatialBackground: React.FC<RupeeSpatialBackgroundProps> = ({
                   transform: `translateX(${x}px) translateY(${y}px) translateZ(${sat.depthZ}px)`,
                   transformStyle: "preserve-3d",
                 }}
-                className="absolute hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#09140e]/85 border border-[#00f59b]/30 shadow-[0_8px_20px_rgba(0,0,0,0.7),0_0_15px_rgba(0,245,155,0.15)] backdrop-blur-md whitespace-nowrap"
+                className="absolute hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#09140e]/85 border border-mint/30 shadow-[0_8px_20px_rgba(0,0,0,0.7),0_0_15px_rgba(0,245,155,0.15)] backdrop-blur-md whitespace-nowrap"
               >
                 <div
                   className={`w-2 h-2 rounded-full ${
-                    sat.isUp ? "bg-[#00f59b] shadow-[0_0_8px_#00f59b]" : "bg-rose-500 shadow-[0_0_8px_#f43f5e]"
+                    sat.isUp ? "bg-mint shadow-[0_0_8px_#00f59b]" : "bg-rose-500 shadow-[0_0_8px_#f43f5e]"
                   }`}
                 />
                 <span className="text-[11px] font-mono font-black text-white">{sat.symbol}</span>
                 <span className="text-[10px] font-mono text-slate-300">{sat.price}</span>
                 <span
                   className={`text-[10px] font-mono font-bold flex items-center gap-0.5 ${
-                    sat.isUp ? "text-[#00f59b]" : "text-rose-400"
+                    sat.isUp ? "text-mint" : "text-rose-400"
                   }`}
                 >
                   {sat.isUp ? <TrendingUp className="w-2.5 h-2.5" /> : <TrendingDown className="w-2.5 h-2.5" />}
@@ -186,7 +186,7 @@ export const RupeeSpatialBackground: React.FC<RupeeSpatialBackgroundProps> = ({
           style={{ transform: "translateZ(-40px)" }}
         >
           {/* Ambient Glow Aura */}
-          <div className="absolute -inset-28 rounded-full bg-gradient-to-tr from-[#00f59b]/25 via-emerald-500/15 to-indigo-600/15 blur-3xl pointer-events-none" />
+          <div className="absolute -inset-28 rounded-full bg-gradient-to-tr from-mint/25 via-emerald-500/15 to-indigo-600/15 blur-3xl pointer-events-none" />
 
           {/* Orbiting 3D Coin Mesh */}
           <div
@@ -197,11 +197,11 @@ export const RupeeSpatialBackground: React.FC<RupeeSpatialBackgroundProps> = ({
             }}
           >
             {/* Coin Rim Layers */}
-            <div className="absolute inset-0 rounded-full border-4 border-[#00f59b]/30 [transform:translateZ(-18px)]" />
+            <div className="absolute inset-0 rounded-full border-4 border-mint/30 [transform:translateZ(-18px)]" />
             <div className="absolute inset-0 rounded-full border-2 border-emerald-400/40 [transform:translateZ(-10px)]" />
-            <div className="absolute inset-0 rounded-full border-4 border-[#00f59b]/55 [transform:translateZ(0px)]" />
+            <div className="absolute inset-0 rounded-full border-4 border-mint/55 [transform:translateZ(0px)]" />
             <div className="absolute inset-0 rounded-full border-2 border-emerald-300/45 [transform:translateZ(10px)]" />
-            <div className="absolute inset-0 rounded-full border-4 border-[#00f59b]/70 [transform:translateZ(18px)]" />
+            <div className="absolute inset-0 rounded-full border-4 border-mint/70 [transform:translateZ(18px)]" />
 
             {/* Embossed Huge Rupee Symbol */}
             <div
@@ -213,7 +213,7 @@ export const RupeeSpatialBackground: React.FC<RupeeSpatialBackgroundProps> = ({
               }}
             >
               <span
-                className="text-8xl sm:text-9xl font-black font-mono leading-none text-transparent bg-clip-text bg-gradient-to-b from-white via-emerald-100 to-[#00f59b]/75"
+                className="text-8xl sm:text-9xl font-black font-mono leading-none text-transparent bg-clip-text bg-gradient-to-b from-white via-emerald-100 to-mint/75"
                 style={{
                   filter: "drop-shadow(0 0 35px rgba(0,245,155,0.65)) drop-shadow(0 4px 14px rgba(0,0,0,0.95))",
                 }}
