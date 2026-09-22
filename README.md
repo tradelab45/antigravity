@@ -198,6 +198,21 @@ That is the same sequence CI runs: typecheck, unit tests, production build, then
 
 Review at least 390px mobile, 768px tablet, 1024px laptop and 1440px desktop widths. Test keyboard navigation, reduced motion, high contrast, offline messaging, market timestamps and genuine new-user empty states.
 
+### Displayed numbers
+
+Every figure the app shows falls into one of four categories, and the label has to make clear which:
+
+| Category | Rule | Example |
+| --- | --- | --- |
+| **Computed** | Derived from the signed-in account's own data. Show it plainly. | Win rate, realised P&L, day attribution |
+| **Statutory** | A rate fixed by law. Hardcode it, and state the year it applies to. | STCG 20%, LTCG 12.5%, the FY 2025-26 slabs |
+| **Illustrative** | A model or worked example, not this account's result. Say so in the label. | Compound projections, illustrative GMP, benchmark leaderboard rows |
+| **Unavailable** | The inputs do not exist yet. Show an em dash and what is missing. | XIRR, portfolio beta, Sharpe below eight closed trades |
+
+The rule exists because the fourth category is the one that gets faked. A Sharpe ratio hardcoded to `1.85 (Strong)`, an equity curve drawn as a fixed rising path, an R-multiple assigned from the sign of the P&L and a 0-100 "execution score" on a shareable card were all cases of an unavailable number being filled in with a plausible one. Each read as evidence about the learner's skill that nothing had measured.
+
+When a number is not available, the honest options are to omit it or to show what is missing — `0/8 closed trades needed` — never a stand-in. A figure that would be shared or screenshotted deserves the most scrutiny, since it travels away from its caveats.
+
 ### Contrast audit
 
 `npm run test:contrast` loads every routed view in both light and dark mode, measures each text node against the colour actually painted behind it, and fails when anything falls below 3:1. It exists because the app themes several views by remapping utility classes rather than by writing a `dark:` variant on each element, which makes it easy to add markup that is invisible in one mode. A failure names the view, the text, the measured ratio and both colours:
