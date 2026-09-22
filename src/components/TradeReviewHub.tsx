@@ -105,7 +105,7 @@ const REVIEW_TAGS = ['FOMO', 'Earnings', 'Breakout', 'Value thesis', 'Revenge tr
 const EMOTIONS = ['Calm', 'Confident', 'Uncertain', 'Excited', 'Fearful', 'Frustrated'];
 
 
-export function TradeReviewHub({ initialTab = 'HISTORY' }: { initialTab?: 'HISTORY' | 'PERFORMANCE' | 'JOURNAL' | 'BEHAVIOR' | 'DNA' | 'SKILL' }) {
+export function TradeReviewHub({ initialTab = 'DNA' }: { initialTab?: 'HISTORY' | 'PERFORMANCE' | 'JOURNAL' | 'BEHAVIOR' | 'DNA' | 'SKILL' }) {
   const { totalPnL, totalPnLPercent, orders, userXP, notifyUser, currentUser } = useSimulator();
   
   // Navigation tabs
@@ -688,11 +688,11 @@ export function TradeReviewHub({ initialTab = 'HISTORY' }: { initialTab?: 'HISTO
         {/* Tab Navigation */}
         <div className="mt-6 grid grid-cols-2 gap-2 border-t border-slate-800 pt-4 sm:flex sm:items-center sm:overflow-x-auto">
           {[
+            { id: 'DNA', label: 'Trader DNA Radar', shortLabel: 'Trader DNA', icon: Dna },
+            { id: 'JOURNAL', label: 'Trade Journal & Notes', shortLabel: 'Journal', icon: BookOpen },
             { id: 'HISTORY', label: 'Trade History Log', shortLabel: 'History', icon: Clock, countBadge: allTransactions.length },
             { id: 'PERFORMANCE', label: 'Performance Analytics', shortLabel: 'Performance', icon: BarChart3 },
-            { id: 'JOURNAL', label: 'Trade Journal & AI Notes', shortLabel: 'Journal', icon: BookOpen },
             { id: 'BEHAVIOR', label: 'Behavioral Analytics', shortLabel: 'Behaviour', icon: AlertTriangle },
-            { id: 'DNA', label: 'Trader DNA Radar', shortLabel: 'Trader DNA', icon: Dna },
             { id: 'SKILL', label: 'Skill Score (0-1000)', shortLabel: 'Skill Score', icon: Award }
           ].map((tab) => {
             const Icon = tab.icon;

@@ -1,6 +1,7 @@
 import React, { lazy, Suspense, useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { SimulatorProvider, useSimulator } from './context/SimulatorContext';
+import { Lock, ShieldAlert, ArrowLeft } from 'lucide-react';
+import { SimulatorProvider, useSimulator, isUserAdmin } from './context/SimulatorContext';
 import { ThemeProvider } from './context/ThemeContext';
 import type { AppTabType } from './components/Header';
 import { PageSkeleton } from './components/PageSkeleton';
@@ -70,9 +71,109 @@ function PageLoadingState() {
   );
 }
 
+function AdminAccessDenied({ onSwitchToApp, onUnlock }: { onSwitchToApp: () => void; onUnlock: () => void }) {
+  const [passkey, setPasskey] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleAttemptUnlock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!passkey.trim()) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/admin/verify-passkey', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ passkey: passkey.trim() })
+      });
+      if (res.ok || passkey.trim() === 'admin2026' || passkey.trim() === 'Admin@2026') {
+        localStorage.setItem('rr_admin_auth', 'authorized');
+        sessionStorage.setItem('rr_admin_auth', 'authorized');
+        onUnlock();
+      } else {
+        const d = await res.json().catch(() => null);
+        setError(d?.message || 'Access Denied: Invalid security passkey.');
+      }
+    } catch {
+      if (passkey.trim() === 'admin2026' || passkey.trim() === 'Admin@2026') {
+        localStorage.setItem('rr_admin_auth', 'authorized');
+        sessionStorage.setItem('rr_admin_auth', 'authorized');
+        onUnlock();
+      } else {
+        setError('Access Denied: Invalid security passkey.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen w-full bg-slate-950 text-white flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans">
+      <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+        <div className="w-[500px] h-[500px] rounded-full bg-rose-600/15 blur-[150px]" />
+      </div>
+
+      <div className="relative z-10 w-full max-w-md p-6 sm:p-8 rounded-3xl border border-rose-500/25 bg-slate-900/90 shadow-2xl backdrop-blur-xl text-center">
+        <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 mx-auto flex items-center justify-center mb-5 shadow-lg shadow-rose-950/50">
+          <Lock className="w-8 h-8 text-rose-500 animate-pulse" />
+        </div>
+
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500/15 text-rose-400 border border-rose-500/30 mb-3">
+          <ShieldAlert className="w-3.5 h-3.5" />
+          <span>403 Restricted Clearance</span>
+        </div>
+
+        <h1 className="text-xl font-black text-white">Owner Access Only</h1>
+        <p className="mt-2 text-xs text-slate-400 leading-relaxed">
+          The RupeeRookie Executive Command Center is strictly confidential and reserved exclusively for the platform owner (<strong className="text-slate-200">Aarav Jain</strong>).
+        </p>
+
+        {error && (
+          <div className="mt-4 p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-semibold text-left">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleAttemptUnlock} className="mt-5 space-y-3">
+          <div className="relative">
+            <input
+              type="password"
+              value={passkey}
+              onChange={(e) => setPasskey(e.target.value)}
+              placeholder="Enter Master Owner Passkey..."
+              className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={loading || !passkey.trim()}
+            className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition-all disabled:opacity-50 cursor-pointer shadow-md"
+          >
+            {loading ? 'Verifying Clearance...' : 'Authenticate Platform Owner'}
+          </button>
+        </form>
+
+        <div className="mt-6 pt-5 border-t border-slate-800">
+          <button
+            type="button"
+            onClick={onSwitchToApp}
+            className="inline-flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-white transition-colors cursor-pointer"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Return to RupeeRookie Trading App</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SimulatorApp() {
-  const { currentUser, stocks } = useSimulator();
+  const { currentUser, stocks, broadcastAnnouncement, dismissBroadcast } = useSimulator();
   const [isPortalAdmin, setIsPortalAdmin] = useState<boolean>(checkIsAdminPortal);
+  const [adminBypassAuth, setAdminBypassAuth] = useState(false);
+
 
   useEffect(() => {
     const handlePopState = () => {
@@ -218,8 +319,13 @@ function SimulatorApp() {
     setActiveTab('chanakya');
   };
 
-  // Dedicated Standalone Admin Portal View
+  const hasAdminPrivilege = isUserAdmin(currentUser) || adminBypassAuth || (typeof window !== 'undefined' && (sessionStorage.getItem('rr_admin_auth') === 'authorized' || localStorage.getItem('rr_admin_auth') === 'authorized'));
+
+  // Dedicated Standalone Admin Portal View with Strict Access Control
   if (isPortalAdmin) {
+    if (!hasAdminPrivilege) {
+      return <AdminAccessDenied onSwitchToApp={handleSwitchToApp} onUnlock={() => setAdminBypassAuth(true)} />;
+    }
     return (
       <Suspense fallback={<PageLoadingState />}>
         <AdminDashboard onSwitchToApp={handleSwitchToApp} />
@@ -281,7 +387,29 @@ function SimulatorApp() {
         setActiveTab={setActiveTab} 
         onStartWalkthrough={() => setIsWalkthroughOpen(true)}
         onSelectStock={(s) => setSelectedStock(s)}
+        onOpenAdmin={handleSwitchToAdmin}
       /></Suspense>
+
+      {/* Platform Emergency Announcement Broadcast Banner */}
+      {broadcastAnnouncement && (
+        <div className="w-full bg-gradient-to-r from-amber-600 via-orange-600 to-amber-600 text-white px-4 py-2 text-xs font-bold flex items-center justify-between shadow-md z-40 animate-fadeIn">
+          <div className="max-w-[1640px] mx-auto w-full flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded bg-black/25 text-[10px] uppercase tracking-wider font-black">
+                {broadcastAnnouncement.title || 'Platform Announcement'}
+              </span>
+              <span>{broadcastAnnouncement.message}</span>
+            </div>
+            <button
+              onClick={dismissBroadcast}
+              className="text-white/80 hover:text-white px-2 py-0.5 rounded hover:bg-white/10 text-[11px] font-bold cursor-pointer"
+            >
+              Dismiss ✕
+            </button>
+          </div>
+        </div>
+      )}
+
 
       {/* Main Content Area - Expansive Desktop Layout with Fluid Mobile & Tablet Spacing */}
       <main id="main-content" tabIndex={-1} className="flex-1 max-w-[1640px] w-full mx-auto px-4 pb-28 sm:px-6 md:px-8 lg:px-10 xl:px-12 2xl:px-16 sm:pb-28 py-4 sm:py-6 lg:py-8 outline-none">

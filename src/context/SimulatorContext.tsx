@@ -21,7 +21,8 @@ import {
   ProductType,
   BracketOrderParams,
   WatchlistGroup,
-  OptionPosition
+  OptionPosition,
+  BroadcastAnnouncement
 } from '../types';
 import { INITIAL_BADGES } from '../data/lessonsData';
 import { TOP_100_INDIAN_COMPANIES } from '../data/indianCompanies';
@@ -29,6 +30,17 @@ import { getNSEMarketTimeInfo, NSEMarketInfo } from '../utils/marketHours';
 import { enrichStockWithTechnicalsAndDuPont } from '../utils/technicalCalculator';
 import { computeMarketIndicesFromStocks } from '../utils/indexCalculator';
 import { mergeQuote } from '../utils/quoteState';
+
+export const ADMIN_EMAILS = ['aaravvjain23@gmail.com', 'xyz@gmail.com'];
+export const ADMIN_USERNAMES = ['rookie_trader', 'aarav_trader', 'aarav', 'admin'];
+
+export const isUserAdmin = (user: { email?: string; username?: string; isAdmin?: boolean; role?: string } | null | undefined): boolean => {
+  if (!user) return false;
+  if (user.isAdmin === true || user.role === 'ADMIN') return true;
+  const email = (user.email || '').trim().toLowerCase();
+  const username = (user.username || '').trim().toLowerCase();
+  return ADMIN_EMAILS.includes(email) || ADMIN_USERNAMES.includes(username);
+};
 
 const INACTIVITY_TIMEOUT_MS = 7 * 24 * 60 * 60 * 1000;
 const LAST_ACTIVITY_PREFIX = 'rr_last_activity:';
@@ -52,12 +64,15 @@ const readActiveUser = (): UserAccount | null => {
     }
 
     if (!lastActivity) localStorage.setItem(activityKey, Date.now().toString());
+    user.isAdmin = isUserAdmin(user);
+    user.role = user.isAdmin ? 'ADMIN' : 'USER';
     return user;
   } catch {
     localStorage.removeItem('rr_current_user');
     return null;
   }
 };
+
 
 export interface CopilotFeedback {
   id: string;
@@ -168,7 +183,10 @@ interface SimulatorContextType {
   isSyncingHoldings: boolean;
   lastHoldingsSyncTime: string;
   unlockBadge: (badgeId: string) => void;
+  broadcastAnnouncement: BroadcastAnnouncement | null;
+  dismissBroadcast: () => void;
 }
+
 
 const SimulatorContext = createContext<SimulatorContextType | undefined>(undefined);
 
@@ -334,6 +352,8 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (contentType.includes('application/json')) {
           const data = await res.json();
           if (data.success && data.user) {
+            data.user.isAdmin = isUserAdmin(data.user);
+            data.user.role = data.user.isAdmin ? 'ADMIN' : 'USER';
             localStorage.setItem('rr_current_user', JSON.stringify(data.user));
             localStorage.setItem(getLastActivityKey(data.user.id), Date.now().toString());
             localStorage.setItem('rr_auth_entry', JSON.stringify({ kind: 'returning', userId: data.user.id, at: Date.now() }));
@@ -358,7 +378,7 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const demoAccountUser: UserAccount = {
         id: 'usr_rookie_demo',
         fullName: 'Aarav Jain',
-        email: 'xyz@gmail.com',
+        email: cleanId === 'xyz@gmail.com' ? 'xyz@gmail.com' : 'aaravvjain23@gmail.com',
         username: 'rookie_trader',
         phone: '+91 98765 43210',
         ageGroup: '16-18 (High School Teen)',
@@ -368,6 +388,8 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         lastLoginAt: new Date().toISOString(),
         portfolioValue: 1022789,
         totalTrades: 14,
+        isAdmin: true,
+        role: 'ADMIN',
       };
       localStorage.setItem('rr_current_user', JSON.stringify(demoAccountUser));
       localStorage.setItem(getLastActivityKey(demoAccountUser.id), Date.now().toString());
@@ -386,6 +408,8 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         );
         if (match) {
           match.lastLoginAt = new Date().toISOString();
+          match.isAdmin = isUserAdmin(match);
+          match.role = match.isAdmin ? 'ADMIN' : 'USER';
           localStorage.setItem('rr_current_user', JSON.stringify(match));
           localStorage.setItem(getLastActivityKey(match.id), Date.now().toString());
           localStorage.setItem('rr_auth_entry', JSON.stringify({ kind: 'returning', userId: match.id, at: Date.now() }));
@@ -397,6 +421,7 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     return { success: false, message: 'Invalid credentials. Please try again.' };
   };
+
 
   const registerUser = async (formData: AuthFormData): Promise<{ success: boolean; message: string; user?: UserAccount }> => {
     try {
@@ -413,6 +438,8 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (contentType.includes('application/json')) {
           const data = await res.json();
           if (data.success && data.user) {
+            data.user.isAdmin = isUserAdmin(data.user);
+            data.user.role = data.user.isAdmin ? 'ADMIN' : 'USER';
             localStorage.setItem('rr_current_user', JSON.stringify(data.user));
             localStorage.setItem(getLastActivityKey(data.user.id), Date.now().toString());
             localStorage.setItem('rr_auth_entry', JSON.stringify({ kind: 'new', userId: data.user.id, at: Date.now() }));
@@ -441,6 +468,8 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         lastLoginAt: new Date().toISOString(),
         portfolioValue: INITIAL_CASH,
         totalTrades: 0,
+        isAdmin: isUserAdmin({ email: formData.email, username: formData.username }),
+        role: isUserAdmin({ email: formData.email, username: formData.username }) ? 'ADMIN' : 'USER',
       };
 
       const localRegistryStr = localStorage.getItem('rr_local_users');
@@ -475,6 +504,8 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (contentType.includes('application/json')) {
           const data = await res.json();
           if (data.success && data.user) {
+            data.user.isAdmin = isUserAdmin(data.user);
+            data.user.role = data.user.isAdmin ? 'ADMIN' : 'USER';
             localStorage.setItem('rr_current_user', JSON.stringify(data.user));
             localStorage.setItem(getLastActivityKey(data.user.id), Date.now().toString());
             localStorage.setItem('rr_auth_entry', JSON.stringify({ kind: data.isNew ? 'new' : 'returning', userId: data.user.id, at: Date.now() }));
@@ -530,11 +561,15 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               lastLoginAt: new Date().toISOString(),
               portfolioValue: INITIAL_CASH,
               totalTrades: 0,
+              isAdmin: isUserAdmin({ email, username: usernameBase }),
+              role: isUserAdmin({ email, username: usernameBase }) ? 'ADMIN' : 'USER',
             };
             localRegistry.unshift(matchedUser);
             localStorage.setItem('rr_local_users', JSON.stringify(localRegistry));
           } else {
             matchedUser.lastLoginAt = new Date().toISOString();
+            matchedUser.isAdmin = isUserAdmin(matchedUser);
+            matchedUser.role = matchedUser.isAdmin ? 'ADMIN' : 'USER';
           }
 
           localStorage.setItem('rr_current_user', JSON.stringify(matchedUser));
@@ -553,6 +588,7 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     } catch (parseErr) {
       console.error('Failed to parse Google credential on client:', parseErr);
     }
+
 
     return { success: false, message: 'Google sign-in could not complete. Please try again.' };
   };
@@ -718,6 +754,52 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   });
 
   const [dailyPercentTriggers, setDailyPercentTriggers] = useState<Record<string, string>>({});
+  
+  const [broadcastAnnouncement, setBroadcastAnnouncement] = useState<BroadcastAnnouncement | null>(null);
+
+  const dismissBroadcast = useCallback(() => {
+    if (broadcastAnnouncement) {
+      sessionStorage.setItem(`rr_dismissed_broadcast_${broadcastAnnouncement.id}`, 'true');
+    }
+    setBroadcastAnnouncement(null);
+  }, [broadcastAnnouncement]);
+
+  useEffect(() => {
+    let channel: BroadcastChannel | null = null;
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        channel = new BroadcastChannel('rr_broadcast_channel');
+        channel.onmessage = (event) => {
+          if (event.data && event.data.broadcast) {
+            const b = event.data.broadcast as BroadcastAnnouncement;
+            if (b && !sessionStorage.getItem(`rr_dismissed_broadcast_${b.id}`)) {
+              setBroadcastAnnouncement(b);
+            }
+          }
+        };
+      } catch {}
+    }
+
+    const fetchBroadcast = async () => {
+      try {
+        const res = await fetch('/api/broadcast');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.broadcast && !sessionStorage.getItem(`rr_dismissed_broadcast_${data.broadcast.id}`)) {
+            setBroadcastAnnouncement(data.broadcast);
+          }
+        }
+      } catch {}
+    };
+
+    fetchBroadcast();
+    const interval = setInterval(fetchBroadcast, 15000);
+
+    return () => {
+      if (channel) channel.close();
+      clearInterval(interval);
+    };
+  }, []);
   
   useEffect(() => {
     localStorage.setItem(profileStorageKey('rr_alerts'), JSON.stringify(alerts));
@@ -1814,6 +1896,21 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setUserXP(prev => prev + 60);
     confetti({ particleCount: 50, spread: 60 });
 
+    // Stream live to Admin Dashboard
+    syncTradeToAdminAndBroadcast({
+      orderId: newPosition.id,
+      symbol: `${underlying} ${strikePrice} ${optionType}`,
+      stockName: `${underlying} Index Options`,
+      type: action,
+      orderType: 'MARKET',
+      productType: 'MIS',
+      quantity: contracts * lotSize,
+      price: price,
+      totalAmount: totalPremium,
+      status: 'EXECUTED',
+      realizedPnL: 0
+    });
+
     notifyUser(
       'Option Contract Filled! 📈',
       `Successfully traded ${contracts} Lot(s) (${contracts * lotSize} qty) of ${underlying} ${strikePrice} ${optionType} at ₹${price.toFixed(2)}.`,
@@ -1831,8 +1928,25 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (!pos) return { success: false, message: 'Position not found' };
 
     const payout = pos.currentValue;
+    const realizedPnL = pos.action === 'BUY' ? (payout - pos.investedAmount) : (pos.investedAmount - payout);
+
     setCashBalance(prev => Number((prev + payout).toFixed(2)));
     setOptionPositions(prev => prev.filter(p => p.id !== positionId));
+
+    // Stream square off to Admin Dashboard
+    syncTradeToAdminAndBroadcast({
+      orderId: `ORD-SQ-${Date.now()}`,
+      symbol: `${pos.underlying} ${pos.strikePrice} ${pos.optionType}`,
+      stockName: `${pos.underlying} Options Square-Off`,
+      type: pos.action === 'BUY' ? 'SELL' : 'BUY',
+      orderType: 'MARKET',
+      productType: 'MIS',
+      quantity: pos.contracts,
+      price: pos.currentLtp,
+      totalAmount: payout,
+      status: 'EXECUTED',
+      realizedPnL: Number(realizedPnL.toFixed(2))
+    });
 
     notifyUser(
       'Option Position Squared Off 💰',
@@ -1949,6 +2063,8 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         notifications,
         markNotificationRead,
         markAllNotificationsRead,
+        broadcastAnnouncement,
+        dismissBroadcast,
       }}
     >
       {children}

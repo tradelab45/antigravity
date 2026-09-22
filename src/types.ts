@@ -286,7 +286,19 @@ export interface UserAccount {
   lastLoginAt: string;
   portfolioValue?: number;
   totalTrades?: number;
+  isAdmin?: boolean;
+  role?: 'ADMIN' | 'USER';
 }
+
+export interface BroadcastAnnouncement {
+  id: string;
+  title?: string;
+  message: string;
+  type: 'INFO' | 'ALERT' | 'SUCCESS' | 'WARNING';
+  timestamp: string;
+  active?: boolean;
+}
+
 
 export interface AuthFormData {
   fullName: string;

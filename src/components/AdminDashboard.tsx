@@ -34,7 +34,9 @@ import {
   Unlock,
   Key,
   ShieldAlert,
-  Check
+  Check,
+  RotateCcw,
+  Trash2
 } from 'lucide-react';
 import type { StoredTrade } from '../../server';
 import type { UserAccount } from '../types';
@@ -219,6 +221,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isSimulateModalOpen, setIsSimulateModalOpen] = useState(false);
 
+  // Emergency Broadcast State
+  const [broadcastTitle, setBroadcastTitle] = useState('');
+  const [broadcastMessage, setBroadcastMessage] = useState('');
+  const [broadcastType, setBroadcastType] = useState<'INFO' | 'ALERT' | 'SUCCESS' | 'WARNING'>('INFO');
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
+  const [broadcastFeedback, setBroadcastFeedback] = useState<string | null>(null);
+  const [activeServerBroadcast, setActiveServerBroadcast] = useState<any>(null);
+
+  // Capital Reset & User Management State
+  const [isResettingCapital, setIsResettingCapital] = useState(false);
+  const [resetCapitalFeedback, setResetCapitalFeedback] = useState<string | null>(null);
+  const [isDeletingUser, setIsDeletingUser] = useState(false);
+
   // Filters for Trades
   const [tradeSearch, setTradeSearch] = useState('');
   const [actionFilter, setActionFilter] = useState<'ALL' | 'BUY' | 'SELL'>('ALL');
@@ -376,6 +391,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
           setTrades(tradesData.trades);
         }
       }
+      // 3. Fetch Overview Stats & Platform Broadcast
+      const overviewRes = await fetch('/api/admin/overview', { headers: authHeaders });
+      if (overviewRes.ok) {
+        const overviewData = await overviewRes.json();
+        if (overviewData.success && overviewData.stats) {
+          if (overviewData.stats.activeBroadcast) {
+            setActiveServerBroadcast(overviewData.stats.activeBroadcast);
+          } else {
+            setActiveServerBroadcast(null);
+          }
+        }
+      }
+
       setLastSyncTime(new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
     } catch {
       // Offline fallback: keep current in-memory data
@@ -383,6 +411,143 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
       setIsSyncing(false);
     }
   }, [isAdminAuthenticated, activePasskey]);
+
+  // Dispatch live platform broadcast to all connected students
+  const handleSendBroadcast = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!broadcastMessage.trim()) return;
+    setIsBroadcasting(true);
+    setBroadcastFeedback(null);
+    try {
+      const payload = {
+        title: broadcastTitle.trim() || 'Platform Announcement',
+        message: broadcastMessage.trim(),
+        type: broadcastType
+      };
+      const res = await fetch('/api/admin/broadcast', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-key': activePasskey || 'admin2026',
+          'x-admin-email': 'aaravvjain23@gmail.com'
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.broadcast) {
+        setActiveServerBroadcast(data.broadcast);
+        if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+          try {
+            const ch = new BroadcastChannel('rr_broadcast_channel');
+            ch.postMessage({ broadcast: data.broadcast });
+            ch.close();
+          } catch {}
+        }
+        setBroadcastFeedback('Announcement successfully transmitted to all active sessions!');
+        setBroadcastMessage('');
+      } else {
+        setBroadcastFeedback(data?.message || 'Failed to dispatch broadcast');
+      }
+    } catch {
+      setBroadcastFeedback('Network notice: Broadcast saved locally');
+    } finally {
+      setIsBroadcasting(false);
+      setTimeout(() => setBroadcastFeedback(null), 4000);
+    }
+  };
+
+  // Clear live platform broadcast
+  const handleClearBroadcast = async () => {
+    try {
+      await fetch('/api/admin/broadcast', {
+        method: 'DELETE',
+        headers: {
+          'x-admin-key': activePasskey || 'admin2026',
+          'x-admin-email': 'aaravvjain23@gmail.com'
+        }
+      });
+      setActiveServerBroadcast(null);
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        try {
+          const ch = new BroadcastChannel('rr_broadcast_channel');
+          ch.postMessage({ broadcast: null });
+          ch.close();
+        } catch {}
+      }
+      setBroadcastFeedback('Platform broadcast cleared.');
+      setTimeout(() => setBroadcastFeedback(null), 3000);
+    } catch {}
+  };
+
+  // Reset user's virtual capital
+  const handleResetCapital = async (userId: string) => {
+    setIsResettingCapital(true);
+    setResetCapitalFeedback(null);
+    try {
+      const res = await fetch('/api/admin/users/reset-capital', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-key': activePasskey || 'admin2026',
+          'x-admin-email': 'aaravvjain23@gmail.com'
+        },
+        body: JSON.stringify({ userId, amount: 1000000 })
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.success) {
+        setResetCapitalFeedback('Virtual capital reset to ₹10,00,000 INR!');
+        setUsers(prev => prev.map(u => u.id === userId ? { ...u, initialCapital: 1000000, portfolioValue: 1000000 } : u));
+        if (selectedUserDossier?.id === userId) {
+          setSelectedUserDossier(prev => prev ? { ...prev, initialCapital: 1000000, portfolioValue: 1000000 } : null);
+        }
+        try {
+          localStorage.setItem(`rr_cash:${userId}`, '1000000');
+          window.dispatchEvent(new Event('storage'));
+        } catch {}
+      } else {
+        setResetCapitalFeedback(data?.message || 'Failed to reset capital');
+      }
+    } catch {
+      setResetCapitalFeedback('Capital reset locally in dossier');
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, initialCapital: 1000000, portfolioValue: 1000000 } : u));
+      if (selectedUserDossier?.id === userId) {
+        setSelectedUserDossier(prev => prev ? { ...prev, initialCapital: 1000000, portfolioValue: 1000000 } : null);
+      }
+    } finally {
+      setIsResettingCapital(false);
+      setTimeout(() => setResetCapitalFeedback(null), 3500);
+    }
+  };
+
+  // Permanently delete a user account
+  const handleDeleteUser = async (userId: string, userName: string) => {
+    if (!window.confirm(`Are you sure you want to permanently delete the account for "${userName}"?`)) {
+      return;
+    }
+    setIsDeletingUser(true);
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, {
+        method: 'DELETE',
+        headers: {
+          'x-admin-key': activePasskey || 'admin2026',
+          'x-admin-email': 'aaravvjain23@gmail.com'
+        }
+      });
+      if (res.ok) {
+        setUsers(prev => prev.filter(u => u.id !== userId));
+        setSelectedUserDossier(null);
+      } else {
+        const d = await res.json().catch(() => null);
+        alert(d?.message || 'Failed to delete user');
+      }
+    } catch {
+      setUsers(prev => prev.filter(u => u.id !== userId));
+      setSelectedUserDossier(null);
+    } finally {
+      setIsDeletingUser(false);
+    }
+  };
+
 
   // Set up real-time cross-tab sync via BroadcastChannel, storage events, and polling
   useEffect(() => {
@@ -1009,7 +1174,86 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
         </div>
       </div>
 
+      {/* 3.5 EMERGENCY PLATFORM BROADCAST COMMAND */}
+      <div className="max-w-[1680px] w-full mx-auto px-4 sm:px-8 py-2">
+        <div className={`p-4 sm:p-5 rounded-2xl border transition-all ${styles.card}`}>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-black/5 dark:border-white/5">
+            <div className="flex items-center gap-2.5">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold ${
+                isBeige ? 'bg-amber-100 text-amber-900' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+              }`}>
+                <ShieldAlert className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-xs sm:text-sm font-black tracking-tight">
+                  Global Platform Announcement Broadcast
+                </h3>
+                <p className={`text-[11px] ${styles.subText}`}>
+                  Instantly push a live banner to every connected student trader currently using the simulator
+                </p>
+              </div>
+            </div>
+
+            {activeServerBroadcast && (
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-pulse">
+                  Broadcast Active: "{activeServerBroadcast.title}"
+                </span>
+                <button
+                  type="button"
+                  onClick={handleClearBroadcast}
+                  className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-rose-500 hover:bg-rose-500/10 border border-rose-500/30 transition-all cursor-pointer"
+                >
+                  Clear Broadcast
+                </button>
+              </div>
+            )}
+          </div>
+
+          {broadcastFeedback && (
+            <div className="mt-3 p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold">
+              {broadcastFeedback}
+            </div>
+          )}
+
+          <form onSubmit={handleSendBroadcast} className="mt-3.5 flex flex-col sm:flex-row items-center gap-3">
+            <input
+              type="text"
+              value={broadcastTitle}
+              onChange={(e) => setBroadcastTitle(e.target.value)}
+              placeholder="Title (e.g. Market Open, Volatility)"
+              className={`w-full sm:w-56 px-3.5 py-2 rounded-xl text-xs font-semibold border ${styles.input}`}
+            />
+            <input
+              type="text"
+              value={broadcastMessage}
+              onChange={(e) => setBroadcastMessage(e.target.value)}
+              placeholder="Type urgent announcement text to transmit across all live users..."
+              className={`flex-1 w-full px-3.5 py-2 rounded-xl text-xs font-semibold border ${styles.input}`}
+            />
+            <select
+              value={broadcastType}
+              onChange={(e) => setBroadcastType(e.target.value as any)}
+              className={`px-3 py-2 rounded-xl text-xs font-bold border ${styles.input}`}
+            >
+              <option value="INFO">ℹ️ General Info</option>
+              <option value="ALERT">🚨 Urgent Alert</option>
+              <option value="SUCCESS">🎉 Market Rally</option>
+              <option value="WARNING">⚠️ Maintenance</option>
+            </select>
+            <button
+              type="submit"
+              disabled={isBroadcasting || !broadcastMessage.trim()}
+              className={`w-full sm:w-auto px-5 py-2 rounded-xl text-xs font-black transition-all shrink-0 cursor-pointer disabled:opacity-50 ${styles.accentBtn}`}
+            >
+              {isBroadcasting ? 'Broadcasting...' : '📢 Broadcast to All'}
+            </button>
+          </form>
+        </div>
+      </div>
+
       {/* 4. MAIN CONTENT TABS (Live Trades vs User Profiles & Sign-Ins) */}
+
       <main className="max-w-[1680px] w-full mx-auto px-4 sm:px-8 py-6 flex-1 flex flex-col">
         
         {/* Navigation Tabs Header */}
@@ -1605,8 +1849,39 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
               </div>
             </div>
 
-            <div className="mt-6 flex justify-end">
+            {resetCapitalFeedback && (
+              <div className="mt-4 p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold animate-fadeIn">
+                {resetCapitalFeedback}
+              </div>
+            )}
+
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-black/5 dark:border-white/5">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleResetCapital(selectedUserDossier.id)}
+                  disabled={isResettingCapital}
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-500 border border-amber-500/30 transition-all cursor-pointer disabled:opacity-50"
+                  title="Reset user paper balance back to default ₹10,00,000 INR"
+                >
+                  <RotateCcw className={`w-3.5 h-3.5 ${isResettingCapital ? 'animate-spin' : ''}`} />
+                  {isResettingCapital ? 'Resetting...' : 'Reset Capital (₹10L)'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleDeleteUser(selectedUserDossier.id, selectedUserDossier.fullName)}
+                  disabled={isDeletingUser}
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-rose-500/15 hover:bg-rose-500/25 text-rose-500 border border-rose-500/30 transition-all cursor-pointer disabled:opacity-50"
+                  title="Permanently remove this account from database"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  {isDeletingUser ? 'Deleting...' : 'Delete User'}
+                </button>
+              </div>
+
               <button
+                type="button"
                 onClick={() => setSelectedUserDossier(null)}
                 className={`px-5 py-2 rounded-xl text-xs font-bold ${styles.accentBtn}`}
               >

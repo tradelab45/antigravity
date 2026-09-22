@@ -36,11 +36,18 @@ const MORE_GROUPS: Array<{
     ],
   },
   {
-    title: 'Practice',
-    subtitle: 'Plan, simulate and review',
+    title: 'Practice & Simulation',
+    subtitle: 'Plan, simulate and test strategies',
     items: [
       { id: 'portfolio', label: 'Trading & Portfolio', icon: Wallet },
-      { id: 'replay', label: 'Market Replay', icon: History },
+      { id: 'replay', label: 'Replay OS', icon: History },
+    ],
+  },
+  {
+    title: 'Trader DNA & Journal',
+    subtitle: 'Review psychology, execution and journal notes',
+    items: [
+      { id: 'review', label: 'Trader DNA', icon: Dna },
       { id: 'journal', label: 'Trade Journal', icon: NotebookTabs },
     ],
   },
@@ -50,14 +57,13 @@ const MORE_GROUPS: Array<{
     items: [
       { id: 'academy', label: 'Academy', icon: BookOpen },
       { id: 'chanakya', label: 'AI Coach', icon: Zap },
-      { id: 'calculator', label: 'Calculator', icon: Calculator },
+      { id: 'calculator', label: 'SIP Calculator', icon: Calculator },
     ],
   },
   {
     title: 'Progress',
     subtitle: 'Measure skill, not activity',
     items: [
-      { id: 'review', label: 'Trader DNA', icon: Dna },
       { id: 'challenges', label: 'Challenges & Achievements', icon: Trophy },
     ],
   },

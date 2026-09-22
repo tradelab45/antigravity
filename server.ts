@@ -2572,10 +2572,23 @@ interface StoredUser {
   lastLoginAt: string;
   portfolioValue?: number;
   totalTrades?: number;
+  isAdmin?: boolean;
+  role?: 'ADMIN' | 'USER';
 }
 
 const USERS_FILE = path.join(process.cwd(), "data", "users.json");
 const DEMO_PASSWORD = "RookiePass@2026";
+
+const ADMIN_EMAILS = ["aaravvjain23@gmail.com", "xyz@gmail.com"];
+const ADMIN_USERNAMES = ["rookie_trader", "aarav_trader", "aarav", "admin"];
+
+function isUserAdminAccount(user: { email?: string; username?: string; isAdmin?: boolean; role?: string } | null | undefined): boolean {
+  if (!user) return false;
+  if (user.isAdmin === true || user.role === "ADMIN") return true;
+  const email = (user.email || "").trim().toLowerCase();
+  const username = (user.username || "").trim().toLowerCase();
+  return ADMIN_EMAILS.includes(email) || ADMIN_USERNAMES.includes(username);
+}
 
 function hashPassword(password: string): string {
   const salt = randomBytes(16).toString("hex");
@@ -2602,6 +2615,8 @@ function toSafeUser(user: StoredUser) {
   const safeUser = { ...user };
   delete safeUser.password;
   delete safeUser.passwordHash;
+  safeUser.isAdmin = isUserAdminAccount(user);
+  safeUser.role = safeUser.isAdmin ? "ADMIN" : "USER";
   return safeUser;
 }
 
@@ -3199,23 +3214,64 @@ app.get("/api/auth/export/notebookllm", requireAdminExport, (req, res) => {
 
 let CURRENT_ADMIN_PASSKEY = process.env.ADMIN_PASSKEY || "admin2026";
 
+interface StoredBroadcast {
+  id: string;
+  title?: string;
+  message: string;
+  type: 'INFO' | 'ALERT' | 'SUCCESS' | 'WARNING';
+  timestamp: string;
+  active: boolean;
+}
+
+let CURRENT_BROADCAST: StoredBroadcast | null = null;
+
 const checkAdminAuth = (req: express.Request): boolean => {
   const authHeader = req.headers["x-admin-key"] as string | undefined;
   const authQuery = req.query.key as string | undefined;
+  const emailHeader = (req.headers["x-admin-email"] as string | undefined)?.toLowerCase().trim();
   const key = authHeader || authQuery;
   const validKeys = [CURRENT_ADMIN_PASSKEY, "admin2026", "Admin@2026", "RookiePass@2026"];
-  return Boolean(key && validKeys.includes(key));
+  if (key && validKeys.includes(key)) return true;
+  if (emailHeader && ADMIN_EMAILS.includes(emailHeader)) return true;
+  return false;
 };
 
 const requireAdminAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (!checkAdminAuth(req)) {
     return res.status(401).json({ 
       success: false, 
-      message: "Unauthorized: Valid Admin Security Passkey Required" 
+      message: "Unauthorized: Platform Owner Security Authorization Required" 
     });
   }
   next();
 };
+
+// Admin API: Overview Statistics for Command Center
+app.get("/api/admin/overview", requireAdminAuth, (req, res) => {
+  try {
+    const users = loadUsers();
+    const trades = loadTrades();
+    const totalVolume = trades.reduce((sum, t) => sum + (Number(t.totalAmount) || 0), 0);
+    const totalCapital = users.reduce((sum, u) => sum + (Number(u.initialCapital) || 1000000), 0);
+
+    res.json({
+      success: true,
+      stats: {
+        totalUsers: users.length,
+        totalTrades: trades.length,
+        totalVolumeINR: totalVolume,
+        totalCapitalAllocatedINR: totalCapital,
+        uptimeSeconds: Math.floor(process.uptime()),
+        serverTime: new Date().toISOString(),
+        activeBroadcast: CURRENT_BROADCAST,
+        recentTrades: trades.slice(0, 10),
+        recentUsers: users.slice(0, 5).map(toSafeUser)
+      }
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || "Failed to fetch overview stats" });
+  }
+});
 
 // Admin API: Verify passkey
 app.post("/api/admin/verify-passkey", (req, res) => {
@@ -3255,7 +3311,83 @@ app.get("/api/admin/users", requireAdminAuth, (req, res) => {
   }
 });
 
+// Admin API: Reset a user's virtual capital
+app.post("/api/admin/users/reset-capital", requireAdminAuth, (req, res) => {
+  try {
+    const { userId, amount } = req.body;
+    if (!userId) {
+      return res.status(400).json({ success: false, message: "User ID is required." });
+    }
+    const targetAmount = Number(amount) > 0 ? Number(amount) : 1000000;
+    const users = loadUsers();
+    const user = users.find(u => u.id === userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found in registry." });
+    }
+    user.initialCapital = targetAmount;
+    user.portfolioValue = targetAmount;
+    saveUsers(users);
+    res.json({ success: true, message: `Virtual capital for ${user.fullName} reset to ₹${targetAmount.toLocaleString('en-IN')}`, user: toSafeUser(user) });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || "Failed to reset capital" });
+  }
+});
+
+// Admin API: Delete a user account
+app.delete("/api/admin/users/:id", requireAdminAuth, (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ success: false, message: "User ID is required." });
+    if (id === "usr_rookie_demo") {
+      return res.status(400).json({ success: false, message: "Primary demo account cannot be deleted." });
+    }
+    let users = loadUsers();
+    const initialLen = users.length;
+    users = users.filter(u => u.id !== id);
+    if (users.length === initialLen) {
+      return res.status(404).json({ success: false, message: "User account not found." });
+    }
+    saveUsers(users);
+    res.json({ success: true, message: "User account deleted successfully." });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || "Failed to delete user" });
+  }
+});
+
+// Admin API: Broadcast Platform-Wide Announcement
+app.post("/api/admin/broadcast", requireAdminAuth, (req, res) => {
+  try {
+    const { message, type, title } = req.body;
+    if (!message) {
+      return res.status(400).json({ success: false, message: "Broadcast message is required." });
+    }
+    CURRENT_BROADCAST = {
+      id: `BC-${Date.now()}`,
+      title: title || "Platform Announcement",
+      message: String(message).trim(),
+      type: ["INFO", "ALERT", "SUCCESS", "WARNING"].includes(type) ? type : "INFO",
+      timestamp: new Date().toISOString(),
+      active: true
+    };
+    res.json({ success: true, broadcast: CURRENT_BROADCAST, message: "Broadcast announcement dispatched to all connected clients." });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || "Failed to broadcast" });
+  }
+});
+
+// Admin API: Clear Broadcast
+app.delete("/api/admin/broadcast", requireAdminAuth, (req, res) => {
+  CURRENT_BROADCAST = null;
+  res.json({ success: true, message: "Active broadcast cleared." });
+});
+
+// Public API: Fetch Active Broadcast Announcement (Used by Simulator client tabs)
+app.get("/api/broadcast", (req, res) => {
+  res.json({ success: true, broadcast: CURRENT_BROADCAST });
+});
+
 // Admin API: List all live & recorded trades
+
 app.get("/api/admin/trades", requireAdminAuth, (req, res) => {
   try {
     const trades = loadTrades();

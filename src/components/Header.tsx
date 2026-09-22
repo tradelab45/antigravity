@@ -38,9 +38,10 @@ import {
   VolumeX,
   Swords,
   Palette,
-  Check
+  Check,
+  ShieldCheck
 } from 'lucide-react';
-import { useSimulator } from '../context/SimulatorContext';
+import { useSimulator, isUserAdmin } from '../context/SimulatorContext';
 import { useTheme } from '../context/ThemeContext';
 import { formatINR, formatPercent } from '../utils/formatters';
 import { isSoundEnabled, setSoundEnabled, playNseBellSound } from '../utils/soundEffects';
@@ -60,9 +61,10 @@ export interface HeaderProps {
   onOpenApiModal?: () => void;
   onStartWalkthrough?: () => void;
   onSelectStock?: (stock: StockDetail) => void;
+  onOpenAdmin?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenApiModal, onStartWalkthrough, onSelectStock }) => {
+export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenApiModal, onStartWalkthrough, onSelectStock, onOpenAdmin }) => {
   const { 
     currentUser,
     logoutUser,
@@ -79,6 +81,8 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
     setMarketHoursMode,
     stocks,
   } = useSimulator();
+
+  const isAdmin = isUserAdmin(currentUser);
 
   const { theme, isDark, toggleTheme, palette, setPalette, palettes } = useTheme();
 
@@ -156,7 +160,8 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
 
   const isProfit = totalPnL >= 0;
 
-  const navItems: {
+  // Core Primary Platform Tabs - Always Front and Center
+  const primaryNavItems: {
     id: AppTabType;
     label: string;
     icon: React.ElementType;
@@ -167,12 +172,28 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
     { id: 'home', label: 'Home', icon: Compass },
     { id: 'screener', label: 'Markets', icon: BarChart3 },
     { id: 'portfolio', label: 'Portfolio', icon: PieChart },
-    { id: 'replay', label: 'Replay OS', icon: History, badge: 'Blind Mode', badgeColor: 'bg-indigo-100 text-indigo-900 border-indigo-300' },
-    { id: 'review', label: 'Trader DNA', icon: Dna },
-    { id: 'journal', label: 'Journal', icon: BookOpen },
+    { id: 'review', label: 'Trader DNA', icon: Dna, badge: 'Journal', badgeColor: 'bg-indigo-100 text-indigo-900 border-indigo-300 dark:bg-indigo-950 dark:text-indigo-300 dark:border-indigo-800' },
     { id: 'academy', label: 'Learn', icon: BookOpen },
-    { id: 'challenges', label: 'Progress', icon: Trophy },
-    { id: 'calculator', label: 'Compound Calculator', icon: Calculator, badge: 'SIP & Lumpsum', badgeColor: 'bg-emerald-100 text-emerald-900 border-emerald-300' },
+    { id: 'chanakya', label: 'AI Coach', icon: Zap, highlight: true },
+  ];
+
+  // Complete List of items for drawer / global lookup
+  const allNavItems: {
+    id: AppTabType;
+    label: string;
+    icon: React.ElementType;
+    badge?: string;
+    badgeColor?: string;
+    highlight?: boolean;
+  }[] = [
+    { id: 'home', label: 'Home', icon: Compass },
+    { id: 'screener', label: 'Markets', icon: BarChart3 },
+    { id: 'portfolio', label: 'Portfolio', icon: PieChart },
+    { id: 'review', label: 'Trader DNA', icon: Dna, badge: 'Journal' },
+    { id: 'replay', label: 'Replay OS', icon: History, badge: 'Blind Mode', badgeColor: 'bg-indigo-100 text-indigo-900 border-indigo-300' },
+    { id: 'academy', label: 'Learn', icon: BookOpen },
+    { id: 'calculator', label: 'SIP Calculator', icon: Calculator },
+    { id: 'challenges', label: 'Progress & Badges', icon: Trophy },
     { id: 'chanakya', label: 'AI Coach', icon: Zap, highlight: true },
     { id: 'privacy', label: 'Data & Privacy', icon: ShieldCheck }
   ];
@@ -622,6 +643,22 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
             <span className="sr-only">Reset</span>
           </motion.button>
 
+          {/* Admin Command Center button - strictly for platform owner */}
+          {isAdmin && onOpenAdmin && (
+            <motion.button
+              id="header-admin-badge-btn"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={onOpenAdmin}
+              className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 hover:border-amber-400 font-extrabold text-xs shadow-xs transition-all cursor-pointer"
+              title="Platform Owner: Open Admin Command Center"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />
+              <span className="text-[11px] tracking-tight font-black">Admin</span>
+              <span className="text-[9px] bg-amber-500 text-slate-950 font-black px-1 rounded">VIP</span>
+            </motion.button>
+          )}
+
           {/* User Profile Component with Integrated Exit / Sign Out Option */}
           <div className="relative" ref={profileDropdownRef}>
             <button
@@ -674,6 +711,26 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
 
                   {/* Profile Menu Actions */}
                   <div className="p-1.5 space-y-0.5">
+                    {/* Admin Command Center - ONLY visible to platform owner */}
+                    {isAdmin && onOpenAdmin && (
+                      <button
+                        id="profile-admin-dashboard-btn"
+                        onClick={() => {
+                          setProfileDropdownOpen(false);
+                          onOpenAdmin();
+                        }}
+                        className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-black text-amber-700 dark:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 hover:border-amber-400 transition-all cursor-pointer shadow-xs group"
+                      >
+                        <div className="flex items-center gap-2">
+                          <ShieldCheck className="w-4 h-4 text-amber-500 group-hover:scale-110 transition-transform" />
+                          <span>Admin Command Center</span>
+                        </div>
+                        <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500 text-slate-950">
+                          Owner
+                        </span>
+                      </button>
+                    )}
+
                     {/* Theme toggle in dropdown */}
                     <button
                       id="profile-theme-toggle-btn"
@@ -862,14 +919,14 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
         </div>
       </div>
 
-      {/* Desktop Primary Navigation Bar - Expanded Width */}
-      <div className="hidden lg:block bg-slate-50/60 dark:bg-slate-900/60 backdrop-blur-xs px-4">
-        <div className="max-w-[1640px] mx-auto flex items-center justify-end gap-4 md:gap-8 py-1.5 px-2 sm:px-4 md:px-6 lg:px-8 xl:px-12 2xl:px-16">
-          {/* Liquid Glass Animated Navigation Bar - Seamless Borderless Outline */}
-          <nav className="relative flex min-w-0 flex-1 items-center justify-end gap-1.5 overflow-x-auto scrollbar-none py-1 px-1 rounded-2xl bg-transparent border-0 border-transparent shadow-none outline-none">
-            {navItems.map((item) => {
+      {/* Desktop Primary Navigation Bar - Core Sections Always Front & Center */}
+      <div className="hidden lg:block bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-4 border-b border-slate-200/80 dark:border-slate-800/80">
+        <div className="max-w-[1640px] mx-auto flex items-center justify-between gap-4 py-1 px-2 sm:px-4 md:px-6 lg:px-8 xl:px-12 2xl:px-16">
+          {/* Primary Navigation Tabs */}
+          <nav className="relative flex items-center gap-1.5 py-1 px-1 rounded-2xl bg-transparent">
+            {primaryNavItems.map((item) => {
               const Icon = item.icon;
-              const isActive = activeTab === item.id || (item.id === 'challenges' && activeTab === 'badges');
+              const isActive = activeTab === item.id || (item.id === 'review' && activeTab === 'journal');
               return (
                 <motion.button
                   key={item.id}
@@ -931,50 +988,6 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
               );
             })}
           </nav>
-
-          {/* Desktop Dalal Street Search Trigger Button - Sleek & Borderless */}
-          <div className="hidden xl:flex items-center gap-2 shrink-0">
-            <motion.button
-              type="button"
-              id="header-dalal-search-btn"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => {
-                window.dispatchEvent(new CustomEvent('open-app-search'));
-              }}
-              className="group relative flex items-center h-8.5 px-3 rounded-xl border-0 border-transparent bg-slate-200/50 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-800 dark:text-white backdrop-blur-xl shadow-none hover:shadow-xs transition-all cursor-pointer select-none outline-none focus:outline-none"
-              title="Search Dalal Street companies, brands, and app features (Press / or Ctrl+K)"
-              aria-label="Open Dalal Street search dialog"
-            >
-              <div className="flex items-center gap-2">
-                <Search className="w-3.5 h-3.5 text-emerald-600 dark:text-mint group-hover:scale-110 transition-transform" />
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Search shares...</span>
-              </div>
-              <kbd className="ml-2.5 inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-mono font-black text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/10 border border-slate-200/60 dark:border-white/10 rounded-md">
-                /
-              </kbd>
-            </motion.button>
-          </div>
-
-          {/* 1v1 Stock Battle Arena Trigger */}
-          <motion.button
-            type="button"
-            id="header-stock-battle-btn"
-            whileHover={{ scale: 1.04 }}
-            whileTap={{ scale: 0.96 }}
-            onClick={() => {
-              window.dispatchEvent(new CustomEvent('open-stock-battle'));
-            }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-all bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-600 text-white shadow-xs hover:shadow-md hover:from-violet-500 hover:to-indigo-500 cursor-pointer select-none"
-            title="1v1 Blue-Chip Stock Battle Arena: Compare rival blue-chips in real-time tug-of-war"
-          >
-            <Swords className="w-3.5 h-3.5 text-amber-300" />
-            <span>1v1 Battle Arena</span>
-            <span className="bg-amber-400/30 text-amber-200 text-[9px] font-black px-1.5 py-0.5 rounded-full border border-amber-300/40 uppercase">
-              VS
-            </span>
-          </motion.button>
-
           {/* Right auxiliary link: Indian Stock API */}
           {onOpenApiModal && (
             <button
@@ -989,6 +1002,121 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
               </span>
             </button>
           )}
+        </div>
+      </div>
+
+      {/* Desktop Sub-Heading Bar: Simulation & Practice Labs */}
+      <div className="hidden lg:block bg-slate-100/70 dark:bg-slate-900/80 border-b border-slate-200/70 dark:border-slate-800/70 px-4 py-1.5 transition-colors">
+        <div className="max-w-[1640px] mx-auto flex items-center justify-between gap-4 px-2 sm:px-4 md:px-6 lg:px-8 xl:px-12 2xl:px-16">
+          {/* Sub-heading category label and practice tabs */}
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+            <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 select-none">
+              <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+              <span>Simulation &amp; Labs:</span>
+            </div>
+
+            {/* Replay OS tab under sub-heading */}
+            <motion.button
+              type="button"
+              id="subnav-replay"
+              onClick={() => setActiveTab('replay')}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'replay'
+                  ? 'bg-indigo-600 text-white font-black shadow-xs'
+                  : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800'
+              }`}
+            >
+              <History className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Replay OS</span>
+              <span className={`text-[9px] font-black px-1.5 py-0.2 rounded-full border ${
+                activeTab === 'replay'
+                  ? 'bg-white/20 text-white border-white/30'
+                  : 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950 dark:text-indigo-300 dark:border-indigo-800'
+              }`}>
+                Blind Mode
+              </span>
+            </motion.button>
+
+            {/* Compound SIP Calculator tab under sub-heading */}
+            <motion.button
+              type="button"
+              id="subnav-calculator"
+              onClick={() => setActiveTab('calculator')}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'calculator'
+                  ? 'bg-emerald-600 text-white font-black shadow-xs'
+                  : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800'
+              }`}
+            >
+              <Calculator className="w-3.5 h-3.5 text-emerald-500" />
+              <span>SIP Calculator</span>
+            </motion.button>
+
+            {/* Progress & Badges tab under sub-heading */}
+            <motion.button
+              type="button"
+              id="subnav-challenges"
+              onClick={() => setActiveTab('challenges')}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'challenges' || activeTab === 'badges'
+                  ? 'bg-amber-600 text-white font-black shadow-xs'
+                  : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800'
+              }`}
+            >
+              <Trophy className="w-3.5 h-3.5 text-amber-500" />
+              <span>Progress &amp; Badges</span>
+            </motion.button>
+          </div>
+
+          {/* Right quick actions: Dalal search & 1v1 battle arena */}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Dalal Street Search */}
+            <motion.button
+              type="button"
+              id="header-dalal-search-btn"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent('open-app-search'));
+              }}
+              className="group relative flex items-center h-7.5 px-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 hover:bg-white dark:hover:bg-slate-800 text-slate-800 dark:text-white backdrop-blur-xl shadow-2xs transition-all cursor-pointer select-none"
+              title="Search Dalal Street companies, brands, and app features (Press / or Ctrl+K)"
+              aria-label="Open Dalal Street search dialog"
+            >
+              <div className="flex items-center gap-1.5">
+                <Search className="w-3.5 h-3.5 text-emerald-600 dark:text-[#00f59b] group-hover:scale-110 transition-transform" />
+                <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200">Search shares...</span>
+              </div>
+              <kbd className="ml-2 inline-flex items-center px-1.5 py-0.2 text-[9px] font-mono font-black text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 border border-slate-200/60 dark:border-slate-600 rounded">
+                /
+              </kbd>
+            </motion.button>
+
+            {/* 1v1 Battle Arena */}
+            <motion.button
+              type="button"
+              id="header-stock-battle-btn"
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.96 }}
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent('open-stock-battle'));
+              }}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-black transition-all bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-600 text-white shadow-2xs hover:shadow-xs cursor-pointer select-none"
+              title="1v1 Blue-Chip Stock Battle Arena: Compare rival blue-chips in real-time tug-of-war"
+            >
+              <Swords className="w-3 h-3 text-amber-300" />
+              <span>1v1 Battle</span>
+              <span className="bg-amber-400/30 text-amber-200 text-[8px] font-black px-1 rounded uppercase">
+                VS
+              </span>
+            </motion.button>
+          </div>
         </div>
       </div>
 
@@ -1139,7 +1267,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
             </div>
 
             <div className="grid grid-cols-2 gap-1.5">
-              {navItems.map((item) => {
+              {allNavItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.id || (item.id === 'challenges' && activeTab === 'badges');
                 return (
