@@ -19,7 +19,9 @@ import {
   Filter,
   Bookmark,
   Volume2,
-  VolumeX
+  VolumeX,
+  Lock,
+  Swords
 } from 'lucide-react';
 import { INITIAL_LESSONS } from '../data/lessonsData';
 import { CASE_STUDIES_DATA, CaseStudy } from '../data/caseStudiesData';
@@ -31,6 +33,8 @@ import { PortfolioConstructionLab } from './PortfolioConstructionLab';
 import { TaxCentre } from './TaxCentre';
 import { startPracticeTask } from './PracticeTaskBanner';
 import { getPracticeAction } from '../data/practiceActions';
+import { StageExam } from './StageExam';
+import { getStageExam, EXAM_LENGTH, EXAM_PASS_MARK } from '../data/stageExams';
 import type { AppTabType } from './Header';
 import { useAccessibility } from '../context/AccessibilityContext';
 
@@ -115,20 +119,24 @@ const getStageForLesson = (lessonId: string): LearningStageId =>
 
 type AcademyTabId =
   | 'LESSONS'
+  | 'STAGE_EXAM'
   | 'CASE_STUDIES'
   | 'TAX_CENTRE'
   | 'PORTFOLIO_MODELS'
   | 'HISTORICAL_EVENTS'
   | 'DAILY_QUIZ'
+  | 'BATTLE'
   | 'JARGON_BUSTER';
 
 const ACADEMY_TABS: Array<{ id: AcademyTabId; icon: string; label: string; count?: number }> = [
   { id: 'LESSONS', icon: '📚', label: 'Lessons', count: INITIAL_LESSONS.length },
+  { id: 'STAGE_EXAM', icon: '📝', label: 'Stage Exam', count: EXAM_LENGTH },
   { id: 'CASE_STUDIES', icon: '📊', label: 'Case Studies', count: CASE_STUDIES_DATA.length },
   { id: 'TAX_CENTRE', icon: '🧾', label: 'Tax Centre' },
   { id: 'PORTFOLIO_MODELS', icon: '🧭', label: 'Portfolio Models' },
   { id: 'HISTORICAL_EVENTS', icon: '🕰️', label: 'Market History' },
   { id: 'DAILY_QUIZ', icon: '🎯', label: 'Investor Quiz' },
+  { id: 'BATTLE', icon: '⚔️', label: '1v1 Battle' },
   { id: 'JARGON_BUSTER', icon: '📖', label: 'Jargon Glossary' },
 ];
 
@@ -375,6 +383,32 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
     [completedLessonIds],
   );
 
+  // Exam results, per stage. A stage opens only once the stage before it has
+  // been passed, so a first-time learner starts at stage one with the rest shut.
+  const [examScores, setExamScores] = useState<Record<string, number>>(() => {
+    try { return JSON.parse(localStorage.getItem(`${academyKey}:exams`) || '{}'); } catch { return {}; }
+  });
+
+  useEffect(() => {
+    localStorage.setItem(`${academyKey}:exams`, JSON.stringify(examScores));
+  }, [academyKey, examScores]);
+
+  const recordExamScore = (stageId: string, score: number) => {
+    setExamScores((previous) => ({
+      ...previous,
+      [stageId]: Math.max(previous[stageId] ?? 0, score),
+    }));
+  };
+
+  const hasPassedExam = (stageId: string) => (examScores[stageId] ?? 0) >= EXAM_PASS_MARK;
+
+  /** Stage 1 is always open; every later stage waits on the one before it. */
+  const isStageUnlocked = (stageId: string) => {
+    const index = LEARNING_PATH.findIndex((stage) => stage.id === stageId);
+    if (index <= 0) return true;
+    return hasPassedExam(LEARNING_PATH[index - 1].id);
+  };
+
   const stageProgress = useMemo(() => LEARNING_PATH.map((stage) => {
     const ids = stage.lessonIds as readonly string[];
     const done = ids.filter((id) => completedLessonIds.includes(id)).length;
@@ -391,6 +425,15 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
 
   useEffect(() => { localStorage.setItem(`${academyKey}:last`, activeLessonId); }, [academyKey, activeLessonId]);
   useEffect(() => { localStorage.setItem(`${academyKey}:stage`, activeStageId); }, [academyKey, activeStageId]);
+
+  // A saved stage can become unreachable (progress reset, exam results cleared),
+  // which would leave the learner staring at a stage they cannot use.
+  useEffect(() => {
+    if (isStageUnlocked(activeStageId)) return;
+    const highestOpen = [...LEARNING_PATH].reverse().find((stage) => isStageUnlocked(stage.id));
+    setActiveStageId(highestOpen?.id ?? LEARNING_PATH[0].id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeStageId, examScores]);
   useEffect(() => { localStorage.setItem(`${academyKey}:bookmarks`, JSON.stringify(bookmarkedLessonIds)); }, [academyKey, bookmarkedLessonIds]);
 
   const toggleLessonBookmark = (lessonId: string) => {
@@ -509,12 +552,18 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
                 const progress = stageProgress[index];
                 const selected = stage.id === activeStageId && activeSubTab === 'LESSONS';
                 const recommended = stage.id === recommendedStageId;
+                const unlocked = isStageUnlocked(stage.id);
+                const passed = hasPassedExam(stage.id);
+                const previousStageName = index > 0 ? LEARNING_PATH[index - 1].name : '';
                 return (
                   <li key={stage.id}>
                     <button
                       type="button"
                       aria-pressed={selected}
+                      disabled={!unlocked}
+                      title={unlocked ? undefined : `Pass the ${previousStageName} exam to open this stage`}
                       onClick={() => {
+                        if (!unlocked) return;
                         setActiveSubTab('LESSONS');
                         setActiveStageId(stage.id);
                         setLessonQuery('');
@@ -523,9 +572,11 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
                         if (nextLesson) handleSelectLesson(nextLesson);
                       }}
                       className={`h-full w-full rounded-xl border p-3 text-left transition-all ${
-                        selected
+                        !unlocked
+                          ? 'cursor-not-allowed border-slate-200 bg-slate-100 opacity-70 dark:border-slate-800 dark:bg-slate-900/60'
+                          : selected
                           ? 'border-slate-900 bg-slate-900 text-white shadow-sm dark:border-indigo-400 dark:bg-indigo-700'
-                          : progress.complete
+                          : passed
                           ? 'border-emerald-300 bg-emerald-50 hover:border-emerald-400 dark:border-emerald-900 dark:bg-emerald-950/30'
                           : 'border-slate-200 bg-white hover:border-indigo-300 dark:border-slate-700 dark:bg-slate-900'
                       }`}
@@ -534,8 +585,12 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
                         <span className={`text-[10px] font-black uppercase tracking-wide ${selected ? 'text-indigo-200' : 'text-slate-500 dark:text-slate-400'}`}>
                           Stage {index + 1}
                         </span>
-                        {progress.complete
+                        {!unlocked
+                          ? <Lock className="h-4 w-4 text-slate-400" />
+                          : passed
                           ? <CheckCircle2 className={`h-4 w-4 ${selected ? 'text-emerald-300' : 'text-emerald-600'}`} />
+                          : progress.complete
+                          ? <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-black text-amber-800 dark:bg-amber-950 dark:text-amber-300">EXAM</span>
                           : recommended && !selected
                           ? <span className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-[9px] font-black text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">NEXT</span>
                           : null}
@@ -545,7 +600,7 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
                         {stage.name}
                       </p>
                       <p className={`mt-1 text-[11px] leading-relaxed ${selected ? 'text-slate-300' : 'text-slate-600 dark:text-slate-300'}`}>
-                        {stage.outcome}
+                        {unlocked ? stage.outcome : `Locked — pass the ${previousStageName} exam to open this stage.`}
                       </p>
                       <div className="mt-2 flex items-center gap-2">
                         <span className={`h-1.5 flex-1 overflow-hidden rounded-full ${selected ? 'bg-white/20' : 'bg-slate-200 dark:bg-slate-700'}`}>
@@ -566,8 +621,9 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
           </div>
         </div>
 
-        {/* Sub-Tabs — every section is reachable; nothing is gated behind progress. */}
-        <div className="grid w-full grid-cols-2 gap-1.5 rounded-2xl border border-slate-200 bg-slate-50 p-1.5 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
+        {/* Sub-Tabs. The stages behind them are gated, but every section here
+            stays reachable so reference material is never locked away. */}
+        <div className="grid w-full grid-cols-2 gap-1.5 rounded-2xl border border-slate-200 bg-slate-50 p-1.5 sm:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-9">
           {ACADEMY_TABS.map((tab) => (
             <button
               key={tab.id}
@@ -653,6 +709,40 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
                   </div>
                 );
               })}
+              {(() => {
+                const index = LEARNING_PATH.findIndex((stage) => stage.id === activeStageId);
+                const progress = stageProgress[index];
+                const isLastStage = index === LEARNING_PATH.length - 1;
+                if (!progress?.complete || lessonQuery.trim()) return null;
+                if (hasPassedExam(activeStageId)) {
+                  return (
+                    <div className="rounded-2xl border border-emerald-300 bg-emerald-50 p-3 text-center dark:border-emerald-800 dark:bg-emerald-950/40">
+                      <p className="text-[11px] font-black text-emerald-900 dark:text-emerald-200">
+                        Stage {index + 1} passed with {examScores[activeStageId]}/{EXAM_LENGTH}
+                      </p>
+                      <p className="mt-0.5 text-[10px] font-medium text-emerald-800/80 dark:text-emerald-300/80">
+                        {isLastStage ? 'You have finished every stage.' : `Stage ${index + 2} is open.`}
+                      </p>
+                    </div>
+                  );
+                }
+                return (
+                  <button
+                    type="button"
+                    onClick={() => setActiveSubTab('STAGE_EXAM')}
+                    className="w-full rounded-2xl border border-amber-300 bg-amber-50 p-3 text-left transition-colors hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:hover:bg-amber-900/40"
+                  >
+                    <p className="text-[11px] font-black text-amber-900 dark:text-amber-200">
+                      All {progress.total} modules done — take the stage exam
+                    </p>
+                    <p className="mt-0.5 text-[10px] font-medium leading-snug text-amber-800/80 dark:text-amber-300/80">
+                      {EXAM_LENGTH} questions, {EXAM_PASS_MARK} to pass.
+                      {isLastStage ? ' It completes the path.' : ' Passing opens the next stage.'}
+                    </p>
+                  </button>
+                );
+              })()}
+
               {filteredLessons.length === 0 && (
                 <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center text-xs font-medium text-slate-500">
                   No lessons match “{lessonQuery}”.
@@ -856,6 +946,58 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
       )}
 
       {/* VIEW: CASE STUDIES & COMPANY-VS-COMPANY COMPARISONS */}
+      {/* VIEW: STAGE GATE EXAM */}
+      {activeSubTab === 'STAGE_EXAM' && (() => {
+        const exam = getStageExam(activeStageId);
+        const stageIndex = LEARNING_PATH.findIndex((stage) => stage.id === activeStageId);
+        const progress = stageProgress[stageIndex] ?? { done: 0, total: 0 };
+        if (!exam) return null;
+        return (
+          <StageExam
+            exam={exam}
+            stageName={activeStage.name}
+            stageNumber={stageIndex + 1}
+            modulesRemaining={progress.total - progress.done}
+            passed={hasPassedExam(activeStageId)}
+            bestScore={examScores[activeStageId] ?? null}
+            onRecordAttempt={(score) => recordExamScore(activeStageId, score)}
+            onPass={(score) => {
+              recordExamScore(activeStageId, score);
+              // The exam is worth XP in its own right, tracked like a lesson so
+              // it survives a reload with the rest of the learner's progress.
+              completeLesson(`exam-${activeStageId}`, 250);
+            }}
+          />
+        );
+      })()}
+
+      {/* VIEW: 1v1 BATTLE ARENA — a comparison drill, so it belongs with the
+          rest of the learning tools rather than floating in the header. */}
+      {activeSubTab === 'BATTLE' && (
+        <div className="rounded-2xl border border-violet-200 bg-violet-50 p-6 text-center dark:border-violet-900 dark:bg-violet-950/40">
+          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 text-white">
+            <Swords className="h-6 w-6" />
+          </span>
+          <h3 className="mt-3 text-lg font-black text-violet-950 dark:text-violet-100">
+            1v1 Blue-Chip Battle Arena
+          </h3>
+          <p className="mx-auto mt-1.5 max-w-lg text-xs leading-relaxed text-violet-900/80 dark:text-violet-200/80">
+            Put two rival blue-chips head to head and watch valuation, growth and momentum pull
+            against each other. It is the fastest way to practise the comparison the Lessons
+            keep asking for: a number only means something next to a comparable one.
+          </p>
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('open-stock-battle'))}
+            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-600 px-4 py-2.5 text-xs font-black text-white shadow-sm hover:shadow-md"
+          >
+            <Swords className="h-4 w-4 text-amber-300" />
+            Open the Battle Arena
+            <span className="rounded bg-amber-400/30 px-1.5 py-0.5 text-[9px] font-black uppercase text-amber-100">VS</span>
+          </button>
+        </div>
+      )}
+
       {activeSubTab === 'CASE_STUDIES' && (
         <div className="space-y-6">
           {/* Category Filter Pills */}

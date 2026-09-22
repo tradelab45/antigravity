@@ -36,10 +36,8 @@ import {
   Moon,
   Volume2,
   VolumeX,
-  Swords,
   Palette,
-  Check,
-  ShieldCheck
+  Check
 } from 'lucide-react';
 import { useSimulator, isUserAdmin } from '../context/SimulatorContext';
 import { useTheme } from '../context/ThemeContext';
@@ -84,7 +82,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
 
   const isAdmin = isUserAdmin(currentUser);
 
-  const { theme, isDark, toggleTheme, palette, setPalette, palettes } = useTheme();
+  const { theme, isDark, toggleTheme, setTheme, palette, setPalette, palettes } = useTheme();
 
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showSignoutConfirm, setShowSignoutConfirm] = useState(false);
@@ -94,9 +92,11 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [mobileMenuHintVisible, setMobileMenuHintVisible] = useState(false);
   const [soundOn, setSoundOn] = useState(() => isSoundEnabled());
-  const [paletteMenuOpen, setPaletteMenuOpen] = useState(false);
+  const [displayMenuOpen, setDisplayMenuOpen] = useState(false);
+  const [labsMenuOpen, setLabsMenuOpen] = useState(false);
   const profileDropdownRef = useRef<HTMLDivElement>(null);
-  const paletteMenuRef = useRef<HTMLDivElement>(null);
+  const displayMenuRef = useRef<HTMLDivElement>(null);
+  const labsMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleSoundToggle = (e: Event) => {
@@ -114,14 +114,18 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
       if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target as Node)) {
         setProfileDropdownOpen(false);
       }
-      if (paletteMenuRef.current && !paletteMenuRef.current.contains(event.target as Node)) {
-        setPaletteMenuOpen(false);
+      if (displayMenuRef.current && !displayMenuRef.current.contains(event.target as Node)) {
+        setDisplayMenuOpen(false);
+      }
+      if (labsMenuRef.current && !labsMenuRef.current.contains(event.target as Node)) {
+        setLabsMenuOpen(false);
       }
     };
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setProfileDropdownOpen(false);
-        setPaletteMenuOpen(false);
+        setDisplayMenuOpen(false);
+        setLabsMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -177,6 +181,17 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
     { id: 'chanakya', label: 'AI Coach', icon: Zap, highlight: true },
   ];
 
+  /** Practice tools, grouped under one heading in the main navigation. */
+  const LAB_ITEMS: { id: AppTabType; label: string; icon: React.ElementType; badge?: string }[] = [
+    { id: 'replay', label: 'Replay OS', icon: History, badge: 'Blind Mode' },
+    { id: 'calculator', label: 'Compound Calculator', icon: Calculator, badge: 'SIP' },
+    { id: 'challenges', label: 'Progress & Badges', icon: Trophy },
+  ];
+
+  const labsActive = LAB_ITEMS.some(
+    (item) => activeTab === item.id || (item.id === 'challenges' && activeTab === 'badges'),
+  );
+
   // Complete List of items for drawer / global lookup
   const allNavItems: {
     id: AppTabType;
@@ -216,7 +231,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full max-w-full overflow-x-clip bg-white/95 text-slate-900 shadow-xs backdrop-blur-md transition-colors duration-200 dark:bg-slate-900/95 dark:text-slate-100 border-b border-slate-200 dark:border-slate-800">
+    <header className="rr-app-chrome sticky top-0 z-40 w-full max-w-full overflow-x-clip text-slate-900 shadow-xs backdrop-blur-md transition-colors duration-200 dark:text-slate-100 border-b border-slate-200 dark:border-slate-800">
       {/* Sleek Top Indices Ticker & Real-Time Status Bar */}
       <div className="bg-[#0B0F19] border-b border-slate-800 text-slate-100 py-1.5 px-3 text-xs overflow-hidden relative select-none">
         <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-[#0B0F19] to-transparent z-10 pointer-events-none" />
@@ -423,32 +438,6 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
 
         {/* Right: Consolidated Controls Hub */}
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-          {/* Strict vs 24/7 Hours Mode Toggle Pill */}
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => {
-              const next = marketHoursMode === 'STRICT_NSE_HOURS' ? 'PRACTICE_24x7' : 'STRICT_NSE_HOURS';
-              setMarketHoursMode(next);
-            }}
-            className={`hidden 2xl:flex items-center gap-2 px-3 py-1.5 rounded-xl border text-[11px] font-black transition-all cursor-pointer shadow-xs ${
-              marketHoursMode === 'STRICT_NSE_HOURS'
-                ? 'bg-indigo-50 dark:bg-indigo-950/50 border-indigo-200 dark:border-indigo-800 text-indigo-950 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/60'
-                : 'bg-amber-50 dark:bg-amber-950/50 border-amber-200 dark:border-amber-800 text-amber-950 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/60'
-            }`}
-            title={`Click to switch mode. Current: ${marketHoursMode === 'STRICT_NSE_HOURS' ? 'Strict NSE Hours (9:15-15:30 IST)' : '24x7 Open Practice Session'}`}
-          >
-            <span className="relative flex h-2.5 w-2.5">
-              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                marketHoursMode === 'STRICT_NSE_HOURS' ? 'bg-indigo-500' : 'bg-amber-500'
-              }`} />
-              <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${
-                marketHoursMode === 'STRICT_NSE_HOURS' ? 'bg-indigo-600' : 'bg-amber-500'
-              }`} />
-            </span>
-            <span className="font-mono">{marketHoursMode === 'STRICT_NSE_HOURS' ? 'Strict NSE' : '24x7 Mode'}</span>
-          </motion.button>
-
           {/* XP & Level Chip */}
           <motion.button
             whileHover={{ scale: 1.05 }}
@@ -508,58 +497,67 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
             <span className="hidden xl:inline">Help</span>
           </motion.button>
 
-          {/* Global Theme Toggle Button (Light / Dark Mode) with Spring Rotation */}
-          <motion.button
-            id="theme-toggle-btn"
-            whileHover={{ scale: 1.08 }}
-            whileTap={{ scale: 0.92 }}
-            onClick={toggleTheme}
-            className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-amber-300 border border-slate-200 dark:border-slate-700 shadow-xs transition-all cursor-pointer"
-            title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-            aria-label={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-          >
-            <motion.div
-              animate={{ rotate: isDark ? 180 : 0 }}
-              transition={{ type: "spring", stiffness: 350, damping: 20 }}
-            >
-              {isDark ? (
-                <Sun className="w-4 h-4 text-amber-400" />
-              ) : (
-                <Moon className="w-4 h-4 text-indigo-600" />
-              )}
-            </motion.div>
-            <span className="text-[10px] font-mono font-bold">{isDark ? 'Dark' : 'Light'}</span>
-          </motion.button>
-
-          {/* Background Colour Palette Picker */}
-          <div className="relative hidden md:block" ref={paletteMenuRef}>
+          {/* Display: light/dark and background colour in one control.
+              These were two separate header buttons plus a duplicate pair in
+              the profile menu, so four places changed the same two settings. */}
+          <div className="relative" ref={displayMenuRef}>
             <motion.button
-              id="palette-picker-btn"
+              id="display-settings-btn"
               type="button"
-              whileHover={{ scale: 1.08 }}
-              whileTap={{ scale: 0.92 }}
-              onClick={() => setPaletteMenuOpen((open) => !open)}
+              whileHover={{ scale: 1.06 }}
+              whileTap={{ scale: 0.94 }}
+              onClick={() => setDisplayMenuOpen((open) => !open)}
               aria-haspopup="menu"
-              aria-expanded={paletteMenuOpen}
+              aria-expanded={displayMenuOpen}
               className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 px-2.5 py-1.5 text-slate-800 shadow-xs transition-all hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 cursor-pointer"
-              title="Change background colour"
-              aria-label="Change background colour"
+              title="Display settings: light or dark mode and background colour"
+              aria-label="Display settings"
             >
               <Palette className="h-4 w-4" style={{ color: 'var(--rr-app-accent)' }} />
-              <span className="hidden text-[10px] font-mono font-bold xl:inline">Colour</span>
+              <span className="hidden text-[10px] font-mono font-bold lg:inline">Display</span>
+              <ChevronDown className={`h-3 w-3 shrink-0 transition-transform ${displayMenuOpen ? 'rotate-180' : ''}`} />
             </motion.button>
 
             <AnimatePresence>
-              {paletteMenuOpen && (
+              {displayMenuOpen && (
                 <motion.div
                   role="menu"
                   initial={{ opacity: 0, y: -6 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -6 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute right-0 z-50 mt-2 w-60 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl dark:border-slate-700 dark:bg-slate-900"
+                  className="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl dark:border-slate-700 dark:bg-slate-900"
                 >
                   <p className="px-2 pb-1.5 pt-1 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Mode
+                  </p>
+                  <div className="flex gap-1 px-1 pb-2">
+                    {([
+                      { id: 'light' as const, label: 'Light', icon: Sun },
+                      { id: 'dark' as const, label: 'Dark', icon: Moon },
+                    ]).map(({ id, label, icon: ModeIcon }) => {
+                      const selected = theme === id;
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={selected}
+                          onClick={() => setTheme(id)}
+                          className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl border px-2 py-2 text-[11px] font-black transition-colors ${
+                            selected
+                              ? 'border-indigo-500 bg-indigo-600 text-white'
+                              : 'border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800'
+                          }`}
+                        >
+                          <ModeIcon className="h-3.5 w-3.5" />
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <p className="border-t border-slate-100 px-2 pb-1.5 pt-2 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:border-slate-800 dark:text-slate-400">
                     Background colour
                   </p>
                   {palettes.map((option) => {
@@ -570,10 +568,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
                         type="button"
                         role="menuitemradio"
                         aria-checked={selected}
-                        onClick={() => {
-                          setPalette(option.id);
-                          setPaletteMenuOpen(false);
-                        }}
+                        onClick={() => setPalette(option.id)}
                         className={`flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left transition-colors ${selected ? 'bg-indigo-50 dark:bg-indigo-950/60' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}`}
                       >
                         <span aria-hidden="true" className="flex shrink-0 overflow-hidden rounded-md border border-slate-300/70 dark:border-slate-600">
@@ -589,7 +584,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
                   <button
                     type="button"
                     onClick={() => {
-                      setPaletteMenuOpen(false);
+                      setDisplayMenuOpen(false);
                       window.dispatchEvent(new Event('open-accessibility-settings'));
                     }}
                     className="mt-1 w-full rounded-xl border border-slate-200 px-2 py-2 text-[11px] font-black text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
@@ -614,20 +609,20 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
                 playNseBellSound();
               }
             }}
-            className={`hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border shadow-xs transition-all cursor-pointer ${
+            className={`flex h-8 w-8 items-center justify-center rounded-xl border shadow-xs transition-all cursor-pointer ${
               soundOn
                 ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60'
                 : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700'
             }`}
             title={soundOn ? 'Sound Effects Active (Click to mute)' : 'Sound Effects Muted (Click to turn on sounds)'}
-            aria-label="Toggle Sound Effects"
+            aria-label={soundOn ? 'Mute sound effects' : 'Turn on sound effects'}
+            aria-pressed={soundOn}
           >
             {soundOn ? (
               <Volume2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
             ) : (
               <VolumeX className="w-4 h-4 text-slate-400" />
             )}
-            <span className="text-[10px] font-mono font-bold">{soundOn ? 'SFX ON' : 'MUTED'}</span>
           </motion.button>
 
           {/* Reset Simulator Button */}
@@ -663,8 +658,9 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
           <div className="relative" ref={profileDropdownRef}>
             <button
               id="user-profile-btn"
-              onClick={() => { setProfileDropdownOpen(false); setAuthModalOpen(true); }}
-              aria-haspopup="dialog"
+              onClick={() => { setDisplayMenuOpen(false); setProfileDropdownOpen((open) => !open); }}
+              aria-haspopup="menu"
+              aria-expanded={profileDropdownOpen}
               className="flex items-center gap-1 px-1.5 sm:px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-slate-700 hover:border-indigo-500 text-xs font-bold text-slate-800 dark:text-slate-200 shadow-xs transition-all cursor-pointer"
               title={currentUser ? `Investor Profile: ${currentUser.fullName}` : 'Account Settings'}
             >
@@ -731,49 +727,45 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
                       </button>
                     )}
 
-                    {/* Theme toggle in dropdown */}
-                    <button
-                      id="profile-theme-toggle-btn"
-                      onClick={() => {
-                        toggleTheme();
-                      }}
-                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2">
-                        {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />}
-                        <span>Appearance</span>
-                      </div>
-                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                        {isDark ? 'Dark Mode 🌙' : 'Light Mode ☀️'}
-                      </span>
-                    </button>
-
-                    {/* Background colour swatches (works on mobile where the header picker is hidden) */}
+                    {/* Market hours, set from here rather than from a header
+                        pill that was only visible on very wide screens. */}
                     <div className="px-3 py-2">
-                      <p className="mb-1.5 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">Background colour</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {palettes.map((option) => {
-                          const selected = palette === option.id;
+                      <p className="mb-1.5 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                        <Clock className="h-3 w-3" /> Market hours
+                      </p>
+                      <div className="flex gap-1" role="radiogroup" aria-label="Market hours mode">
+                        {([
+                          { id: 'STRICT_NSE_HOURS' as const, label: 'Strict NSE', hint: 'Orders only 9:15-15:30 IST' },
+                          { id: 'PRACTICE_24x7' as const, label: '24x7 Practice', hint: 'Trade any time' },
+                        ]).map(({ id, label, hint }) => {
+                          const selected = marketHoursMode === id;
                           return (
                             <button
-                              key={option.id}
+                              key={id}
                               type="button"
-                              onClick={() => setPalette(option.id)}
-                              aria-pressed={selected}
-                              title={option.label}
-                              aria-label={`Background colour: ${option.label}`}
-                              className={`h-8 w-8 overflow-hidden rounded-lg border-2 transition-all ${selected ? 'border-indigo-500 ring-2 ring-indigo-200 dark:ring-indigo-900' : 'border-slate-200 dark:border-slate-700'}`}
+                              role="radio"
+                              aria-checked={selected}
+                              onClick={() => setMarketHoursMode(id)}
+                              title={hint}
+                              className={`flex-1 rounded-xl border px-2 py-1.5 text-[11px] font-black transition-colors ${
+                                selected
+                                  ? 'border-indigo-500 bg-indigo-600 text-white'
+                                  : 'border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800'
+                              }`}
                             >
-                              <span aria-hidden="true" className="flex h-full w-full">
-                                {option.swatch.map((colour) => (
-                                  <span key={colour} className="block h-full flex-1" style={{ backgroundColor: colour }} />
-                                ))}
-                              </span>
+                              {label}
                             </button>
                           );
                         })}
                       </div>
+                      <p className="mt-1.5 text-[10px] font-medium leading-snug text-slate-500 dark:text-slate-400">
+                        {marketHoursMode === 'STRICT_NSE_HOURS'
+                          ? 'Orders are accepted only while NSE is open, as on a real exchange.'
+                          : 'Orders are accepted at any hour, for practice outside market hours.'}
+                      </p>
                     </div>
+
+                    <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
 
                     <button
                       onClick={() => {
@@ -816,6 +808,19 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
                         </span>
                       </button>
                     )}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileDropdownOpen(false);
+                        setActiveTab('privacy');
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                    >
+                      <ShieldCheck className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+                      <span>Data &amp; Privacy</span>
+                      <span className="ml-auto text-[9px] rounded bg-sky-100 px-1.5 py-0.5 font-black text-sky-800 dark:bg-sky-950 dark:text-sky-300">Export</span>
+                    </button>
 
                     <button
                       type="button"
@@ -919,11 +924,14 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
         </div>
       </div>
 
-      {/* Desktop Primary Navigation Bar - Core Sections Always Front & Center */}
-      <div className="hidden lg:block bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-4 border-b border-slate-200/80 dark:border-slate-800/80">
-        <div className="max-w-[1640px] mx-auto flex items-center justify-between gap-4 py-1 px-2 sm:px-4 md:px-6 lg:px-8 xl:px-12 2xl:px-16">
+      {/* Desktop Primary Navigation Bar - Core Sections Always Front & Center.
+          Three columns rather than space-between, so the tabs sit on the page's
+          centre line instead of being pushed off it by the actions beside them. */}
+      <div className="rr-app-chrome hidden lg:block backdrop-blur-md px-4 border-b border-slate-200/80 dark:border-slate-800/80">
+        <div className="max-w-[1640px] mx-auto grid grid-cols-[1fr_auto_1fr] items-center gap-4 py-1 px-2 sm:px-4 md:px-6 lg:px-8 xl:px-12 2xl:px-16">
+          <div aria-hidden="true" />
           {/* Primary Navigation Tabs */}
-          <nav className="relative flex items-center gap-1.5 py-1 px-1 rounded-2xl bg-transparent">
+          <nav className="relative flex items-center justify-center gap-1.5 py-1 px-1 rounded-2xl bg-transparent">
             {primaryNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id || (item.id === 'review' && activeTab === 'journal');
@@ -987,135 +995,108 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
                 </motion.button>
               );
             })}
-          </nav>
-          {/* Right auxiliary link: Indian Stock API */}
-          {onOpenApiModal && (
-            <button
-              id="nav-api-explorer"
-              onClick={onOpenApiModal}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-all bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300/80 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 cursor-pointer shadow-2xs"
-            >
-              <Terminal className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-              <span>Indian Stock API</span>
-              <span className="bg-emerald-200/80 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200 text-[9px] font-mono font-bold px-1 rounded">
-                0xramm
-              </span>
-            </button>
-          )}
-        </div>
-      </div>
 
-      {/* Desktop Sub-Heading Bar: Simulation & Practice Labs */}
-      <div className="hidden lg:block bg-slate-100/70 dark:bg-slate-900/80 border-b border-slate-200/70 dark:border-slate-800/70 px-4 py-1.5 transition-colors">
-        <div className="max-w-[1640px] mx-auto flex items-center justify-between gap-4 px-2 sm:px-4 md:px-6 lg:px-8 xl:px-12 2xl:px-16">
-          {/* Sub-heading category label and practice tabs */}
-          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-            <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 select-none">
-              <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-              <span>Simulation &amp; Labs:</span>
+            {/* Labs: the practice tools, which had a whole second bar to
+                themselves. One heading in the main row costs no vertical space
+                and keeps them a single click away. */}
+            <div className="relative" ref={labsMenuRef}>
+              <motion.button
+                type="button"
+                id="nav-labs"
+                onClick={() => setLabsMenuOpen((open) => !open)}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                aria-haspopup="menu"
+                aria-expanded={labsMenuOpen}
+                aria-current={labsActive ? 'page' : undefined}
+                className={`relative flex shrink-0 items-center gap-2 whitespace-nowrap px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer select-none outline-none border-0 ${
+                  labsActive
+                    ? 'bg-gradient-to-r from-indigo-600 via-indigo-700 to-violet-700 text-white shadow-md shadow-indigo-500/25'
+                    : 'text-slate-800 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-200/50 dark:hover:bg-white/10'
+                }`}
+              >
+                <Sparkles className={`w-3.5 h-3.5 shrink-0 ${labsActive ? 'text-white' : 'text-indigo-500'}`} />
+                <span>Labs</span>
+                <ChevronDown className={`h-3 w-3 shrink-0 transition-transform ${labsMenuOpen ? 'rotate-180' : ''}`} />
+              </motion.button>
+
+              <AnimatePresence>
+                {labsMenuOpen && (
+                  <motion.div
+                    role="menu"
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute left-1/2 z-50 mt-2 w-60 -translate-x-1/2 overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-2xl dark:border-slate-700 dark:bg-slate-900"
+                  >
+                    {LAB_ITEMS.map((item) => {
+                      const LabIcon = item.icon;
+                      const isActive = activeTab === item.id || (item.id === 'challenges' && activeTab === 'badges');
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          role="menuitem"
+                          id={`subnav-${item.id}`}
+                          onClick={() => {
+                            setActiveTab(item.id);
+                            setLabsMenuOpen(false);
+                          }}
+                          className={`flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-xs font-bold transition-colors ${
+                            isActive
+                              ? 'bg-indigo-50 text-indigo-900 dark:bg-indigo-950/60 dark:text-indigo-200'
+                              : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800'
+                          }`}
+                        >
+                          <LabIcon className="h-4 w-4 shrink-0 text-indigo-500" />
+                          <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                          {item.badge && (
+                            <span className="shrink-0 rounded-full border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-[9px] font-black text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
+                              {item.badge}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
+          </nav>
 
-            {/* Replay OS tab under sub-heading */}
-            <motion.button
-              type="button"
-              id="subnav-replay"
-              onClick={() => setActiveTab('replay')}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'replay'
-                  ? 'bg-indigo-600 text-white font-black shadow-xs'
-                  : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800'
-              }`}
-            >
-              <History className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Replay OS</span>
-              <span className={`text-[9px] font-black px-1.5 py-0.2 rounded-full border ${
-                activeTab === 'replay'
-                  ? 'bg-white/20 text-white border-white/30'
-                  : 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950 dark:text-indigo-300 dark:border-indigo-800'
-              }`}>
-                Blind Mode
-              </span>
-            </motion.button>
-
-            {/* Compound SIP Calculator tab under sub-heading */}
-            <motion.button
-              type="button"
-              id="subnav-calculator"
-              onClick={() => setActiveTab('calculator')}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'calculator'
-                  ? 'bg-emerald-600 text-white font-black shadow-xs'
-                  : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800'
-              }`}
-            >
-              <Calculator className="w-3.5 h-3.5 text-emerald-500" />
-              <span>SIP Calculator</span>
-            </motion.button>
-
-            {/* Progress & Badges tab under sub-heading */}
-            <motion.button
-              type="button"
-              id="subnav-challenges"
-              onClick={() => setActiveTab('challenges')}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'challenges' || activeTab === 'badges'
-                  ? 'bg-amber-600 text-white font-black shadow-xs'
-                  : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800'
-              }`}
-            >
-              <Trophy className="w-3.5 h-3.5 text-amber-500" />
-              <span>Progress &amp; Badges</span>
-            </motion.button>
-          </div>
-
-          {/* Right quick actions: Dalal search & 1v1 battle arena */}
-          <div className="flex items-center gap-2 shrink-0">
-            {/* Dalal Street Search */}
+          {/* Right column: search and the API explorer. */}
+          <div className="flex items-center justify-end gap-2">
             <motion.button
               type="button"
               id="header-dalal-search-btn"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => {
-                window.dispatchEvent(new CustomEvent('open-app-search'));
-              }}
-              className="group relative flex items-center h-7.5 px-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 hover:bg-white dark:hover:bg-slate-800 text-slate-800 dark:text-white backdrop-blur-xl shadow-2xs transition-all cursor-pointer select-none"
+              onClick={() => window.dispatchEvent(new CustomEvent('open-app-search'))}
+              className="group relative flex h-7.5 items-center rounded-xl border border-slate-200 bg-white/80 px-2.5 text-slate-800 shadow-2xs backdrop-blur-xl transition-all hover:bg-white dark:border-slate-700 dark:bg-slate-800/80 dark:text-white dark:hover:bg-slate-800 cursor-pointer select-none"
               title="Search Dalal Street companies, brands, and app features (Press / or Ctrl+K)"
               aria-label="Open Dalal Street search dialog"
             >
-              <div className="flex items-center gap-1.5">
-                <Search className="w-3.5 h-3.5 text-emerald-600 dark:text-[#00f59b] group-hover:scale-110 transition-transform" />
-                <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200">Search shares...</span>
-              </div>
-              <kbd className="ml-2 inline-flex items-center px-1.5 py-0.2 text-[9px] font-mono font-black text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 border border-slate-200/60 dark:border-slate-600 rounded">
+              <Search className="h-3.5 w-3.5 text-emerald-600 dark:text-mint" />
+              <span className="ml-1.5 hidden text-[11px] font-bold xl:inline">Search shares...</span>
+              <kbd className="ml-2 hidden items-center rounded border border-slate-200/60 bg-slate-100 px-1.5 text-[9px] font-mono font-black text-slate-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-400 xl:inline-flex">
                 /
               </kbd>
             </motion.button>
 
-            {/* 1v1 Battle Arena */}
-            <motion.button
-              type="button"
-              id="header-stock-battle-btn"
-              whileHover={{ scale: 1.04 }}
-              whileTap={{ scale: 0.96 }}
-              onClick={() => {
-                window.dispatchEvent(new CustomEvent('open-stock-battle'));
-              }}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-black transition-all bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-600 text-white shadow-2xs hover:shadow-xs cursor-pointer select-none"
-              title="1v1 Blue-Chip Stock Battle Arena: Compare rival blue-chips in real-time tug-of-war"
-            >
-              <Swords className="w-3 h-3 text-amber-300" />
-              <span>1v1 Battle</span>
-              <span className="bg-amber-400/30 text-amber-200 text-[8px] font-black px-1 rounded uppercase">
-                VS
-              </span>
-            </motion.button>
+            {onOpenApiModal && (
+              <button
+                id="nav-api-explorer"
+                onClick={onOpenApiModal}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-all bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300/80 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 cursor-pointer shadow-2xs"
+              >
+                <Terminal className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span className="hidden xl:inline">Indian Stock API</span>
+                <span className="bg-emerald-200/80 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200 text-[9px] font-mono font-bold px-1 rounded">
+                  0xramm
+                </span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -1188,68 +1169,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
               </div>
             </div>
 
-            {/* Mobile Theme & Sound FX Toggle Rows */}
-            <div className="grid grid-cols-2 gap-2 py-1 px-1">
-              <div className="flex items-center justify-between p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">Theme</span>
-                <button
-                  id="mobile-theme-toggle-btn"
-                  onClick={toggleTheme}
-                  className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 text-[10px] font-extrabold"
-                >
-                  {isDark ? <Sun className="w-3 h-3 text-amber-400" /> : <Moon className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />}
-                  <span>{isDark ? 'Dark' : 'Light'}</span>
-                </button>
-              </div>
-
-              <div className="flex items-center justify-between p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">Sound FX</span>
-                <button
-                  id="mobile-sound-toggle-btn"
-                  onClick={() => {
-                    const next = !soundOn;
-                    setSoundOn(next);
-                    setSoundEnabled(next);
-                    if (next) playNseBellSound();
-                  }}
-                  className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-extrabold ${
-                    soundOn ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-slate-100 text-slate-500 dark:bg-slate-700'
-                  }`}
-                >
-                  {soundOn ? <Volume2 className="w-3 h-3 text-emerald-600" /> : <VolumeX className="w-3 h-3 text-slate-400" />}
-                  <span>{soundOn ? 'ON' : 'MUTED'}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Mobile 1v1 Battle Arena Banner Button */}
-            <button
-              type="button"
-              id="mobile-stock-battle-btn"
-              onClick={() => {
-                setMobileMenuOpen(false);
-                window.dispatchEvent(new CustomEvent('open-stock-battle'));
-              }}
-              className="w-full flex items-center justify-center gap-2 p-2.5 rounded-xl bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-600 text-white text-xs font-black shadow-sm cursor-pointer"
-            >
-              <Swords className="w-4 h-4 text-amber-300" />
-              <span>Enter 1v1 Blue-Chip Stock Battle Arena</span>
-              <span className="bg-amber-400/30 text-amber-200 text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase">
-                VS
-              </span>
-            </button>
-
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setMarketHoursMode(marketHoursMode === 'STRICT_NSE_HOURS' ? 'PRACTICE_24x7' : 'STRICT_NSE_HOURS');
-                  setMobileMenuOpen(false);
-                }}
-                className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-white px-3 text-xs font-black text-indigo-900 dark:border-indigo-800 dark:bg-slate-800 dark:text-indigo-200"
-              >
-                <Clock className="h-4 w-4" /> {marketHoursMode === 'STRICT_NSE_HOURS' ? 'Strict NSE Hours' : '24x7 Practice'}
-              </button>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <button
                 type="button"
                 onClick={() => { setMobileMenuOpen(false); setRiskCenterOpen(true); }}

@@ -95,9 +95,9 @@
    text and status colours keep the contrast they were designed with.
    ========================================================================= */
 :root {
-  --rr-app-bg: #f8fafc;
-  --rr-app-wash-1: rgb(99 102 241 / 0.05);
-  --rr-app-wash-2: rgb(16 185 129 / 0.045);
+  --rr-app-bg: #eef2f8;
+  --rr-app-wash-1: rgb(99 102 241 / 0.16);
+  --rr-app-wash-2: rgb(16 185 129 / 0.13);
   --rr-app-accent: #4f46e5;
 }
 :root {
@@ -111,8 +111,8 @@
 }
 :root.dark {
   --rr-app-bg: #030712;
-  --rr-app-wash-1: rgb(99 102 241 / 0.11);
-  --rr-app-wash-2: rgb(16 185 129 / 0.07);
+  --rr-app-wash-1: rgb(99 102 241 / 0.22);
+  --rr-app-wash-2: rgb(16 185 129 / 0.14);
   --rr-app-accent: #818cf8;
 }
 :root.dark {
@@ -126,15 +126,15 @@
 }
 
 :root[data-rr-palette="midnight"] {
-  --rr-app-bg: #f1f3fb;
-  --rr-app-wash-1: rgb(79 70 229 / 0.09);
-  --rr-app-wash-2: rgb(129 140 248 / 0.07);
+  --rr-app-bg: #dfe4fa;
+  --rr-app-wash-1: rgb(79 70 229 / 0.24);
+  --rr-app-wash-2: rgb(129 140 248 / 0.2);
   --rr-app-accent: #4338ca;
 }
 :root.dark[data-rr-palette="midnight"] {
-  --rr-app-bg: #080c1f;
-  --rr-app-wash-1: rgb(99 102 241 / 0.18);
-  --rr-app-wash-2: rgb(56 189 248 / 0.09);
+  --rr-app-bg: #070c26;
+  --rr-app-wash-1: rgb(99 102 241 / 0.34);
+  --rr-app-wash-2: rgb(56 189 248 / 0.18);
   --rr-app-accent: #818cf8;
   --rr-surface: #121736;
   --rr-surface-raised: #2d3566;
@@ -143,15 +143,15 @@
 }
 
 :root[data-rr-palette="forest"] {
-  --rr-app-bg: #f1f8f3;
-  --rr-app-wash-1: rgb(5 150 105 / 0.09);
-  --rr-app-wash-2: rgb(132 204 22 / 0.07);
+  --rr-app-bg: #dcf0e2;
+  --rr-app-wash-1: rgb(5 150 105 / 0.24);
+  --rr-app-wash-2: rgb(132 204 22 / 0.18);
   --rr-app-accent: #047857;
 }
 :root.dark[data-rr-palette="forest"] {
-  --rr-app-bg: #04140d;
-  --rr-app-wash-1: rgb(16 185 129 / 0.16);
-  --rr-app-wash-2: rgb(132 204 22 / 0.08);
+  --rr-app-bg: #03170f;
+  --rr-app-wash-1: rgb(16 185 129 / 0.32);
+  --rr-app-wash-2: rgb(132 204 22 / 0.16);
   --rr-app-accent: #34d399;
   --rr-surface: #0a1f16;
   --rr-surface-raised: #1d4235;
@@ -160,15 +160,15 @@
 }
 
 :root[data-rr-palette="sunrise"] {
-  --rr-app-bg: #fdf7ef;
-  --rr-app-wash-1: rgb(217 119 6 / 0.09);
-  --rr-app-wash-2: rgb(244 114 182 / 0.06);
+  --rr-app-bg: #fbe9d2;
+  --rr-app-wash-1: rgb(217 119 6 / 0.24);
+  --rr-app-wash-2: rgb(244 114 182 / 0.16);
   --rr-app-accent: #b45309;
 }
 :root.dark[data-rr-palette="sunrise"] {
-  --rr-app-bg: #191207;
-  --rr-app-wash-1: rgb(245 158 11 / 0.16);
-  --rr-app-wash-2: rgb(249 115 22 / 0.09);
+  --rr-app-bg: #1d1406;
+  --rr-app-wash-1: rgb(245 158 11 / 0.3);
+  --rr-app-wash-2: rgb(249 115 22 / 0.18);
   --rr-app-accent: #fbbf24;
   --rr-surface: #241a0d;
   --rr-surface-raised: #4c3a1c;
@@ -177,15 +177,15 @@
 }
 
 :root[data-rr-palette="ocean"] {
-  --rr-app-bg: #eef8fb;
-  --rr-app-wash-1: rgb(8 145 178 / 0.09);
-  --rr-app-wash-2: rgb(45 212 191 / 0.07);
+  --rr-app-bg: #d4ecf5;
+  --rr-app-wash-1: rgb(8 145 178 / 0.24);
+  --rr-app-wash-2: rgb(45 212 191 / 0.2);
   --rr-app-accent: #0e7490;
 }
 :root.dark[data-rr-palette="ocean"] {
-  --rr-app-bg: #04161c;
-  --rr-app-wash-1: rgb(34 211 238 / 0.15);
-  --rr-app-wash-2: rgb(45 212 191 / 0.09);
+  --rr-app-bg: #031a22;
+  --rr-app-wash-1: rgb(34 211 238 / 0.3);
+  --rr-app-wash-2: rgb(45 212 191 / 0.18);
   --rr-app-accent: #22d3ee;
   --rr-surface: #08242e;
   --rr-surface-raised: #12505f;
@@ -194,15 +194,15 @@
 }
 
 :root[data-rr-palette="plum"] {
-  --rr-app-bg: #faf1f8;
-  --rr-app-wash-1: rgb(162 28 175 / 0.08);
-  --rr-app-wash-2: rgb(139 92 246 / 0.07);
+  --rr-app-bg: #f4dcf0;
+  --rr-app-wash-1: rgb(162 28 175 / 0.22);
+  --rr-app-wash-2: rgb(139 92 246 / 0.2);
   --rr-app-accent: #86198f;
 }
 :root.dark[data-rr-palette="plum"] {
-  --rr-app-bg: #170a18;
-  --rr-app-wash-1: rgb(217 70 239 / 0.15);
-  --rr-app-wash-2: rgb(167 139 250 / 0.1);
+  --rr-app-bg: #1b0a1d;
+  --rr-app-wash-1: rgb(217 70 239 / 0.3);
+  --rr-app-wash-2: rgb(167 139 250 / 0.2);
   --rr-app-accent: #e879f9;
   --rr-surface: #22122a;
   --rr-surface-raised: #4a2850;
@@ -225,6 +225,18 @@
   --rr-surface-raised: #262626;
   --rr-surface-sunken: #171717;
   --rr-border: #2e2e2e;
+}
+
+/* The chosen palette was only visible in the gaps between cards, which on a
+   busy page is almost nowhere. The header and the bottom tab bar carry the
+   tint too, so a change of colour is visible on every screen. Mixed towards
+   the surface colour so chrome still reads as raised above the canvas. */
+.rr-app-chrome {
+  background-color: color-mix(in srgb, var(--rr-app-bg) 62%, #ffffff);
+}
+.dark .rr-app-chrome,
+:root.dark .rr-app-chrome {
+  background-color: color-mix(in srgb, var(--rr-app-bg) 55%, var(--rr-surface));
 }
 
 /* The app shell paints the palette canvas plus two very soft accent washes. */
