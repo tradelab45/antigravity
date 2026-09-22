@@ -375,12 +375,12 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
   }
 
   return (
-    <div className="min-h-screen bg-[#050906] text-slate-100 flex flex-col font-sans selection:bg-[#00f59b] selection:text-slate-950 relative overflow-y-auto overflow-x-hidden">
+    <div className="min-h-screen bg-[#050906] text-slate-100 flex flex-col font-sans selection:bg-mint selection:text-slate-950 relative overflow-y-auto overflow-x-hidden">
       {/* 1. 3D SPATIAL GRAVITATIONAL RUPEE & ACCRETION VORTEX BACKGROUND */}
       <RupeeSpatialBackground intensity="vivid" interactive={true} />
 
       {/* Ambient Cyber Lighting Orbs */}
-      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-[#00f59b]/10 blur-[150px] pointer-events-none rounded-full" />
+      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-mint/10 blur-[150px] pointer-events-none rounded-full" />
       <div className="absolute top-[40%] right-1/4 w-[600px] h-[600px] bg-indigo-600/10 blur-[180px] pointer-events-none rounded-full" />
       <div className="absolute bottom-[10%] left-1/3 w-[500px] h-[500px] bg-emerald-600/10 blur-[160px] pointer-events-none rounded-full" />
 
@@ -394,9 +394,9 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
               <button
                 type="button"
                 onClick={onBackToLanding}
-                className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-xs font-bold text-white transition-all shrink-0 hover:border-[#00f59b]/40 cursor-pointer shadow-sm active:scale-95"
+                className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-xs font-bold text-white transition-all shrink-0 hover:border-mint/40 cursor-pointer shadow-sm active:scale-95"
               >
-                <ArrowLeft className="w-3.5 h-3.5 text-[#00f59b]" />
+                <ArrowLeft className="w-3.5 h-3.5 text-mint" />
                 <span className="hidden sm:inline">Back to</span>
                 <span>Landing</span>
               </button>
@@ -405,10 +405,10 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
             <div className="flex items-center gap-3 sm:gap-6 whitespace-nowrap overflow-x-auto no-scrollbar py-0.5">
               <div className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-black border shrink-0 ${
                 nseMarketInfo.isNSEMarketOpen
-                  ? 'bg-emerald-500/15 border-[#00f59b]/40 text-[#00f59b]'
+                  ? 'bg-emerald-500/15 border-mint/40 text-mint'
                   : 'bg-rose-500/15 border-rose-400/40 text-rose-300'
               }`}>
-                <span className={`h-2 w-2 rounded-full ${nseMarketInfo.isNSEMarketOpen ? 'bg-[#00f59b] animate-pulse shadow-[0_0_8px_#00f59b]' : 'bg-rose-400'}`} />
+                <span className={`h-2 w-2 rounded-full ${nseMarketInfo.isNSEMarketOpen ? 'bg-mint animate-pulse shadow-[0_0_8px_#00f59b]' : 'bg-rose-400'}`} />
                 <span>{nseMarketInfo.isNSEMarketOpen ? 'NSE OPEN' : 'NSE CLOSED'}</span>
                 <span className="opacity-70 font-mono text-[9px] sm:text-[10px] hidden md:inline">({nseMarketInfo.nextSessionCountdown})</span>
               </div>
@@ -419,17 +419,17 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
               <div className="flex items-center gap-1.5 text-xs font-mono shrink-0">
                 <span className="text-slate-400 font-bold">NIFTY:</span>
                 <span className="text-white font-bold">{marketIndices?.nifty50?.value ? marketIndices.nifty50.value.toLocaleString('en-IN') : '24,850.30'}</span>
-                <span className="text-[#00f59b] font-bold text-[10px]">+0.65%</span>
+                <span className="text-mint font-bold text-[10px]">+0.65%</span>
               </div>
               <div className="hidden sm:flex items-center gap-1.5 text-xs font-mono shrink-0">
                 <span className="text-slate-400 font-bold">SENSEX:</span>
                 <span className="text-white font-bold">{marketIndices?.sensex?.value ? marketIndices.sensex.value.toLocaleString('en-IN') : '81,520.10'}</span>
-                <span className="text-[#00f59b] font-bold text-[10px]">+0.58%</span>
+                <span className="text-mint font-bold text-[10px]">+0.58%</span>
               </div>
               <div className="hidden xl:flex items-center gap-1.5 text-xs font-mono shrink-0">
                 <span className="text-slate-400 font-bold">BANK NIFTY:</span>
                 <span className="text-white font-bold">{marketIndices?.niftyBank?.value ? marketIndices.niftyBank.value.toLocaleString('en-IN') : '51,480.60'}</span>
-                <span className="text-[#00f59b] font-bold text-[10px]">+0.82%</span>
+                <span className="text-mint font-bold text-[10px]">+0.82%</span>
               </div>
             </div>
           </div>
@@ -438,21 +438,21 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
           <div className="hidden lg:flex items-center gap-3 shrink-0">
             <a 
               href="#trade-playground"
-              className="text-xs font-bold text-slate-300 hover:text-[#00f59b] transition-colors flex items-center gap-1 px-2.5 py-1 rounded-lg hover:bg-white/5"
+              className="text-xs font-bold text-slate-300 hover:text-mint transition-colors flex items-center gap-1 px-2.5 py-1 rounded-lg hover:bg-white/5"
             >
-              <ShoppingBag className="w-3.5 h-3.5 text-[#00f59b]" />
+              <ShoppingBag className="w-3.5 h-3.5 text-mint" />
               <span>Live Playground</span>
             </a>
             <a 
               href="#dalal-pillars"
-              className="text-xs font-bold text-slate-300 hover:text-[#00f59b] transition-colors flex items-center gap-1 px-2.5 py-1 rounded-lg hover:bg-white/5"
+              className="text-xs font-bold text-slate-300 hover:text-mint transition-colors flex items-center gap-1 px-2.5 py-1 rounded-lg hover:bg-white/5"
             >
               <Layers className="w-3.5 h-3.5 text-indigo-400" />
               <span>Dalal Pillars</span>
             </a>
             <a 
               href="#teen-academy"
-              className="text-xs font-bold text-slate-300 hover:text-[#00f59b] transition-colors flex items-center gap-1 px-2.5 py-1 rounded-lg hover:bg-white/5"
+              className="text-xs font-bold text-slate-300 hover:text-mint transition-colors flex items-center gap-1 px-2.5 py-1 rounded-lg hover:bg-white/5"
             >
               <GraduationCap className="w-3.5 h-3.5 text-amber-400" />
               <span>Teen Quiz</span>
@@ -485,9 +485,9 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
               <div>
                 <div className="flex items-center gap-2">
                   <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight text-white">
-                    Rupee<span className="text-[#00f59b]">Rookie</span>
+                    Rupee<span className="text-mint">Rookie</span>
                   </h1>
-                  <span className="bg-[#00f59b]/15 text-[#00f59b] border border-[#00f59b]/35 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                  <span className="bg-mint/15 text-mint border border-mint/35 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
                     NSE DALAL STREET
                   </span>
                 </div>
@@ -499,12 +499,12 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
 
             {/* Hero Headline & Mission */}
             <div className="space-y-3">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-[11px] font-black text-[#00f59b] uppercase tracking-wider">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-[11px] font-black text-mint uppercase tracking-wider">
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>Zero Financial Risk • 100% Educational Sandbox</span>
               </div>
               <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight leading-[1.15]">
-                Master Dalal Street with <span className="text-[#00f59b] underline decoration-[#00f59b]/40 underline-offset-4">₹10,00,000</span> Virtual Capital.
+                Master Dalal Street with <span className="text-mint underline decoration-mint/40 underline-offset-4">₹10,00,000</span> Virtual Capital.
               </h2>
               <p className="text-sm sm:text-base text-slate-300 leading-relaxed font-normal max-w-2xl">
                 Practise with 75+ curated Indian equities, real-time interactive technical charts, historical replay engines, and Chanakya AI mentorship—without risking a single real rupee.
@@ -513,7 +513,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
 
             {/* 4 Feature Badges with Dark Polymo Lighting */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2">
-              <div className="bg-[#07110a]/85 border border-emerald-500/20 rounded-2xl p-4 shadow-sm hover:border-[#00f59b]/40 transition-all flex items-start gap-3 backdrop-blur-md">
+              <div className="bg-[#07110a]/85 border border-emerald-500/20 rounded-2xl p-4 shadow-sm hover:border-mint/40 transition-all flex items-start gap-3 backdrop-blur-md">
                 <div className="p-2.5 rounded-xl bg-amber-400/15 text-amber-300 shrink-0 border border-amber-400/25">
                   <PieChart className="w-4 h-4" />
                 </div>
@@ -523,8 +523,8 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                 </div>
               </div>
 
-              <div className="bg-[#07110a]/85 border border-emerald-500/20 rounded-2xl p-4 shadow-sm hover:border-[#00f59b]/40 transition-all flex items-start gap-3 backdrop-blur-md">
-                <div className="p-2.5 rounded-xl bg-[#00f59b]/15 text-[#00f59b] shrink-0 border border-[#00f59b]/25">
+              <div className="bg-[#07110a]/85 border border-emerald-500/20 rounded-2xl p-4 shadow-sm hover:border-mint/40 transition-all flex items-start gap-3 backdrop-blur-md">
+                <div className="p-2.5 rounded-xl bg-mint/15 text-mint shrink-0 border border-mint/25">
                   <BarChart3 className="w-4 h-4" />
                 </div>
                 <div>
@@ -533,7 +533,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                 </div>
               </div>
 
-              <div className="bg-[#07110a]/85 border border-emerald-500/20 rounded-2xl p-4 shadow-sm hover:border-[#00f59b]/40 transition-all flex items-start gap-3 backdrop-blur-md">
+              <div className="bg-[#07110a]/85 border border-emerald-500/20 rounded-2xl p-4 shadow-sm hover:border-mint/40 transition-all flex items-start gap-3 backdrop-blur-md">
                 <div className="p-2.5 rounded-xl bg-indigo-400/15 text-indigo-300 shrink-0 border border-indigo-400/25">
                   <BookOpen className="w-4 h-4" />
                 </div>
@@ -543,7 +543,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                 </div>
               </div>
 
-              <div className="bg-[#07110a]/85 border border-emerald-500/20 rounded-2xl p-4 shadow-sm hover:border-[#00f59b]/40 transition-all flex items-start gap-3 backdrop-blur-md">
+              <div className="bg-[#07110a]/85 border border-emerald-500/20 rounded-2xl p-4 shadow-sm hover:border-mint/40 transition-all flex items-start gap-3 backdrop-blur-md">
                 <div className="p-2.5 rounded-xl bg-emerald-400/15 text-emerald-300 shrink-0 border border-emerald-400/25">
                   <Zap className="w-4 h-4" />
                 </div>
@@ -558,7 +558,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
             <div className="bg-[#07120a]/90 border border-amber-400/30 rounded-2xl p-4 sm:p-5 shadow-xl relative overflow-hidden backdrop-blur-xl">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3.5">
-                  <div className="w-10 h-10 rounded-xl bg-[#00f59b]/20 border border-[#00f59b]/40 text-[#00f59b] flex items-center justify-center font-black text-base shrink-0">
+                  <div className="w-10 h-10 rounded-xl bg-mint/20 border border-mint/40 text-mint flex items-center justify-center font-black text-base shrink-0">
                     ⚡
                   </div>
                   <div>
@@ -578,7 +578,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                   size="default"
                   onClick={handleQuickDemoLogin}
                   disabled={loading}
-                  className="shrink-0 bg-[#00f59b] text-slate-950 font-black shadow-[0_0_20px_rgba(0,245,155,0.4)] hover:shadow-[0_0_30px_rgba(0,245,155,0.6)]"
+                  className="shrink-0 bg-mint text-slate-950 font-black shadow-[0_0_20px_rgba(0,245,155,0.4)] hover:shadow-[0_0_30px_rgba(0,245,155,0.6)]"
                 >
                   <Sparkles className="w-4 h-4" />
                   <span>1-Click Demo Pass</span>
@@ -589,12 +589,12 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
             {/* Safe Educational Notice & Scroll Indicator */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-400 pt-1">
               <div className="flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-[#00f59b] shrink-0" />
+                <ShieldCheck className="w-4 h-4 text-mint shrink-0" />
                 <span>100% Risk-Free. Indicative market quotes for educational simulation.</span>
               </div>
               <a 
                 href="#trade-playground"
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-[#00f59b] hover:underline"
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-mint hover:underline"
               >
                 <span>Scroll to Trade Playground</span>
                 <ArrowDown className="w-3.5 h-3.5 animate-bounce" />
@@ -612,7 +612,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
               className="bg-[#0c1410]/95 border border-white/15 rounded-3xl p-6 sm:p-8 lg:p-10 shadow-[0_25px_60px_rgba(0,0,0,0.85)] text-left backdrop-blur-2xl relative"
             >
               {/* Top Specular Accent */}
-              <div className="absolute top-0 right-0 w-40 h-40 bg-[#00f59b]/15 blur-3xl pointer-events-none rounded-full" />
+              <div className="absolute top-0 right-0 w-40 h-40 bg-mint/15 blur-3xl pointer-events-none rounded-full" />
 
               {/* Expandable Tab Selector: Sign In vs Create Student Account */}
               <div className="flex justify-center mb-6">
@@ -621,7 +621,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                     { title: "Sign In", icon: Lock },
                     { title: "Create Student Account", icon: GraduationCap, badge: "₹10L FREE" },
                   ]}
-                  activeColor="text-[#00f59b]"
+                  activeColor="text-mint"
                   className="border-white/10 bg-slate-950/80 shadow-inner"
                   onChange={(index) => {
                     setMode(index === 0 ? 'LOGIN' : 'SIGNUP');
@@ -661,7 +661,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                 <form onSubmit={handleLoginSubmit} className="space-y-4">
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                      <Mail className="w-3.5 h-3.5 text-[#00f59b]" />
+                      <Mail className="w-3.5 h-3.5 text-mint" />
                       <span>Email Address or Username</span>
                     </label>
                     <div className="relative">
@@ -672,7 +672,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                         onChange={(e) => setLoginIdentifier(e.target.value)}
                         placeholder="e.g. xyz@gmail.com or rookie_trader"
                         autoComplete="username"
-                        className="w-full px-4 py-3 bg-[#08100b] border border-white/15 focus:border-[#00f59b] focus:ring-1 focus:ring-[#00f59b] rounded-xl text-white text-sm outline-none transition-all placeholder:text-slate-600"
+                        className="w-full px-4 py-3 bg-[#08100b] border border-white/15 focus:border-mint focus:ring-1 focus:ring-mint rounded-xl text-white text-sm outline-none transition-all placeholder:text-slate-600"
                       />
                     </div>
                   </div>
@@ -680,13 +680,13 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                        <Lock className="w-3.5 h-3.5 text-[#00f59b]" />
+                        <Lock className="w-3.5 h-3.5 text-mint" />
                         <span>Password</span>
                       </label>
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="text-[11px] text-[#00f59b] hover:underline flex items-center gap-1 cursor-pointer"
+                        className="text-[11px] text-mint hover:underline flex items-center gap-1 cursor-pointer"
                       >
                         {showPassword ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                         <span>{showPassword ? 'Hide' : 'Show'}</span>
@@ -700,7 +700,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                         onChange={(e) => setLoginPassword(e.target.value)}
                         placeholder="••••••••"
                         autoComplete="current-password"
-                        className="w-full px-4 py-3 bg-[#08100b] border border-white/15 focus:border-[#00f59b] focus:ring-1 focus:ring-[#00f59b] rounded-xl text-white text-sm outline-none transition-all placeholder:text-slate-600"
+                        className="w-full px-4 py-3 bg-[#08100b] border border-white/15 focus:border-mint focus:ring-1 focus:ring-mint rounded-xl text-white text-sm outline-none transition-all placeholder:text-slate-600"
                       />
                     </div>
                   </div>
@@ -711,7 +711,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                       id="login-submit-btn"
                       size="lg"
                       disabled={loading}
-                      className="w-full bg-[#00f59b] text-slate-950 font-black text-sm shadow-[0_0_25px_rgba(0,245,155,0.4)]"
+                      className="w-full bg-mint text-slate-950 font-black text-sm shadow-[0_0_25px_rgba(0,245,155,0.4)]"
                     >
                       {loading ? (
                         <div className="w-5 h-5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
@@ -730,7 +730,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                       <button
                         type="button"
                         onClick={() => { setMode('SIGNUP'); setErrorMsg(''); }}
-                        className="text-[#00f59b] font-black hover:underline cursor-pointer ml-1"
+                        className="text-mint font-black hover:underline cursor-pointer ml-1"
                       >
                         Create Free Student Account
                       </button>
@@ -742,7 +742,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                 <form onSubmit={handleSignupSubmit} className="space-y-3.5">
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                      <User className="w-3.5 h-3.5 text-[#00f59b]" />
+                      <User className="w-3.5 h-3.5 text-mint" />
                       <span>Full Name</span>
                     </label>
                     <input
@@ -751,14 +751,14 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                       value={formData.fullName}
                       onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                       placeholder="e.g. Arjun Sharma"
-                      className="w-full px-3.5 py-2.5 bg-[#08100b] border border-white/15 focus:border-[#00f59b] rounded-xl text-white text-sm outline-none transition-all placeholder:text-slate-600"
+                      className="w-full px-3.5 py-2.5 bg-[#08100b] border border-white/15 focus:border-mint rounded-xl text-white text-sm outline-none transition-all placeholder:text-slate-600"
                     />
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                        <Mail className="w-3.5 h-3.5 text-[#00f59b]" />
+                        <Mail className="w-3.5 h-3.5 text-mint" />
                         <span>Email</span>
                       </label>
                       <input
@@ -767,13 +767,13 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                         placeholder="arjun@school.edu"
-                        className="w-full px-3.5 py-2.5 bg-[#08100b] border border-white/15 focus:border-[#00f59b] rounded-xl text-white text-sm outline-none transition-all placeholder:text-slate-600"
+                        className="w-full px-3.5 py-2.5 bg-[#08100b] border border-white/15 focus:border-mint rounded-xl text-white text-sm outline-none transition-all placeholder:text-slate-600"
                       />
                     </div>
 
                     <div className="space-y-1">
                       <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                        <User className="w-3.5 h-3.5 text-[#00f59b]" />
+                        <User className="w-3.5 h-3.5 text-mint" />
                         <span>Username</span>
                       </label>
                       <input
@@ -782,7 +782,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                         value={formData.username}
                         onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                         placeholder="arjun_investor"
-                        className="w-full px-3.5 py-2.5 bg-[#08100b] border border-white/15 focus:border-[#00f59b] rounded-xl text-white text-sm outline-none transition-all placeholder:text-slate-600"
+                        className="w-full px-3.5 py-2.5 bg-[#08100b] border border-white/15 focus:border-mint rounded-xl text-white text-sm outline-none transition-all placeholder:text-slate-600"
                       />
                     </div>
                   </div>
@@ -790,13 +790,13 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                        <Lock className="w-3.5 h-3.5 text-[#00f59b]" />
+                        <Lock className="w-3.5 h-3.5 text-mint" />
                         <span>Create Password</span>
                       </label>
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="text-[11px] text-[#00f59b] hover:underline flex items-center gap-1 cursor-pointer"
+                        className="text-[11px] text-mint hover:underline flex items-center gap-1 cursor-pointer"
                       >
                         {showPassword ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                         <span>{showPassword ? 'Hide' : 'Show'}</span>
@@ -808,21 +808,21 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                       value={formData.password}
                       onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                       placeholder="At least 8 characters"
-                      className="w-full px-3.5 py-2.5 bg-[#08100b] border border-white/15 focus:border-[#00f59b] rounded-xl text-white text-sm outline-none transition-all placeholder:text-slate-600"
+                      className="w-full px-3.5 py-2.5 bg-[#08100b] border border-white/15 focus:border-mint rounded-xl text-white text-sm outline-none transition-all placeholder:text-slate-600"
                     />
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                        <GraduationCap className="w-3.5 h-3.5 text-[#00f59b]" />
+                        <GraduationCap className="w-3.5 h-3.5 text-mint" />
                         <span>Age Category</span>
                       </label>
                       <select
                         id="signup-agegroup"
                         value={formData.ageGroup}
                         onChange={(e) => setFormData({ ...formData, ageGroup: e.target.value })}
-                        className="w-full px-3 py-2.5 bg-[#08100b] border border-white/15 focus:border-[#00f59b] rounded-xl text-white text-xs outline-none"
+                        className="w-full px-3 py-2.5 bg-[#08100b] border border-white/15 focus:border-mint rounded-xl text-white text-xs outline-none"
                       >
                         <option value="13-15 (Middle School)">13-15 (Middle School)</option>
                         <option value="16-18 (High School Teen)">16-18 (High School Teen)</option>
@@ -833,14 +833,14 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
 
                     <div className="space-y-1">
                       <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                        <Award className="w-3.5 h-3.5 text-[#00f59b]" />
+                        <Award className="w-3.5 h-3.5 text-mint" />
                         <span>Stock Market Experience</span>
                       </label>
                       <select
                         id="signup-experience"
                         value={formData.experienceLevel}
                         onChange={(e) => setFormData({ ...formData, experienceLevel: e.target.value as any })}
-                        className="w-full px-3 py-2.5 bg-[#08100b] border border-white/15 focus:border-[#00f59b] rounded-xl text-white text-xs outline-none"
+                        className="w-full px-3 py-2.5 bg-[#08100b] border border-white/15 focus:border-mint rounded-xl text-white text-xs outline-none"
                       >
                         <option value="BEGINNER">Absolute Beginner (Newbie)</option>
                         <option value="INTERMEDIATE">Intermediate (Knows P/E, Nifty)</option>
@@ -856,7 +856,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                       id="signup-terms"
                       checked={agreedTerms}
                       onChange={(e) => setAgreedTerms(e.target.checked)}
-                      className="mt-0.5 rounded border-white/20 text-[#00f59b] focus:ring-[#00f59b] bg-[#08100b] cursor-pointer"
+                      className="mt-0.5 rounded border-white/20 text-mint focus:ring-mint bg-[#08100b] cursor-pointer"
                     />
                     <label htmlFor="signup-terms" className="text-[11px] text-slate-400 cursor-pointer">
                       I understand that RupeeRookie is an educational paper trading simulator with ₹10,00,000 virtual funds and zero real financial risk.
@@ -869,7 +869,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                       id="signup-submit-btn"
                       size="lg"
                       disabled={loading}
-                      className="w-full bg-[#00f59b] text-slate-950 font-black text-sm shadow-[0_0_25px_rgba(0,245,155,0.4)]"
+                      className="w-full bg-mint text-slate-950 font-black text-sm shadow-[0_0_25px_rgba(0,245,155,0.4)]"
                     >
                       {loading ? (
                         <div className="w-5 h-5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
@@ -888,7 +888,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                       <button
                         type="button"
                         onClick={() => { setMode('LOGIN'); setErrorMsg(''); }}
-                        className="text-[#00f59b] font-black hover:underline cursor-pointer ml-1"
+                        className="text-mint font-black hover:underline cursor-pointer ml-1"
                       >
                         Sign In here
                       </button>
@@ -906,12 +906,12 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
       {/* 4. SECTION 1: "TRY BEFORE YOU SIGN IN" INTERACTIVE TRADE PLAYGROUND */}
       <section id="trade-playground" className="w-full max-w-[1640px] mx-auto px-4 sm:px-8 xl:px-12 2xl:px-16 py-12 sm:py-16 border-t border-white/10 relative z-10">
         <div className="text-center max-w-3xl mx-auto mb-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#00f59b]/15 border border-[#00f59b]/35 text-xs font-black text-[#00f59b] uppercase tracking-wider mb-3">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-mint/15 border border-mint/35 text-xs font-black text-mint uppercase tracking-wider mb-3">
             <ShoppingBag className="w-3.5 h-3.5" />
             <span>Interactive Simulator Playground</span>
           </div>
           <h2 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
-            Try a Live Trade <span className="text-[#00f59b]">Before</span> You Sign In.
+            Try a Live Trade <span className="text-mint">Before</span> You Sign In.
           </h2>
           <p className="text-sm text-slate-300 mt-2">
             Select an Indian bluechip below, pick your quantity, and click Simulate Buy or Sell. See how virtual order execution feels in real time!
@@ -925,7 +925,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 pb-6 border-b border-white/10">
             <div className="bg-[#0c1b13] p-3.5 sm:p-4 rounded-2xl border border-emerald-500/20 min-w-0">
               <span className="text-[11px] sm:text-xs text-slate-400 font-semibold block truncate">Virtual Cash Available</span>
-              <div className="text-xl sm:text-2xl font-black text-[#00f59b] font-mono mt-1 truncate">
+              <div className="text-xl sm:text-2xl font-black text-mint font-mono mt-1 truncate">
                 ₹{playgroundCash.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
             </div>
@@ -941,7 +941,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
               <div className="min-w-0">
                 <span className="text-[11px] sm:text-xs text-slate-400 font-semibold block truncate">Unrealized Demo P&L</span>
                 <div className={`text-xl sm:text-2xl font-black font-mono mt-1 flex items-center gap-1.5 truncate ${
-                  portfolioPnL >= 0 ? 'text-[#00f59b]' : 'text-rose-400'
+                  portfolioPnL >= 0 ? 'text-mint' : 'text-rose-400'
                 }`}>
                   {portfolioPnL >= 0 ? '+' : ''}₹{portfolioPnL.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
@@ -961,7 +961,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
           <div className="pt-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-3">
               <label className="text-xs sm:text-sm font-bold text-slate-200 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-[#00f59b] animate-pulse" />
+                <span className="w-2 h-2 rounded-full bg-mint animate-pulse" />
                 <span>Choose Stock to Simulate:</span>
               </label>
               <span className="text-[11px] text-slate-400 font-mono">
@@ -982,13 +982,13 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                     }}
                     className={`p-2.5 sm:p-3 rounded-2xl border text-left transition-all min-w-0 ${
                       isSelected
-                        ? 'bg-[#00f59b]/20 border-[#00f59b] shadow-[0_0_18px_rgba(0,245,155,0.3)] ring-1 ring-[#00f59b]'
+                        ? 'bg-mint/20 border-mint shadow-[0_0_18px_rgba(0,245,155,0.3)] ring-1 ring-mint'
                         : 'bg-[#08120b] border-white/10 hover:border-emerald-500/40 text-slate-300 hover:bg-[#0c1811]'
                     }`}
                   >
                     <div className="flex items-center justify-between gap-1">
                       <span className="font-mono font-black text-xs sm:text-sm text-white truncate">{st.symbol}</span>
-                      <span className={`text-[10px] font-bold font-mono shrink-0 ${isUp ? 'text-[#00f59b]' : 'text-rose-400'}`}>
+                      <span className={`text-[10px] font-bold font-mono shrink-0 ${isUp ? 'text-mint' : 'text-rose-400'}`}>
                         {isUp ? '+' : ''}{st.change.toFixed(2)}%
                       </span>
                     </div>
@@ -1019,7 +1019,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                     ₹{activeStock.price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
                   <span className={`text-xs font-mono font-bold inline-flex items-center gap-0.5 ${
-                    activeStock.change >= 0 ? 'text-[#00f59b]' : 'text-rose-400'
+                    activeStock.change >= 0 ? 'text-mint' : 'text-rose-400'
                   }`}>
                     {activeStock.change >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
                     {activeStock.change >= 0 ? '+' : ''}{activeStock.change.toFixed(2)}% Today
@@ -1090,7 +1090,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                       onClick={() => setPlaygroundQty(q)}
                       className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-colors ${
                         playgroundQty === q
-                          ? 'bg-[#00f59b] text-slate-950 shadow-sm'
+                          ? 'bg-mint text-slate-950 shadow-sm'
                           : 'bg-white/5 text-slate-300 hover:bg-white/10'
                       }`}
                     >
@@ -1112,7 +1112,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                 <LiquidButton
                   size="default"
                   onClick={handleSimulateBuy}
-                  className="w-full justify-center bg-[#00f59b] text-slate-950 font-black shadow-[0_0_15px_rgba(0,245,155,0.3)]"
+                  className="w-full justify-center bg-mint text-slate-950 font-black shadow-[0_0_15px_rgba(0,245,155,0.3)]"
                 >
                   <TrendingUp className="w-4 h-4" />
                   <span>Simulate Buy</span>
@@ -1147,13 +1147,13 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
           {/* Live Action Feedback Notice */}
           <div className="mt-4 p-3 sm:p-3.5 rounded-xl bg-white/5 border border-white/10 text-xs text-slate-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
             <div className="flex items-center gap-2 min-w-0">
-              <span className="w-2 h-2 rounded-full bg-[#00f59b] animate-ping shrink-0" />
+              <span className="w-2 h-2 rounded-full bg-mint animate-ping shrink-0" />
               <span className="truncate">{playgroundFeedback}</span>
             </div>
             <a 
               href="#main-content"
               onClick={() => { setMode('SIGNUP'); }}
-              className="text-[#00f59b] font-black hover:underline inline-flex items-center gap-1 shrink-0"
+              className="text-mint font-black hover:underline inline-flex items-center gap-1 shrink-0"
             >
               <span>Keep this portfolio (Sign up free)</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -1171,7 +1171,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
             <span>Built for Modern Indian Traders</span>
           </div>
           <h2 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
-            Four Pillars of the <span className="text-[#00f59b]">RupeeRookie</span> Advantage
+            Four Pillars of the <span className="text-mint">RupeeRookie</span> Advantage
           </h2>
           <p className="text-sm text-slate-300 mt-2">
             Engineered with deep fintech fidelity, professional risk controls, and teenage pedagogy.
@@ -1180,12 +1180,12 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* Pillar 01 */}
-          <div className="bg-[#07110a]/90 border border-emerald-500/20 rounded-3xl p-6 sm:p-7 relative overflow-hidden backdrop-blur-xl group hover:border-[#00f59b]/50 transition-all shadow-lg flex flex-col justify-between">
-            <div className="text-5xl font-black font-mono text-[#00f59b]/20 absolute top-4 right-5 group-hover:text-[#00f59b]/35 transition-colors select-none">
+          <div className="bg-[#07110a]/90 border border-emerald-500/20 rounded-3xl p-6 sm:p-7 relative overflow-hidden backdrop-blur-xl group hover:border-mint/50 transition-all shadow-lg flex flex-col justify-between">
+            <div className="text-5xl font-black font-mono text-mint/20 absolute top-4 right-5 group-hover:text-mint/35 transition-colors select-none">
               01
             </div>
             <div className="space-y-4 relative z-10">
-              <div className="w-12 h-12 rounded-2xl bg-[#00f59b]/15 border border-[#00f59b]/30 flex items-center justify-center text-[#00f59b]">
+              <div className="w-12 h-12 rounded-2xl bg-mint/15 border border-mint/30 flex items-center justify-center text-mint">
                 <PieChart className="w-6 h-6" />
               </div>
               <h3 className="text-lg font-black text-white">₹10 Lakhs Virtual Sandbox</h3>
@@ -1193,14 +1193,14 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                 Practice capital allocation across largecaps, midcaps, and dividend aristocrats with real slippage and zero wallet danger.
               </p>
             </div>
-            <div className="pt-5 border-t border-white/10 mt-5 text-[11px] font-mono text-[#00f59b] font-bold">
+            <div className="pt-5 border-t border-white/10 mt-5 text-[11px] font-mono text-mint font-bold">
               • Market & Limit Orders • Real-time P&L
             </div>
           </div>
 
           {/* Pillar 02 */}
-          <div className="bg-[#07110a]/90 border border-emerald-500/20 rounded-3xl p-6 sm:p-7 relative overflow-hidden backdrop-blur-xl group hover:border-[#00f59b]/50 transition-all shadow-lg flex flex-col justify-between">
-            <div className="text-5xl font-black font-mono text-[#00f59b]/20 absolute top-4 right-5 group-hover:text-[#00f59b]/35 transition-colors select-none">
+          <div className="bg-[#07110a]/90 border border-emerald-500/20 rounded-3xl p-6 sm:p-7 relative overflow-hidden backdrop-blur-xl group hover:border-mint/50 transition-all shadow-lg flex flex-col justify-between">
+            <div className="text-5xl font-black font-mono text-mint/20 absolute top-4 right-5 group-hover:text-mint/35 transition-colors select-none">
               02
             </div>
             <div className="space-y-4 relative z-10">
@@ -1218,8 +1218,8 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
           </div>
 
           {/* Pillar 03 */}
-          <div className="bg-[#07110a]/90 border border-emerald-500/20 rounded-3xl p-6 sm:p-7 relative overflow-hidden backdrop-blur-xl group hover:border-[#00f59b]/50 transition-all shadow-lg flex flex-col justify-between">
-            <div className="text-5xl font-black font-mono text-[#00f59b]/20 absolute top-4 right-5 group-hover:text-[#00f59b]/35 transition-colors select-none">
+          <div className="bg-[#07110a]/90 border border-emerald-500/20 rounded-3xl p-6 sm:p-7 relative overflow-hidden backdrop-blur-xl group hover:border-mint/50 transition-all shadow-lg flex flex-col justify-between">
+            <div className="text-5xl font-black font-mono text-mint/20 absolute top-4 right-5 group-hover:text-mint/35 transition-colors select-none">
               03
             </div>
             <div className="space-y-4 relative z-10">
@@ -1237,12 +1237,12 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
           </div>
 
           {/* Pillar 04 */}
-          <div className="bg-[#07110a]/90 border border-emerald-500/20 rounded-3xl p-6 sm:p-7 relative overflow-hidden backdrop-blur-xl group hover:border-[#00f59b]/50 transition-all shadow-lg flex flex-col justify-between">
-            <div className="text-5xl font-black font-mono text-[#00f59b]/20 absolute top-4 right-5 group-hover:text-[#00f59b]/35 transition-colors select-none">
+          <div className="bg-[#07110a]/90 border border-emerald-500/20 rounded-3xl p-6 sm:p-7 relative overflow-hidden backdrop-blur-xl group hover:border-mint/50 transition-all shadow-lg flex flex-col justify-between">
+            <div className="text-5xl font-black font-mono text-mint/20 absolute top-4 right-5 group-hover:text-mint/35 transition-colors select-none">
               04
             </div>
             <div className="space-y-4 relative z-10">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-[#00f59b]">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-mint">
                 <Zap className="w-6 h-6" />
               </div>
               <h3 className="text-lg font-black text-white">Chanakya 2.0 AI Coach</h3>
@@ -1250,7 +1250,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                 Real-time conversational mentor offering risk critique, diversification analysis, and market history in English & Hindi.
               </p>
             </div>
-            <div className="pt-5 border-t border-white/10 mt-5 text-[11px] font-mono text-[#00f59b] font-bold">
+            <div className="pt-5 border-t border-white/10 mt-5 text-[11px] font-mono text-mint font-bold">
               • Instant Risk Audits • Indian Context
             </div>
           </div>
@@ -1287,12 +1287,12 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                 let btnStyle = "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10";
                 if (quizSubmitted) {
                   if (opt.correct) {
-                    btnStyle = "bg-emerald-500/20 border-[#00f59b] text-[#00f59b]";
+                    btnStyle = "bg-emerald-500/20 border-mint text-mint";
                   } else if (isSelected && !opt.correct) {
                     btnStyle = "bg-rose-500/20 border-rose-500 text-rose-300";
                   }
                 } else if (isSelected) {
-                  btnStyle = "bg-[#00f59b]/15 border-[#00f59b] text-white";
+                  btnStyle = "bg-mint/15 border-mint text-white";
                 }
 
                 return (
@@ -1307,7 +1307,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                   >
                     <span>{opt.text}</span>
                     {quizSubmitted && opt.correct && (
-                      <CheckCircle2 className="w-4 h-4 text-[#00f59b] shrink-0" />
+                      <CheckCircle2 className="w-4 h-4 text-mint shrink-0" />
                     )}
                   </button>
                 );
@@ -1315,8 +1315,8 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
             </div>
 
             {quizSubmitted && (
-              <div className="mt-4 p-3.5 rounded-xl bg-emerald-500/10 border border-[#00f59b]/30 text-xs text-emerald-200 flex items-start gap-2">
-                <Sparkles className="w-4 h-4 text-[#00f59b] shrink-0 mt-0.5" />
+              <div className="mt-4 p-3.5 rounded-xl bg-emerald-500/10 border border-mint/30 text-xs text-emerald-200 flex items-start gap-2">
+                <Sparkles className="w-4 h-4 text-mint shrink-0 mt-0.5" />
                 <p>
                   <strong>Great job!</strong> ROCE measures how efficiently a company allocates its capital to generate profits. Superior ROCE (&gt; 20%) is a hallmark of high-quality Indian compounders.
                 </p>
@@ -1343,7 +1343,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                   <p className="text-xs text-slate-300 leading-relaxed">
                     {sutra.english}
                   </p>
-                  <div className="text-[10px] font-mono text-[#00f59b] font-semibold pt-1">
+                  <div className="text-[10px] font-mono text-mint font-semibold pt-1">
                     — {sutra.author}
                   </div>
                 </div>
@@ -1362,7 +1362,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-bold text-white text-sm">RupeeRookie</span>
-                <span className="text-[10px] bg-emerald-500/20 text-[#00f59b] px-2 py-0.5 rounded-full font-mono font-bold">NSE SIMULATOR</span>
+                <span className="text-[10px] bg-emerald-500/20 text-mint px-2 py-0.5 rounded-full font-mono font-bold">NSE SIMULATOR</span>
               </div>
               <p className="text-[11px] text-slate-400 mt-0.5">
                 Educational paper trading simulator designed for high school & university students across India.

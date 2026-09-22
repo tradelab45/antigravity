@@ -61,7 +61,7 @@ export const LiquidGlassLogo: React.FC<LiquidGlassLogoProps> = ({
         className={`relative ${containerSize} p-[1.5px] overflow-hidden shrink-0 shadow-[0_8px_25px_rgba(99,102,241,0.35),0_0_18px_rgba(0,245,155,0.25)] group`}
       >
         {/* Dynamic Iridescent Perimeter Sweep */}
-        <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500 via-indigo-500 to-[#00f59b] animate-[spin_6s_linear_infinite] opacity-85 blur-[2.5px]" />
+        <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500 via-indigo-500 to-mint animate-[spin_6s_linear_infinite] opacity-85 blur-[2.5px]" />
 
         {/* Frosted Multi-Layer Glass Body */}
         <div
@@ -85,7 +85,7 @@ export const LiquidGlassLogo: React.FC<LiquidGlassLogoProps> = ({
               transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
               className={`absolute ${arrowSize}`}
             >
-              <TrendingUp className="w-full h-full text-[#00f59b] drop-shadow-[0_0_8px_#00f59b]" />
+              <TrendingUp className="w-full h-full text-mint drop-shadow-[0_0_8px_#00f59b]" />
             </motion.div>
           </div>
         </div>
@@ -96,9 +96,9 @@ export const LiquidGlassLogo: React.FC<LiquidGlassLogoProps> = ({
         <div className="flex flex-col text-left">
           <div className="flex items-center gap-1.5">
             <span className="text-xl sm:text-2xl font-black tracking-tight text-white">
-              Rupee<span className="text-[#00f59b]">Rookie</span>
+              Rupee<span className="text-mint">Rookie</span>
             </span>
-            <span className="bg-[#00f59b]/15 text-[#00f59b] border border-[#00f59b]/35 text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+            <span className="bg-mint/15 text-mint border border-mint/35 text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
               NSE
             </span>
           </div>

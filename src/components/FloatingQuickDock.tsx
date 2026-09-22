@@ -82,7 +82,7 @@ export const FloatingQuickDock: React.FC = () => {
               className="flex h-10 items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-black text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer shrink-0"
               title="Open Dalal Street and App Search (Ctrl+K or /)"
             >
-              <Search className="h-4 w-4 text-emerald-600 dark:text-[#00f59b]" />
+              <Search className="h-4 w-4 text-emerald-600 dark:text-mint" />
               <span className="hidden sm:inline">Search app</span>
               <kbd className="hidden rounded-md bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 text-[10px] font-mono font-bold text-slate-500 dark:text-slate-400 lg:inline shrink-0">
                 Ctrl K

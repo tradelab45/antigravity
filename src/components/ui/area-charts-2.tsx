@@ -225,9 +225,9 @@ export const ShareBoxAreaChart: React.FC<ShareBoxAreaChartProps> = ({
                     key={tf}
                     type="button"
                     onClick={() => setTimeframe(tf)}
-                    className={`px-1.5 py-0.2 rounded-md text-[9px] font-black transition-all cursor-pointer ${
+                    className={`px-1.5 py-0.5 rounded-md text-[9px] font-black transition-all cursor-pointer ${
                       timeframe === tf
-                        ? 'bg-[#00f59b] text-slate-950 shadow-xs'
+                        ? 'bg-mint text-slate-950 shadow-xs'
                         : 'text-slate-400 hover:text-white hover:bg-white/10'
                     }`}
                   >
@@ -249,7 +249,7 @@ export const ShareBoxAreaChart: React.FC<ShareBoxAreaChartProps> = ({
               </div>
             ) : (
               <div className="flex items-center gap-1">
-                <span className={`font-black ${isUp ? 'text-[#00f59b]' : 'text-rose-400'}`}>
+                <span className={`font-black ${isUp ? 'text-mint' : 'text-rose-400'}`}>
                   {isUp ? '▲ +' : '▼ '}{formatPercent(tfChangePercent)}
                 </span>
               </div>
@@ -412,9 +412,9 @@ export const ShareBoxAreaChart: React.FC<ShareBoxAreaChartProps> = ({
       </div>
 
       {/* Min / Max Low & High Bounds Footer */}
-      <div className="flex justify-between items-center text-[9px] text-slate-400 font-mono pt-1">
+      <div className="flex justify-between items-center text-[9px] text-slate-500 dark:text-slate-400 font-mono pt-1">
         <span>L: ₹{minVal.toFixed(0)}</span>
-        <span className="text-slate-300 font-semibold tracking-wider">
+        <span className="text-slate-600 dark:text-slate-300 font-semibold tracking-wider">
           {timeframe === '1D' ? 'NSE Indicative' : `${timeframe} Trend`}
         </span>
         <span>H: ₹{maxVal.toFixed(0)}</span>
@@ -449,16 +449,16 @@ export const GrowthSnowballAreaChart: React.FC<GrowthSnowballAreaChartProps> = (
   height = 320,
 }) => {
   return (
-    <div className="relative w-full rounded-3xl bg-gradient-to-br from-[#050b14] via-[#0b1528] to-[#040810] border border-white/15 p-5 sm:p-6 shadow-[inset_0_1px_1.5px_rgba(255,255,255,0.18),0_20px_45px_-12px_rgba(0,0,0,0.85)] overflow-hidden">
+    <div className="rr-terminal-card relative w-full rounded-3xl border p-5 sm:p-6 overflow-hidden">
       {/* Specular Top Glow & Radial Wash */}
-      <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#00f59b]/50 to-transparent pointer-events-none" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_120%_80%_at_50%_-20%,rgba(0,245,155,0.12),transparent_70%)]" />
+      <div className="rr-terminal-bevel absolute inset-x-0 top-0 h-[1.5px] pointer-events-none" />
+      <div className="rr-terminal-wash pointer-events-none absolute inset-0" />
 
       {/* Chart Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-4 mb-4 relative z-10">
         <div>
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[#00f59b] animate-ping" />
+            <span className="w-2 h-2 rounded-full bg-mint animate-ping" />
             <h4 className="text-sm sm:text-base font-black text-white font-mono tracking-tight">
               Exponential Wealth Snowball Curve
             </h4>
@@ -469,7 +469,7 @@ export const GrowthSnowballAreaChart: React.FC<GrowthSnowballAreaChartProps> = (
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-xs font-black text-[#00f59b] bg-[#00f59b]/15 px-3 py-1 rounded-xl border border-[#00f59b]/30 font-mono shadow-xs">
+          <span className="text-xs font-black text-mint bg-mint/15 px-3 py-1 rounded-xl border border-mint/30 font-mono shadow-xs">
             ⚡ {multiplier}x Wealth Multiplier
           </span>
         </div>
@@ -528,7 +528,7 @@ export const GrowthSnowballAreaChart: React.FC<GrowthSnowballAreaChartProps> = (
                   <div className="rounded-2xl bg-slate-950/95 backdrop-blur-xl border border-white/20 p-3.5 shadow-2xl text-xs font-mono min-w-[210px]">
                     <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-2">
                       <span className="text-slate-400 font-bold">{label}</span>
-                      <span className="text-[10px] text-[#00f59b] bg-[#00f59b]/20 px-2 py-0.5 rounded-md font-extrabold">
+                      <span className="text-[10px] text-mint bg-mint/20 px-2 py-0.5 rounded-md font-extrabold">
                         +₹{formatIndianShort(gains)} Gains
                       </span>
                     </div>
@@ -536,15 +536,15 @@ export const GrowthSnowballAreaChart: React.FC<GrowthSnowballAreaChartProps> = (
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between gap-4">
                         <span className="text-slate-400 flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-[#00f59b]" />
+                          <span className="w-2 h-2 rounded-full bg-mint" />
                           Maturity Wealth:
                         </span>
-                        <span className="font-extrabold text-[#00f59b]">{formatINR(wealth, false)}</span>
+                        <span className="font-extrabold text-mint">{formatINR(wealth, false)}</span>
                       </div>
 
                       <div className="flex items-center justify-between gap-4">
                         <span className="text-slate-400 flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-[#6366f1]" />
+                          <span className="w-2 h-2 rounded-full bg-indigo-500" />
                           Invested Principal:
                         </span>
                         <span className="font-bold text-indigo-300">{formatINR(invested, false)}</span>
@@ -553,7 +553,7 @@ export const GrowthSnowballAreaChart: React.FC<GrowthSnowballAreaChartProps> = (
                       {realVal !== undefined && (
                         <div className="flex items-center justify-between gap-4 pt-1 border-t border-white/10">
                           <span className="text-slate-400 flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-[#f59e0b]" />
+                            <span className="w-2 h-2 rounded-full bg-amber-500" />
                             Real Value (Adj):
                           </span>
                           <span className="font-bold text-amber-300">{formatINR(realVal, false)}</span>
@@ -606,11 +606,11 @@ export const GrowthSnowballAreaChart: React.FC<GrowthSnowballAreaChartProps> = (
       {/* Legend */}
       <div className="flex flex-wrap items-center justify-center gap-5 text-xs text-slate-400 pt-4 border-t border-white/10 mt-3 font-mono">
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-md bg-[#00f59b] shadow-[0_0_8px_#00f59b]" />
+          <span className="w-3 h-3 rounded-md bg-mint shadow-[0_0_8px_#00f59b]" />
           <span className="font-bold text-white">Maturity Corpus</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-md bg-[#6366f1]" />
+          <span className="w-3 h-3 rounded-md bg-indigo-500" />
           <span>Invested Principal</span>
         </div>
         {adjustInflation && (
@@ -652,9 +652,9 @@ export const PortfolioEquityAreaChart: React.FC<PortfolioEquityAreaChartProps> =
   const strokeColor = isNetPositive ? '#00f59b' : '#f43f5e';
 
   return (
-    <div className="relative w-full rounded-2xl bg-gradient-to-br from-[#060e1a] via-[#091526] to-[#040810] border border-white/15 p-4 shadow-xl overflow-hidden">
+    <div className="rr-terminal-card relative w-full rounded-2xl border p-4 overflow-hidden">
       {/* Top Specular Sheen */}
-      <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-cyan-400/40 to-transparent pointer-events-none" />
+      <div className="rr-terminal-bevel absolute inset-x-0 top-0 h-[1.5px] pointer-events-none" />
 
       <div className="h-full w-full" style={{ height }}>
         <ResponsiveContainer width="100%" height="100%">
@@ -715,7 +715,7 @@ export const PortfolioEquityAreaChart: React.FC<PortfolioEquityAreaChartProps> =
                     <p className="text-slate-400 mb-1">{label}</p>
                     <div className="flex items-center gap-2">
                       <span className="font-black text-white text-sm">{formatINR(current)}</span>
-                      <span className={'text-[10px] px-1.5 py-0.5 rounded font-extrabold ' + (change >= 0 ? 'text-[#00f59b] bg-emerald-500/20' : 'text-rose-400 bg-rose-500/20')}>
+                      <span className={'text-[10px] px-1.5 py-0.5 rounded font-extrabold ' + (change >= 0 ? 'text-mint bg-emerald-500/20' : 'text-rose-400 bg-rose-500/20')}>
                         {change >= 0 ? '+' : ''}{formatPercent(pct)}
                       </span>
                     </div>

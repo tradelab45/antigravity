@@ -14,6 +14,7 @@ import { DailyTipOverlay, getDailyTipStorageKey } from './components/DailyTipOve
 import { CommandPalette } from './components/CommandPalette';
 import { FloatingQuickDock } from './components/FloatingQuickDock';
 import { ConnectionStatus } from './components/ConnectionStatus';
+import { PracticeTaskBanner } from './components/PracticeTaskBanner';
 import type { StockDetail } from './types';
 
 const Header = lazy(() => import('./components/Header').then((module) => ({ default: module.Header })));
@@ -272,7 +273,7 @@ function SimulatorApp() {
   }
 
   return (
-    <div className="min-h-screen max-w-full overflow-x-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans selection:bg-indigo-600 selection:text-white antialiased transition-colors duration-200">
+    <div className="rr-app-canvas min-h-screen max-w-full overflow-x-hidden text-slate-900 dark:text-slate-100 flex flex-col font-sans selection:bg-indigo-600 selection:text-white antialiased transition-colors duration-200">
       <a href="#main-content" className="skip-link">Skip to main content</a>
       {/* Top Fixed Header with live tickers & Net Worth */}
       <Suspense fallback={<div role="status" className="h-40 border-b border-slate-200 dark:border-slate-800"><span className="sr-only">Loading navigation…</span></div>}><Header 
@@ -284,6 +285,7 @@ function SimulatorApp() {
 
       {/* Main Content Area - Expansive Desktop Layout with Fluid Mobile & Tablet Spacing */}
       <main id="main-content" tabIndex={-1} className="flex-1 max-w-[1640px] w-full mx-auto px-4 pb-28 sm:px-6 md:px-8 lg:px-10 xl:px-12 2xl:px-16 sm:pb-28 py-4 sm:py-6 lg:py-8 outline-none">
+        <PracticeTaskBanner activeTab={activeTab} />
         <Suspense fallback={activeTab === 'screener' ? <PageSkeleton page="markets" /> : activeTab === 'portfolio' || activeTab === 'watchlist' ? <PageSkeleton page="portfolio" /> : activeTab === 'academy' ? <PageSkeleton page="academy" /> : <PageLoadingState />}>
           <AnimatePresence mode="wait">
           {activeTab === 'home' && (
@@ -323,7 +325,7 @@ function SimulatorApp() {
 
           {activeTab === 'academy' && (
             <motion.div key="academy" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
-              <InvestorAcademy />
+              <InvestorAcademy setActiveTab={setActiveTab} />
             </motion.div>
           )}
 

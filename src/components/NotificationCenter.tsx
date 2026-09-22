@@ -116,7 +116,7 @@ export const NotificationCenter: React.FC = () => {
                     <h3 className="font-extrabold text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
                       Notifications
                       {unreadCount > 0 && (
-                        <span className="text-[10px] px-2 py-0.2 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300 font-black">
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300 font-black">
                           {unreadCount} new
                         </span>
                       )}

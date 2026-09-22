@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Accessibility, CheckCircle2, Languages, RotateCcw, Type, X } from 'lucide-react';
+import { CheckCircle2, Languages, Moon, Palette, RotateCcw, Sun, Type, X } from 'lucide-react';
 import { useAccessibility } from '../context/AccessibilityContext';
+import { useTheme } from '../context/ThemeContext';
 
 const Toggle = ({ checked, onChange, label, description }: { checked: boolean; onChange: (value: boolean) => void; label: string; description: string }) => (
   <label className="flex min-h-14 cursor-pointer items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
@@ -12,6 +13,7 @@ const Toggle = ({ checked, onChange, label, description }: { checked: boolean; o
 export function AccessibilityCenter() {
   const [open, setOpen] = useState(false);
   const { settings, updateSetting, resetSettings } = useAccessibility();
+  const { theme, setTheme, palette, setPalette, palettes } = useTheme();
 
   React.useEffect(() => {
     const handleOpen = () => setOpen(true);
@@ -30,6 +32,58 @@ export function AccessibilityCenter() {
               <button type="button" onClick={() => setOpen(false)} className="rounded-xl border border-slate-200 p-2 dark:border-slate-700" aria-label="Close"><X className="h-5 w-5" /></button>
             </div>
             <div className="mt-5 space-y-4">
+              <div>
+                <span className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-wide"><Palette className="h-4 w-4" /> Appearance</span>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    aria-pressed={theme === 'light'}
+                    onClick={() => setTheme('light')}
+                    className={`flex min-h-11 items-center justify-center gap-2 rounded-xl border text-xs font-black ${theme === 'light' ? 'border-indigo-500 bg-indigo-600 text-white' : 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800'}`}
+                  >
+                    <Sun className="h-4 w-4" /> Light
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={theme === 'dark'}
+                    onClick={() => setTheme('dark')}
+                    className={`flex min-h-11 items-center justify-center gap-2 rounded-xl border text-xs font-black ${theme === 'dark' ? 'border-indigo-500 bg-indigo-600 text-white' : 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800'}`}
+                  >
+                    <Moon className="h-4 w-4" /> Dark
+                  </button>
+                </div>
+
+                <p className="mt-3 mb-2 text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                  Background colour — each option works in both light and dark mode.
+                </p>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {palettes.map((option) => {
+                    const selected = palette === option.id;
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        aria-pressed={selected}
+                        onClick={() => setPalette(option.id)}
+                        className={`flex min-h-14 items-center gap-3 rounded-2xl border p-3 text-left transition-colors ${selected ? 'border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-950/50' : 'border-slate-200 bg-slate-50 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800'}`}
+                      >
+                        <span aria-hidden="true" className="flex shrink-0 overflow-hidden rounded-lg border border-slate-300/70 dark:border-slate-600">
+                          {option.swatch.map((colour) => (
+                            <span key={colour} className="block h-7 w-3" style={{ backgroundColor: colour }} />
+                          ))}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-center gap-1 text-xs font-black text-slate-900 dark:text-white">
+                            {option.label}
+                            {selected && <CheckCircle2 className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-300" />}
+                          </span>
+                          <span className="mt-0.5 block text-[11px] leading-snug text-slate-500 dark:text-slate-400">{option.description}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
               <div>
                 <label className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-wide"><Type className="h-4 w-4" /> Text size</label>
                 <div className="grid grid-cols-4 gap-2">{(['SMALL','DEFAULT','LARGE','XL'] as const).map((size) => <button key={size} type="button" onClick={() => updateSetting('textScale', size)} className={`min-h-11 rounded-xl border text-[11px] font-black ${settings.textScale === size ? 'border-indigo-500 bg-indigo-600 text-white' : 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800'}`}>{size === 'DEFAULT' ? 'Normal' : size}</button>)}</div>

@@ -713,7 +713,7 @@ function generateRealisticChartSeries(
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">{stock.name}</h2>
-                <span className="text-xs font-black text-slate-900 bg-[#E2E8F0]/80 px-2.5 py-0.5 rounded-md">
+                <span className="text-xs font-black text-slate-900 bg-slate-200/80 px-2.5 py-0.5 rounded-md">
                   NSE: {stock.symbol}
                 </span>
                 {extendedData?.bseCode && (
@@ -787,12 +787,12 @@ function generateRealisticChartSeries(
               onClick={() => toggleWatchlist(stock.symbol)}
               className={`p-2 rounded-xl border transition-all ${
                 isWatchlisted
-                  ? 'bg-indigo-600/20 text-indigo-600 border-[#4F46E5]/40'
+                  ? 'bg-indigo-600/20 text-indigo-600 border-indigo-600/40'
                   : 'bg-white text-slate-500 border-slate-200 hover:text-[#101B29]'
               }`}
               title={isWatchlisted ? 'Remove from Watchlist' : 'Add to Watchlist'}
             >
-              <Star className={`w-5 h-5 ${isWatchlisted ? 'fill-[#4F46E5] text-indigo-600' : ''}`} />
+              <Star className={`w-5 h-5 ${isWatchlisted ? 'fill-indigo-600 text-indigo-600' : ''}`} />
             </button>
             <button
               onClick={onClose}
@@ -1426,7 +1426,7 @@ function generateRealisticChartSeries(
                 <div className="bg-gradient-to-r from-indigo-900 to-indigo-800 text-white rounded-2xl p-4 shadow-sm">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <Zap className="w-4 h-4 text-indigo-600 fill-[#4F46E5]" />
+                      <Zap className="w-4 h-4 text-indigo-600 fill-indigo-600" />
                       <span className="text-sm font-black text-white">Chanakya AI Technical + Fundamental Report</span>
                     </div>
                     {!aiAnalysis && (
@@ -3026,7 +3026,7 @@ function generateRealisticChartSeries(
                         >
                           <Zap className="w-3.5 h-3.5 text-amber-500" />
                           <span>Chanakya Pre-Flight Trade Check</span>
-                          <span className={`text-[10px] font-mono px-2 py-0.2 rounded-full border ${
+                          <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
                             passCount === 4
                               ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border-emerald-300'
                               : passCount === 3

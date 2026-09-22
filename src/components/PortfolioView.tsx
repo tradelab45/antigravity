@@ -41,8 +41,10 @@ import {
   Cell 
 } from 'recharts';
 import { useSimulator } from '../context/SimulatorContext';
+import { INITIAL_LESSONS } from '../data/lessonsData';
 import { StockDetail, Holding, Order } from '../types';
 import { formatINR, formatPercent, formatIndianShort, formatNumberIndian } from '../utils/formatters';
+import { describePortfolioDay, formatSignedPercent } from '../utils/attribution';
 import { PortfolioEquityAreaChart } from './ui/area-charts-2';
 import { PortfolioReportModal } from './PortfolioReportModal';
 
@@ -163,6 +165,17 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ onSelectStock, onN
 
   const dayPnLPercent = totalHoldingsInvested > 0 ? (dayPnL / totalHoldingsInvested) * 100 : 0;
 
+  // Why the portfolio moved today, named by position. A net figure hides
+  // offsetting moves, and that is the part worth teaching.
+  const dayAttribution = useMemo(
+    () => describePortfolioDay(holdingsList.map((holding) => ({
+      symbol: holding.symbol,
+      dayChangeAmount: holding.dayChangeAmount,
+      dayChangePercent: holding.dayChangePercent,
+    }))),
+    [holdingsList],
+  );
+
   // Sector Breakdown for Pie Chart
   const sectorData = useMemo(() => {
     const sectorMap: Record<string, number> = {};
@@ -218,7 +231,10 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ onSelectStock, onN
     try { journalReviews = JSON.parse(localStorage.getItem(`rr_trade_reviews:${profileId}`) || '{}'); } catch { journalReviews = {}; }
     const planCoverage = executedTrades > 0 ? Math.min(1, tradePlans.length / executedTrades) : 0;
     const journalCoverage = executedTrades > 0 ? Math.min(1, Object.keys(journalReviews).length / executedTrades) : 0;
-    const learningCoverage = Math.min(1, completedLessonIds.length / 12);
+    // Counted against the real curriculum size so adding modules does not
+    // silently change everyone's health score.
+    const completedModules = INITIAL_LESSONS.filter((lesson) => completedLessonIds.includes(lesson.id)).length;
+    const learningCoverage = Math.min(1, completedModules / INITIAL_LESSONS.length);
     const largestHoldingWeight = riskAnalysis.largestHolding?.weight || 0;
 
     // Health rewards diversification and decision process—not profit.
@@ -343,7 +359,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ onSelectStock, onN
   }, [orders]);
 
   return (
-    <div className="space-y-6">
+    <div className="rr-surfaces space-y-6">
 
       {/* Real-time Data Sync Status & Manual Sync Trigger */}
       <div className="bg-white border border-slate-200 rounded-2xl px-4 py-2.5 shadow-xs flex flex-wrap items-center justify-between gap-3">
@@ -545,6 +561,78 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ onSelectStock, onN
       </div>
 
       {/* Sub-Navigation Switcher between Holdings, Execution List / Pending, & Trade History */}
+      {/* Why did this change? — names the positions behind today's number. */}
+      {dayAttribution.sentence && (
+        <section
+          aria-label="What moved your portfolio today"
+          className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
+        >
+          <div className="flex items-start gap-3">
+            <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+              dayAttribution.direction === 'up'
+                ? 'bg-emerald-100 text-emerald-700'
+                : dayAttribution.direction === 'down'
+                ? 'bg-rose-100 text-rose-700'
+                : 'bg-slate-100 text-slate-600'
+            }`}>
+              <HelpCircle className="h-4 w-4" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-xs font-black uppercase tracking-wider text-slate-500">
+                Why did this change?
+              </h3>
+              <p className="mt-1 text-sm font-bold leading-relaxed text-slate-900 sm:text-base">
+                {dayAttribution.sentence}
+              </p>
+              <p className="mt-1 text-[11px] font-medium text-slate-500">
+                {nseMarketInfo.isNSEMarketOpen
+                  ? 'Based on the latest available quote for each holding.'
+                  : 'Based on the last completed session; the market is closed.'}
+              </p>
+
+              {/* Per-position breakdown, largest mover first. */}
+              <ul className="mt-3 space-y-1.5">
+                {[...dayAttribution.leaders, ...dayAttribution.detractors]
+                  .slice(0, 4)
+                  .map((contribution) => {
+                    const positive = contribution.dayChangeAmount >= 0;
+                    const share = Math.min(
+                      100,
+                      (Math.abs(contribution.dayChangeAmount) / (Math.abs(dayAttribution.total) || Math.abs(contribution.dayChangeAmount) || 1)) * 100,
+                    );
+                    return (
+                      <li key={contribution.symbol} className="flex items-center gap-3">
+                        <span className="w-24 shrink-0 truncate font-mono text-xs font-black text-slate-900">
+                          {contribution.symbol}
+                        </span>
+                        <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+                          <span
+                            className={`block h-full rounded-full ${positive ? 'bg-emerald-500' : 'bg-rose-500'}`}
+                            style={{ width: `${share}%` }}
+                          />
+                        </span>
+                        <span className={`w-28 shrink-0 text-right font-mono text-xs font-black ${positive ? 'text-emerald-700' : 'text-rose-700'}`}>
+                          {positive ? '+' : '-'}{formatINR(Math.abs(contribution.dayChangeAmount), false)}
+                        </span>
+                        <span className="hidden w-16 shrink-0 text-right font-mono text-[11px] font-bold text-slate-500 sm:block">
+                          {formatSignedPercent(contribution.dayChangePercent)}
+                        </span>
+                      </li>
+                    );
+                  })}
+              </ul>
+
+              {dayAttribution.concentration > 0.7 && dayAttribution.leaders.length + dayAttribution.detractors.length > 1 && (
+                <p className="mt-3 rounded-xl bg-amber-50 p-3 text-[11px] font-bold leading-relaxed text-amber-950">
+                  One position accounts for {(dayAttribution.concentration * 100).toFixed(0)}% of today&apos;s movement.
+                  A portfolio that moves on a single name is carrying that name&apos;s risk, whichever way it went.
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
         <div className="flex flex-wrap items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-xs">
           <button
@@ -552,14 +640,14 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ onSelectStock, onN
             onClick={() => setPortfolioTab('holdings')}
             className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
               portfolioTab === 'holdings'
-                ? 'bg-slate-900 text-white shadow-md shadow-indigo-900/20'
+                ? 'bg-slate-900 text-white shadow-md shadow-indigo-900/20 dark:bg-indigo-600'
                 : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
             <Layers className="w-4 h-4" />
             <span>Holdings & Allocation</span>
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-extrabold ${
-              portfolioTab === 'holdings' ? 'bg-white/20 text-white' : 'bg-[#E2E8F0] text-slate-900'
+              portfolioTab === 'holdings' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-900 dark:bg-slate-700 dark:text-slate-100'
             }`}>
               {holdingsList.length}
             </span>
@@ -570,7 +658,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ onSelectStock, onN
             onClick={() => setPortfolioTab('analytics')}
             className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
               portfolioTab === 'analytics'
-                ? 'bg-slate-900 text-white shadow-md shadow-indigo-900/20'
+                ? 'bg-slate-900 text-white shadow-md shadow-indigo-900/20 dark:bg-indigo-600'
                 : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
@@ -583,7 +671,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ onSelectStock, onN
             onClick={() => setPortfolioTab('pending')}
             className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
               portfolioTab === 'pending'
-                ? 'bg-slate-900 text-white shadow-md shadow-indigo-900/20'
+                ? 'bg-slate-900 text-white shadow-md shadow-indigo-900/20 dark:bg-indigo-600'
                 : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
@@ -594,7 +682,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ onSelectStock, onN
                 ? 'bg-amber-400 text-amber-950 animate-pulse' 
                 : portfolioTab === 'pending' 
                   ? 'bg-white/20 text-white' 
-                  : 'bg-[#E2E8F0] text-slate-900'
+                  : 'bg-slate-200 text-slate-900 dark:bg-slate-700 dark:text-slate-100'
             }`}>
               {pendingOrdersList.length}
             </span>
@@ -605,14 +693,14 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ onSelectStock, onN
             onClick={() => setPortfolioTab('history')}
             className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
               portfolioTab === 'history'
-                ? 'bg-slate-900 text-white shadow-md shadow-indigo-900/20'
+                ? 'bg-slate-900 text-white shadow-md shadow-indigo-900/20 dark:bg-indigo-600'
                 : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
             <History className="w-4 h-4" />
             <span>All Orders & History</span>
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-extrabold ${
-              portfolioTab === 'history' ? 'bg-white/20 text-white' : 'bg-[#E2E8F0] text-slate-900'
+              portfolioTab === 'history' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-900 dark:bg-slate-700 dark:text-slate-100'
             }`}>
               {orders.length}
             </span>
@@ -628,14 +716,14 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ onSelectStock, onN
           >
             <FileText className="w-3.5 h-3.5 text-indigo-600" />
             <span>Export Summary Report</span>
-            <span className="bg-indigo-50 text-indigo-700 text-[9px] px-1.5 py-0.2 rounded-full font-bold border border-indigo-200">
+            <span className="bg-indigo-50 text-indigo-700 text-[9px] px-1.5 py-0.5 rounded-full font-bold border border-indigo-200">
               CSV/PDF
             </span>
           </button>
 
           <button
             onClick={onNavigateToScreener}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-[#3b4b1c] text-white text-xs font-extrabold shadow-sm transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold shadow-sm transition-all cursor-pointer"
           >
             <span>+ Trade Indian Stocks</span>
           </button>
@@ -749,7 +837,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ onSelectStock, onN
                           <div>
                             <div className="flex items-center gap-2">
                               <span className="font-black text-slate-900 text-sm">{h.symbol}</span>
-                              <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-1.5 py-0.2 rounded-md">
+                              <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-1.5 py-0.5 rounded-md">
                                 {h.quantity} Shares
                               </span>
                             </div>
@@ -873,7 +961,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ onSelectStock, onN
                             <td className="py-3 px-3">
                               <div className="font-extrabold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors flex items-center gap-1.5">
                                 <span>{h.symbol}</span>
-                                <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-1.5 py-0.2 rounded-md">
+                                <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-1.5 py-0.5 rounded-md">
                                   {h.quantity} shares
                                 </span>
                               </div>
@@ -1551,7 +1639,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ onSelectStock, onN
                     value={tradeSearch}
                     onChange={(e) => setTradeSearch(e.target.value)}
                     placeholder="Search stock..."
-                    className="pl-8 pr-3 py-1.5 rounded-xl text-xs bg-slate-50 border border-slate-200 text-slate-900 placeholder-[#64748B] focus:outline-none focus:border-slate-900 w-36 sm:w-44"
+                    className="pl-8 pr-3 py-1.5 rounded-xl text-xs bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-500 focus:outline-none focus:border-slate-900 w-36 sm:w-44"
                   />
                 </div>
 

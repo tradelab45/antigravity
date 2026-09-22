@@ -368,7 +368,8 @@ export interface TradeJournalEntry {
   holdTimeMinutes: number;
   setup: string; // "Breakout", "Opening Range", "Mean Reversion", "VWAP Pullback", "Support Bounce"
   tags: ('Breakout' | 'VWAP' | 'Momentum' | 'Reversal' | 'FOMO' | 'Revenge' | 'Planned' | 'News' | 'Oversize')[];
-  emotion: 'Calm & Disciplined' | 'FOMO / Anxious' | 'Greedy' | 'Revenge / Frustrated' | 'Hesitant';
+  /** Empty until the trader records it; the simulator cannot infer a mood. */
+  emotion: '' | 'Calm & Disciplined' | 'FOMO / Anxious' | 'Greedy' | 'Revenge / Frustrated' | 'Hesitant';
   executionScore: number; // 0-100
   riskScore: number; // 0-100
   disciplineScore: number; // 0-100

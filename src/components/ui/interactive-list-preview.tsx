@@ -98,7 +98,7 @@ export const InteractiveListPreview: React.FC<InteractiveListPreviewProps> = ({
                         {item.symbol}
                       </h5>
                       {item.badge && (
-                        <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-600 dark:text-amber-300 font-mono">
+                        <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-600 dark:text-amber-300 font-mono">
                           {item.badge}
                         </span>
                       )}
@@ -121,7 +121,7 @@ export const InteractiveListPreview: React.FC<InteractiveListPreviewProps> = ({
                   <span
                     className={cn(
                       "text-[10px] font-bold font-mono flex items-center justify-end gap-0.5",
-                      isPositive ? "text-emerald-500" : "text-rose-500"
+                      isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
                     )}
                   >
                     {isPositive ? "+" : ""}

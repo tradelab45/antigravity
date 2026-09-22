@@ -562,12 +562,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
   const styles = {
     // Outer shell
     container: isBeige 
-      ? 'bg-[#FBF9F5] text-[#1E293B] selection:bg-blue-200' 
-      : 'bg-[#020805] text-[#F8FAFC] selection:bg-[#00f59b] selection:text-black',
+      ? 'bg-[#FBF9F5] text-slate-800 selection:bg-blue-200' 
+      : 'bg-[#020805] text-slate-50 selection:bg-mint selection:text-black',
     
     // Top bar & headers
     topBar: isBeige 
-      ? 'bg-[#F4EFE6] border-[#E6DFD3] text-[#1E293B]' 
+      ? 'bg-[#F4EFE6] border-[#E6DFD3] text-slate-800' 
       : 'bg-[#05140b] border-emerald-500/20 text-white',
     
     // Cards & Panels
@@ -580,44 +580,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
       : 'border-b border-emerald-500/20 bg-[#06140c]',
 
     // Subdued text
-    subText: isBeige ? 'text-[#64748B]' : 'text-emerald-300/70',
-    mutedText: isBeige ? 'text-[#94A3B8]' : 'text-slate-400',
+    subText: isBeige ? 'text-slate-500' : 'text-emerald-300/70',
+    mutedText: isBeige ? 'text-slate-400' : 'text-slate-400',
 
     // Table rows & borders
     tableBorder: isBeige ? 'border-[#EAE3D8]' : 'border-emerald-500/15',
     tableRowHover: isBeige ? 'hover:bg-[#F7F3EC]' : 'hover:bg-emerald-950/40',
-    tableHeadBg: isBeige ? 'bg-[#F2ECE1] text-[#475569]' : 'bg-[#06160d] text-emerald-300/80',
+    tableHeadBg: isBeige ? 'bg-[#F2ECE1] text-slate-600' : 'bg-[#06160d] text-emerald-300/80',
 
     // Primary Accents / Buttons
     accentBtn: isBeige 
-      ? 'bg-[#2563EB] hover:bg-[#1D4ED8] text-white shadow-sm' 
-      : 'bg-[#00f59b] hover:bg-[#00dc8b] text-slate-950 font-black shadow-[0_0_15px_rgba(0,245,155,0.35)]',
+      ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm' 
+      : 'bg-mint hover:bg-mint-deep text-slate-950 font-black shadow-[0_0_15px_rgba(0,245,155,0.35)]',
 
     // Secondary Buttons
     secondaryBtn: isBeige 
-      ? 'bg-[#EAE3D7] hover:bg-[#DFD6C7] text-[#1E293B] border border-[#DDD3C2]' 
+      ? 'bg-[#EAE3D7] hover:bg-[#DFD6C7] text-slate-800 border border-[#DDD3C2]' 
       : 'bg-white/10 hover:bg-white/15 text-emerald-100 border border-emerald-500/20',
 
     // Badges
     buyBadge: isBeige 
       ? 'bg-blue-50 text-blue-700 border border-blue-200' 
-      : 'bg-emerald-500/15 text-[#00f59b] border border-emerald-500/30',
+      : 'bg-emerald-500/15 text-mint border border-emerald-500/30',
     
     sellBadge: isBeige 
       ? 'bg-rose-50 text-rose-700 border border-rose-200' 
       : 'bg-rose-500/15 text-rose-400 border border-rose-500/30',
 
     pillActive: isBeige 
-      ? 'bg-[#2563EB] text-white' 
-      : 'bg-[#00f59b] text-slate-950 font-black shadow-[0_0_10px_rgba(0,245,155,0.4)]',
+      ? 'bg-blue-600 text-white' 
+      : 'bg-mint text-slate-950 font-black shadow-[0_0_10px_rgba(0,245,155,0.4)]',
 
     pillInactive: isBeige 
-      ? 'bg-[#EAE4D9] text-[#475569] hover:bg-[#E2DACD]' 
+      ? 'bg-[#EAE4D9] text-slate-600 hover:bg-[#E2DACD]' 
       : 'bg-white/5 text-slate-400 hover:bg-white/10',
 
     input: isBeige 
-      ? 'bg-white border-[#D6CDBC] text-[#1E293B] placeholder-[#94A3B8] focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB]' 
-      : 'bg-[#05130b] border-emerald-500/30 text-white placeholder-slate-500 focus:border-[#00f59b] focus:ring-1 focus:ring-[#00f59b]'
+      ? 'bg-white border-[#D6CDBC] text-slate-800 placeholder-slate-400 focus:border-blue-600 focus:ring-1 focus:ring-blue-600' 
+      : 'bg-[#05130b] border-emerald-500/30 text-white placeholder-slate-500 focus:border-mint focus:ring-1 focus:ring-mint'
   };
 
   // IF NOT AUTHENTICATED: Render the Private Admin Passkey Gate Screen
@@ -626,7 +626,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
       <div className={`min-h-screen w-full flex flex-col items-center justify-center p-4 relative font-sans transition-colors duration-300 ${styles.container}`}>
         {/* Subtle decorative background glow */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden flex items-center justify-center">
-          <div className={`w-[500px] h-[500px] rounded-full blur-[140px] opacity-20 ${isBeige ? 'bg-blue-400' : 'bg-[#00f59b]'}`} />
+          <div className={`w-[500px] h-[500px] rounded-full blur-[140px] opacity-20 ${isBeige ? 'bg-blue-400' : 'bg-mint'}`} />
         </div>
 
         {/* Theme quick switcher on the lock screen */}
@@ -645,7 +645,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
             onClick={() => toggleTheme('cyber-emerald')}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
               theme === 'cyber-emerald' 
-                ? 'bg-slate-900 shadow text-[#00f59b] border-emerald-500/40' 
+                ? 'bg-slate-900 shadow text-mint border-emerald-500/40' 
                 : 'opacity-60 hover:opacity-100 border-transparent'
             }`}
           >
@@ -656,15 +656,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
         {/* Master Security Card */}
         <div className={`relative z-10 w-full max-w-md p-6 sm:p-8 rounded-3xl border shadow-2xl backdrop-blur-xl ${
           isBeige 
-            ? 'bg-[#FAF8F5]/95 border-[#DECAB3] shadow-stone-300/50 text-[#1E293B]' 
+            ? 'bg-[#FAF8F5]/95 border-[#DECAB3] shadow-stone-300/50 text-slate-800' 
             : 'bg-[#040f09]/95 border-emerald-500/30 shadow-[0_0_50px_rgba(0,0,0,0.8)] text-slate-100'
         }`}>
           {/* Badge Icon */}
           <div className="flex justify-center mb-5">
             <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg relative ${
               isBeige 
-                ? 'bg-[#2563EB] text-white shadow-blue-500/30' 
-                : 'bg-[#00f59b] text-slate-950 shadow-[0_0_30px_rgba(0,245,155,0.4)]'
+                ? 'bg-blue-600 text-white shadow-blue-500/30' 
+                : 'bg-mint text-slate-950 shadow-[0_0_30px_rgba(0,245,155,0.4)]'
             }`}>
               <Lock className="w-8 h-8" />
               <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 border-2 border-white dark:border-slate-950 animate-ping" />
@@ -674,7 +674,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
 
           <div className="text-center mb-6">
             <h2 className="text-xl sm:text-2xl font-black tracking-tight">
-              RupeeRookie <span className={isBeige ? 'text-blue-600' : 'text-[#00f59b]'}>Admin Oversight</span>
+              RupeeRookie <span className={isBeige ? 'text-blue-600' : 'text-mint'}>Admin Oversight</span>
             </h2>
             <p className={`mt-1.5 text-xs font-medium ${styles.subText}`}>
               Restricted Executive Portal • Master Passkey Required
@@ -757,7 +757,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
           }`}>
             <span>Owner passkey: </span>
             <code className={`font-mono font-bold px-1.5 py-0.5 rounded ${
-              isBeige ? 'bg-white text-blue-700' : 'bg-black text-[#00f59b]'
+              isBeige ? 'bg-white text-blue-700' : 'bg-black text-mint'
             }`}>
               admin2026
             </code>
@@ -787,11 +787,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
       
       {/* 1. TOP-LEVEL CONFIDENTIAL EXECUTIVE STATUS BAR */}
       <div className={`w-full px-4 sm:px-8 py-2.5 flex flex-wrap items-center justify-between gap-3 border-b text-xs font-semibold ${
-        isBeige ? 'bg-[#EDE6D8] border-[#DECAB3] text-[#334155]' : 'bg-[#030c07] border-emerald-500/25 text-emerald-200'
+        isBeige ? 'bg-[#EDE6D8] border-[#DECAB3] text-slate-700' : 'bg-[#030c07] border-emerald-500/25 text-emerald-200'
       }`}>
         <div className="flex items-center gap-3">
           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-bold uppercase tracking-wider text-[11px] ${
-            isBeige ? 'bg-blue-100 text-blue-900 border border-blue-200' : 'bg-emerald-950/80 text-[#00f59b] border border-emerald-500/30'
+            isBeige ? 'bg-blue-100 text-blue-900 border border-blue-200' : 'bg-emerald-950/80 text-mint border border-emerald-500/30'
           }`}>
             <Lock className="w-3.5 h-3.5" />
             <span>Confidential • Owner Surveillance Active</span>
@@ -855,17 +855,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-3">
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black shadow-md ${
-                isBeige ? 'bg-[#2563EB] text-white' : 'bg-[#00f59b] text-slate-950 shadow-[0_0_20px_rgba(0,245,155,0.4)]'
+                isBeige ? 'bg-blue-600 text-white' : 'bg-mint text-slate-950 shadow-[0_0_20px_rgba(0,245,155,0.4)]'
               }`}>
                 <ShieldCheck className="w-6 h-6" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
                   <h1 className="text-base sm:text-lg font-black tracking-tight">
-                    RupeeRookie <span className={isBeige ? 'text-blue-600' : 'text-[#00f59b]'}>Admin Oversight</span>
+                    RupeeRookie <span className={isBeige ? 'text-blue-600' : 'text-mint'}>Admin Oversight</span>
                   </h1>
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                    isBeige ? 'bg-blue-100 text-blue-800' : 'bg-emerald-500/20 text-[#00f59b] border border-emerald-500/30'
+                    isBeige ? 'bg-blue-100 text-blue-800' : 'bg-emerald-500/20 text-mint border border-emerald-500/30'
                   }`}>
                     Executive Suite
                   </span>
@@ -909,7 +909,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
               <button
                 onClick={() => toggleTheme('cyber-emerald')}
                 className={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1.5 text-xs font-bold ${
-                  !isBeige ? 'bg-[#00f59b] text-slate-950 shadow-[0_0_10px_rgba(0,245,155,0.4)]' : 'text-[#64748B] hover:text-[#1E293B]'
+                  !isBeige ? 'bg-mint text-slate-950 shadow-[0_0_10px_rgba(0,245,155,0.4)]' : 'text-slate-500 hover:text-slate-800'
                 }`}
                 title="Switch to RupeeRookie Cyber Emerald theme (App Colors)"
               >
@@ -952,7 +952,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
             </div>
             <div className="mt-2 flex items-baseline gap-2">
               <span className="text-2xl sm:text-3xl font-black font-mono">{stats.totalTradesCount}</span>
-              <span className="text-xs font-bold text-emerald-600 dark:text-[#00f59b]">Live Stream</span>
+              <span className="text-xs font-bold text-emerald-600 dark:text-mint">Live Stream</span>
             </div>
             <div className="mt-1 text-[11px] opacity-70">
               {stats.buyCount} Buys • {stats.sellCount} Sells
@@ -984,7 +984,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
             </div>
             <div className="mt-2 flex items-baseline gap-2">
               <span className="text-2xl sm:text-3xl font-black font-mono">{stats.totalTradersCount}</span>
-              <span className="text-xs font-bold text-emerald-600 dark:text-[#00f59b]">Active Cohort</span>
+              <span className="text-xs font-bold text-emerald-600 dark:text-mint">Active Cohort</span>
             </div>
             <div className="mt-1 text-[11px] opacity-70">
               100% Student & Teen verification
@@ -999,7 +999,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
             </div>
             <div className="mt-2 flex items-baseline gap-2">
               <span className="text-2xl sm:text-3xl font-black font-mono">{stats.buyPercent}%</span>
-              <span className="text-xs font-bold text-emerald-600 dark:text-[#00f59b]">Buy Bias</span>
+              <span className="text-xs font-bold text-emerald-600 dark:text-mint">Buy Bias</span>
             </div>
             <div className="mt-2 w-full bg-rose-500/30 rounded-full h-1.5 overflow-hidden flex">
               <div className="bg-emerald-500 h-full" style={{ width: `${stats.buyPercent}%` }} />
@@ -1227,7 +1227,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
                             <td className="py-3.5 px-4">
                               <div className="inline-flex items-center gap-1.5 font-black font-mono text-[12.5px]">
                                 <span className={`px-2 py-0.5 rounded-md ${
-                                  isBeige ? 'bg-[#EFE7DC] text-[#1E293B]' : 'bg-white/10 text-white'
+                                  isBeige ? 'bg-[#EFE7DC] text-slate-800' : 'bg-white/10 text-white'
                                 }`}>
                                   {trade.symbol}
                                 </span>
@@ -1276,7 +1276,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
                             {/* Realized P&L */}
                             <td className="py-3.5 px-4 text-right font-mono font-bold">
                               {trade.realizedPnL !== undefined && trade.realizedPnL !== 0 ? (
-                                <span className={trade.realizedPnL > 0 ? 'text-emerald-600 dark:text-[#00f59b]' : 'text-rose-600 dark:text-rose-400'}>
+                                <span className={trade.realizedPnL > 0 ? 'text-emerald-600 dark:text-mint' : 'text-rose-600 dark:text-rose-400'}>
                                   {trade.realizedPnL > 0 ? '+' : ''}₹{trade.realizedPnL.toFixed(2)}
                                 </span>
                               ) : (
@@ -1288,7 +1288,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
                             <td className="py-3.5 px-4 text-center">
                               <span className={`inline-flex items-center gap-1 text-[10.5px] font-bold px-2 py-0.5 rounded-full ${
                                 trade.status === 'EXECUTED' 
-                                  ? isBeige ? 'bg-emerald-100 text-emerald-800' : 'bg-emerald-500/20 text-[#00f59b]'
+                                  ? isBeige ? 'bg-emerald-100 text-emerald-800' : 'bg-emerald-500/20 text-mint'
                                   : 'bg-amber-100 text-amber-800'
                               }`}>
                                 <CheckCircle2 className="w-3 h-3" />
@@ -1391,7 +1391,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
                             <td className="py-3.5 px-4">
                               <div className="flex items-center gap-3">
                                 <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${
-                                  isBeige ? 'bg-blue-100 text-blue-800' : 'bg-emerald-500/20 text-[#00f59b]'
+                                  isBeige ? 'bg-blue-100 text-blue-800' : 'bg-emerald-500/20 text-mint'
                                 }`}>
                                   {user.fullName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                                 </div>
@@ -1435,7 +1435,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
                             {/* Age / Category */}
                             <td className="py-3.5 px-4">
                               <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${
-                                isBeige ? 'bg-[#EFE6D8] text-[#334155]' : 'bg-white/10 text-emerald-200'
+                                isBeige ? 'bg-[#EFE6D8] text-slate-700' : 'bg-white/10 text-emerald-200'
                               }`}>
                                 {user.ageGroup || '16-18 (Teen Investor)'}
                               </span>
@@ -1460,7 +1460,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
                             </td>
 
                             {/* Portfolio Value */}
-                            <td className="py-3.5 px-4 text-right font-mono font-black text-[13px] text-emerald-600 dark:text-[#00f59b]">
+                            <td className="py-3.5 px-4 text-right font-mono font-black text-[13px] text-emerald-600 dark:text-mint">
                               ₹{(user.portfolioValue || user.initialCapital || 1000000).toLocaleString('en-IN')}
                             </td>
 
@@ -1489,7 +1489,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
                               <button
                                 onClick={() => setSelectedUserDossier(user)}
                                 className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 mx-auto ${
-                                  isBeige ? 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200' : 'bg-emerald-500/15 text-[#00f59b] hover:bg-emerald-500/25 border border-emerald-500/30'
+                                  isBeige ? 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200' : 'bg-emerald-500/15 text-mint hover:bg-emerald-500/25 border border-emerald-500/30'
                                 }`}
                               >
                                 <Eye className="w-3 h-3" />
@@ -1523,7 +1523,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
 
             <div className="flex items-center gap-4 border-b pb-5 mb-6">
               <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-xl shadow-md ${
-                isBeige ? 'bg-blue-600 text-white' : 'bg-[#00f59b] text-slate-950 font-black'
+                isBeige ? 'bg-blue-600 text-white' : 'bg-mint text-slate-950 font-black'
               }`}>
                 {selectedUserDossier.fullName.slice(0, 2).toUpperCase()}
               </div>
@@ -1542,7 +1542,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
 
               <div className="p-3.5 rounded-xl border bg-black/5 dark:bg-white/5 space-y-1">
                 <span className="font-bold opacity-60">Phone / Contact Number:</span>
-                <p className="font-mono font-bold text-sm text-emerald-600 dark:text-[#00f59b]">
+                <p className="font-mono font-bold text-sm text-emerald-600 dark:text-mint">
                   {selectedUserDossier.phone || "Not Provided on Signup"}
                 </p>
               </div>
@@ -1632,7 +1632,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
 
             <div className="flex items-center gap-3 mb-4">
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${
-                isBeige ? 'bg-blue-600 text-white' : 'bg-[#00f59b] text-slate-950 font-black'
+                isBeige ? 'bg-blue-600 text-white' : 'bg-mint text-slate-950 font-black'
               }`}>
                 <PlusCircle className="w-5 h-5" />
               </div>
@@ -1699,7 +1699,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
             
             <div className="flex items-center justify-between pb-4 border-b">
               <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-xl ${isBeige ? 'bg-blue-100 text-blue-700' : 'bg-emerald-500/20 text-[#00f59b]'}`}>
+                <div className={`p-2 rounded-xl ${isBeige ? 'bg-blue-100 text-blue-700' : 'bg-emerald-500/20 text-mint'}`}>
                   <Key className="w-5 h-5" />
                 </div>
                 <div>

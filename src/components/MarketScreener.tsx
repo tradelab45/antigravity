@@ -698,18 +698,18 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
   ], []);
 
   return (
-    <div className="space-y-6 min-w-0 max-w-full overflow-hidden">
+    <div className="rr-surfaces space-y-6 min-w-0 max-w-full overflow-hidden">
       <div className={`flex flex-col gap-2 rounded-2xl border p-3 text-xs sm:flex-row sm:items-center sm:justify-between ${isMarketLive ? 'border-emerald-200 bg-emerald-50 text-emerald-950' : 'border-amber-200 bg-amber-50 text-amber-950'}`} role="status">
-        <div className="flex items-center gap-2"><span className={`rounded-full px-2 py-1 text-[9px] font-black ${isMarketLive ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-slate-950'}`}>{isMarketLive ? 'LATEST' : nseMarketInfo.isNSEMarketOpen ? 'DELAYED' : 'LAST CLOSE'}</span><span className="font-bold">{isMarketLive ? 'Latest available provider quote; exchange data may be delayed.' : nseMarketInfo.isNSEMarketOpen ? 'The feed may be delayed. Confirm important figures with an exchange-authorised source.' : 'Market is closed. Figures show the last available session; live-style language is disabled.'}</span></div><span className="shrink-0 font-mono text-[10px]">Updated {lastHoldingsSyncTime} IST · RupeeRookie market feed</span>
+        <div className="flex items-center gap-2"><span className={`rounded-full px-2 py-1 text-[9px] font-black ${isMarketLive ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-slate-950 dark:text-slate-950'}`}>{isMarketLive ? 'LATEST' : nseMarketInfo.isNSEMarketOpen ? 'DELAYED' : 'LAST CLOSE'}</span><span className="font-bold">{isMarketLive ? 'Latest available provider quote; exchange data may be delayed.' : nseMarketInfo.isNSEMarketOpen ? 'The feed may be delayed. Confirm important figures with an exchange-authorised source.' : 'Market is closed. Figures show the last available session; live-style language is disabled.'}</span></div><span className="shrink-0 font-mono text-[10px]">Updated {lastHoldingsSyncTime} IST · RupeeRookie market feed</span>
       </div>
       {/* 2. DEDICATED VIEW SECTIONS (SHOWN BASED ON ACTIVE TAB) */}
 
       {/* A. THEMATIC BASKETS SECTION */}
       {activeMarketSection === 'BASKETS' && (
-        <div className="bg-gradient-to-br from-[#0F172A] via-[#1E293B] to-[#0F172A] text-white rounded-3xl p-6 sm:p-7 shadow-sm space-y-5 animate-in fade-in duration-200">
+        <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white rounded-3xl p-6 sm:p-7 shadow-sm space-y-5 animate-in fade-in duration-200">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center text-xl shadow-sm font-black shrink-0">
+              <div className="w-11 h-11 rounded-2xl bg-amber-400 text-slate-950 dark:text-slate-950 flex items-center justify-center text-xl shadow-sm font-black shrink-0">
                 🎯
               </div>
               <div>
@@ -859,16 +859,16 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
               <SpotlightCard 
                 glowColor="green"
                 onClick={() => onSelectStock(topGainer)}
-                className="bg-gradient-to-br from-[#020904] via-[#05170b] to-[#010402] border border-emerald-500/30 hover:border-[#00f59b]/60 rounded-2xl p-4 shadow-[inset_0_1px_1.5px_rgba(0,245,155,0.35),0_15px_30px_-10px_rgba(0,0,0,0.85)] cursor-pointer transition-all hover:shadow-[0_15px_35px_-8px_rgba(0,245,155,0.3)] flex flex-col justify-between group relative overflow-hidden text-white"
+                className="bg-gradient-to-br from-[#020904] via-[#05170b] to-[#010402] border border-emerald-500/30 hover:border-mint/60 rounded-2xl p-4 shadow-[inset_0_1px_1.5px_rgba(0,245,155,0.35),0_15px_30px_-10px_rgba(0,0,0,0.85)] cursor-pointer transition-all hover:shadow-[0_15px_35px_-8px_rgba(0,245,155,0.3)] flex flex-col justify-between group relative overflow-hidden text-white"
               >
-                <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#00f59b]/60 to-transparent pointer-events-none" />
+                <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-mint/60 to-transparent pointer-events-none" />
                 <div>
                   <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 text-xs text-[#00f59b] font-black">
-                      <TrendingUp className="w-4 h-4 text-[#00f59b] group-hover:scale-110 transition-transform" /> 
+                    <span className="flex items-center gap-1.5 text-xs text-mint font-black">
+                      <TrendingUp className="w-4 h-4 text-mint group-hover:scale-110 transition-transform" /> 
                       <span>TOP GAINER</span>
                     </span>
-                    <span className="text-[10px] font-black text-[#00f59b] bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-500/40">
+                    <span className="text-[10px] font-black text-mint bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-500/40">
                       +{topGainer.changePercent}%
                     </span>
                   </div>
@@ -877,7 +877,7 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
                 </div>
                 <div className="mt-4 pt-3 border-t border-emerald-900/60 flex items-center justify-between text-xs">
                   <span className="text-slate-400 font-medium">High: ₹{topGainer.high52}</span>
-                  <span className="text-[#00f59b] font-bold flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">Trade <ChevronRight className="w-3 h-3" /></span>
+                  <span className="text-mint font-bold flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">Trade <ChevronRight className="w-3 h-3" /></span>
                 </div>
               </SpotlightCard>
             )}
@@ -994,7 +994,7 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
           <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 min-w-0">
             {/* Sector Dropdown */}
             <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 min-w-0">
-              <span className="text-[10px] text-slate-400 font-bold uppercase">Sector:</span>
+              <span className="text-[10px] text-slate-500 font-bold uppercase">Sector:</span>
               <select
                 aria-label="Filter by sector"
                 value={selectedSector}
@@ -1009,7 +1009,7 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
 
             {/* Benchmark Index Dropdown */}
             <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 min-w-0">
-              <span className="text-[10px] text-slate-400 font-bold uppercase">Index:</span>
+              <span className="text-[10px] text-slate-500 font-bold uppercase">Index:</span>
               <select
                 aria-label="Filter by market index"
                 value={selectedBenchmark}
@@ -1245,7 +1245,7 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
             onClick={() => setStrategyPreset(strategyPreset === 'GOLDEN_CROSS' ? 'ALL' : 'GOLDEN_CROSS')}
             className={`px-2.5 py-1 rounded-xl text-[11px] font-black border transition-all shrink-0 flex items-center gap-1 ${
               strategyPreset === 'GOLDEN_CROSS'
-                ? 'bg-amber-500 text-slate-950 border-amber-500 shadow-2xs'
+                ? 'bg-amber-500 text-slate-950 dark:text-slate-950 border-amber-500 shadow-2xs'
                 : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
             }`}
             title="50 EMA crossing above 200 EMA bullish signal"
@@ -1457,7 +1457,7 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
                   {/* INTERACTIVE BENCHMARK INDEX COMMAND BAR */}
                   <div className="relative overflow-hidden rounded-3xl border border-slate-200/90 dark:border-white/15 bg-white/95 dark:bg-[#071018]/95 backdrop-blur-2xl shadow-md p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 transition-all">
                     {/* Top Edge Specular Bevel */}
-                    <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#00f59b]/60 to-transparent pointer-events-none" />
+                    <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-mint/60 to-transparent pointer-events-none" />
 
                     {/* Left: Benchmark Identity & Live Stats */}
                     <div className="flex items-start sm:items-center gap-3.5 min-w-0">
@@ -1480,7 +1480,7 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
                           </span>
                           <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
                             isAvgUp 
-                              ? 'bg-emerald-500/15 text-emerald-700 dark:text-[#00f59b] border border-emerald-500/30' 
+                              ? 'bg-emerald-500/15 text-emerald-700 dark:text-mint border border-emerald-500/30' 
                               : 'bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30'
                           }`}>
                             {isAvgUp ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
@@ -1497,8 +1497,8 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
                     <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap shrink-0">
                       {/* Market Breadth Pill */}
                       <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 text-[11px] font-mono font-bold text-slate-600 dark:text-slate-300">
-                        <span className="text-emerald-600 dark:text-[#00f59b] font-black">{advances}▲</span>
-                        <span className="text-slate-300 dark:text-slate-600">·</span>
+                        <span className="text-emerald-600 dark:text-mint font-black">{advances}▲</span>
+                        <span aria-hidden="true" className="text-slate-400 dark:text-slate-500">·</span>
                         <span className="text-rose-600 dark:text-rose-400 font-black">{declines}▼</span>
                       </div>
 
@@ -1639,7 +1639,7 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
                         <div className="flex items-center gap-1.5">
                           <span className="font-black text-slate-900 text-sm">{stock.symbol}</span>
                           {stock.psuStatus && (
-                            <span className="text-[9px] font-black bg-blue-100 text-blue-900 border border-blue-200 px-1 py-0.2 rounded">
+                            <span className="text-[9px] font-black bg-blue-100 text-blue-900 border border-blue-200 px-1 py-0.5 rounded">
                               {stock.psuStatus}
                             </span>
                           )}
@@ -1649,7 +1649,7 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
                       <td className="p-4">
                         <div className="flex flex-wrap gap-1 max-w-[180px]">
                           {indices.map(idx => (
-                            <span key={idx} className="bg-indigo-50 text-indigo-900 border border-indigo-200 text-[9px] px-1.5 py-0.2 rounded font-bold">
+                            <span key={idx} className="bg-indigo-50 text-indigo-900 border border-indigo-200 text-[9px] px-1.5 py-0.5 rounded font-bold">
                               {idx}
                             </span>
                           ))}
@@ -1692,7 +1692,7 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
                       <td className="p-4">
                         <div className="flex flex-wrap gap-1 max-w-[200px]">
                           {stock.popularBrands?.slice(0, 2).map((b, idx) => (
-                            <span key={idx} className="bg-amber-50 text-amber-900 border border-amber-200 text-[10px] px-2 py-0.2 rounded-md font-semibold">
+                            <span key={idx} className="bg-amber-50 text-amber-900 border border-amber-200 text-[10px] px-2 py-0.5 rounded-md font-semibold">
                               {b}
                             </span>
                           ))}
@@ -1883,12 +1883,12 @@ const StockCardItem: React.FC<StockCardItemProps> = ({
           : 'perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(0px)',
         transition: isHovered ? 'transform 0.12s ease-out, box-shadow 0.25s ease' : 'transform 0.35s ease-out, box-shadow 0.25s ease',
       }}
-      className="relative bg-gradient-to-br from-[#030805] via-[#07150c] to-[#020503] border border-white/10 rounded-3xl p-6 shadow-[inset_0_1px_1.5px_rgba(255,255,255,0.18),0_20px_45px_-12px_rgba(0,0,0,0.85)] flex flex-col justify-between group cursor-pointer overflow-hidden isolate hover:border-[#00f59b]/50 hover:shadow-[0_20px_40px_-10px_rgba(0,245,155,0.25)] transition-all"
+      className="rr-terminal-card relative rounded-3xl border p-6 flex flex-col justify-between group cursor-pointer overflow-hidden isolate transition-all"
       onClick={() => onSelectStock(stock)}
     >
       {/* 0. Polymo Lighting Specular Top Bevel & Ambient Gradient Wash */}
-      <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#00f59b]/60 to-transparent pointer-events-none z-10" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_120%_80%_at_50%_-20%,rgba(0,245,155,0.18),transparent_70%),radial-gradient(ellipse_at_100%_100%,rgba(16,185,129,0.1),transparent_50%)] -z-10" />
+      <div className="rr-terminal-bevel absolute inset-x-0 top-0 h-[1.5px] pointer-events-none z-10" />
+      <div className="rr-terminal-wash pointer-events-none absolute inset-0 -z-10" />
 
       {/* 1. Dynamic Radial Spotlight Beam */}
       <div 
@@ -1927,7 +1927,7 @@ const StockCardItem: React.FC<StockCardItemProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-1.5 flex-wrap">
-                <h3 className="font-black text-white text-base group-hover:text-[#00f59b] transition-colors font-mono">
+                <h3 className="font-black text-white text-base group-hover:text-mint transition-colors font-mono">
                   {stock.symbol}
                 </h3>
                 <span className="text-[10px] text-slate-300 bg-white/10 font-bold px-1.5 py-0.5 rounded-md border border-white/15 font-mono">
@@ -1939,7 +1939,7 @@ const StockCardItem: React.FC<StockCardItemProps> = ({
                   </span>
                 )}
                 {isBreakout && (
-                  <span className="text-[9px] font-black bg-emerald-500/20 text-[#00f59b] border border-emerald-500/40 px-1.5 py-0.5 rounded-md">
+                  <span className="text-[9px] font-black bg-emerald-500/20 text-mint border border-emerald-500/40 px-1.5 py-0.5 rounded-md">
                     🔥 Breakout
                   </span>
                 )}
@@ -1994,7 +1994,7 @@ const StockCardItem: React.FC<StockCardItemProps> = ({
             </span>
           </div>
           <div className={`flex items-center text-xs font-black px-2.5 py-1 rounded-xl shadow-2xs font-mono ${
-            isUp ? 'bg-emerald-500/20 text-[#00f59b] border border-emerald-500/40' : 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
+            isUp ? 'bg-emerald-500/20 text-mint border border-emerald-500/40' : 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
           }`}>
             {isUp ? '+' : ''}{stock.change.toFixed(2)} ({formatPercent(stock.changePercent)})
           </div>
@@ -2014,7 +2014,7 @@ const StockCardItem: React.FC<StockCardItemProps> = ({
           </div>
           <div className="relative h-2 bg-white/10 rounded-full overflow-hidden">
             <div
-              className="absolute top-0 bottom-0 left-0 bg-gradient-to-r from-rose-500 via-amber-400 to-[#00f59b] rounded-full"
+              className="absolute top-0 bottom-0 left-0 bg-gradient-to-r from-rose-500 via-amber-400 to-mint rounded-full"
               style={{ width: `${currentPosPercent}%` }}
             />
           </div>
@@ -2046,7 +2046,7 @@ const StockCardItem: React.FC<StockCardItemProps> = ({
             <div className="flex items-center justify-between mt-0.5">
               <span className="font-extrabold text-white font-mono">{stock.peRatio}</span>
               <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-md font-mono ${
-                isLowPe ? 'text-[#00f59b] bg-emerald-500/20 border border-emerald-500/30' : 'text-slate-300 bg-white/10'
+                isLowPe ? 'text-mint bg-emerald-500/20 border border-emerald-500/30' : 'text-slate-300 bg-white/10'
               }`}>
                 Ind: {stock.industryPe}
               </span>
@@ -2080,7 +2080,7 @@ const StockCardItem: React.FC<StockCardItemProps> = ({
         <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
           <button
             onClick={() => onQuickBuy(stock)}
-            className="px-2.5 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-[#00f59b] border border-[#00f59b]/40 font-black text-xs shadow-xs transition-all flex items-center gap-1 cursor-pointer"
+            className="px-2.5 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-mint border border-mint/40 font-black text-xs shadow-xs transition-all flex items-center gap-1 cursor-pointer"
             title="Instant 1-Click Buy 1 Share"
           >
             <Zap className="w-3 h-3 text-amber-300" />
@@ -2090,7 +2090,7 @@ const StockCardItem: React.FC<StockCardItemProps> = ({
           <button
             id={`trade-btn-${stock.symbol}`}
             onClick={() => onSelectStock(stock)}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#00f59b] hover:bg-[#00f59b]/90 text-slate-950 font-black text-xs shadow-[0_0_15px_rgba(0,245,155,0.3)] transition-all group-hover:scale-102 cursor-pointer"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-mint hover:bg-mint/90 text-slate-950 font-black text-xs shadow-[0_0_15px_rgba(0,245,155,0.3)] transition-all group-hover:scale-102 cursor-pointer"
           >
             <span>Trade</span>
             <ArrowRight className="w-3.5 h-3.5" />

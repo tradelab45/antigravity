@@ -143,7 +143,7 @@ export const CompleteProfileModal: React.FC<CompleteProfileModalProps> = ({ isOp
         className="relative w-full max-w-2xl bg-[#0a110d] border border-white/15 rounded-3xl p-5 sm:p-7 shadow-[0_25px_60px_rgba(0,0,0,0.9)] text-slate-100 my-auto"
       >
         {/* Ambient Top Glow */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-24 bg-[#00f59b]/10 blur-3xl pointer-events-none rounded-full" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-24 bg-mint/10 blur-3xl pointer-events-none rounded-full" />
 
         {/* Close Button */}
         <button
@@ -157,14 +157,14 @@ export const CompleteProfileModal: React.FC<CompleteProfileModalProps> = ({ isOp
 
         {isSaved ? (
           <div className="py-12 text-center space-y-4">
-            <div className="w-16 h-16 rounded-2xl bg-[#00f59b]/20 border border-[#00f59b]/40 text-[#00f59b] flex items-center justify-center mx-auto shadow-[0_0_30px_rgba(0,245,155,0.3)]">
+            <div className="w-16 h-16 rounded-2xl bg-mint/20 border border-mint/40 text-mint flex items-center justify-center mx-auto shadow-[0_0_30px_rgba(0,245,155,0.3)]">
               <CheckCircle2 className="w-9 h-9" />
             </div>
             <h3 className="text-2xl font-black text-white">Profile 100% Completed!</h3>
             <p className="text-sm text-slate-300 max-w-md mx-auto">
               Your preferences have been calibrated. Chanakya AI and the market dashboard are now customized for your goals.
             </p>
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#00f59b]/15 border border-[#00f59b]/30 text-[#00f59b] font-mono text-xs font-bold">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-mint/15 border border-mint/30 text-mint font-mono text-xs font-bold">
               <Sparkles className="w-3.5 h-3.5" />
               <span>+500 XP ONBOARDING BONUS CLAIMED</span>
             </div>
@@ -174,7 +174,7 @@ export const CompleteProfileModal: React.FC<CompleteProfileModalProps> = ({ isOp
             {/* Header */}
             <div>
               <div className="flex items-center gap-2 mb-1.5">
-                <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-[#00f59b] bg-[#00f59b]/10 border border-[#00f59b]/30 px-2.5 py-0.5 rounded-full">
+                <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-mint bg-mint/10 border border-mint/30 px-2.5 py-0.5 rounded-full">
                   STEP 2 OF 2 • ONBOARDING
                 </span>
                 <span className="text-[10px] font-mono text-amber-400 font-bold flex items-center gap-1">
@@ -205,7 +205,7 @@ export const CompleteProfileModal: React.FC<CompleteProfileModalProps> = ({ isOp
                       onClick={() => setSelectedGoal(goal.id)}
                       className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex items-start gap-3 ${
                         isSelected
-                          ? 'bg-[#00f59b]/10 border-[#00f59b] shadow-[0_0_15px_rgba(0,245,155,0.15)] ring-1 ring-[#00f59b]'
+                          ? 'bg-mint/10 border-mint shadow-[0_0_15px_rgba(0,245,155,0.15)] ring-1 ring-mint'
                           : 'bg-white/5 border-white/10 hover:border-white/20 text-slate-300'
                       }`}
                     >
@@ -239,7 +239,7 @@ export const CompleteProfileModal: React.FC<CompleteProfileModalProps> = ({ isOp
                       onClick={() => setExperience(lvl)}
                       className={`py-1.5 text-[10px] font-extrabold rounded-lg transition-all text-center cursor-pointer ${
                         experience === lvl
-                          ? 'bg-[#00f59b] text-slate-950 font-black shadow-xs'
+                          ? 'bg-mint text-slate-950 font-black shadow-xs'
                           : 'text-slate-400 hover:text-white'
                       }`}
                     >
@@ -261,7 +261,7 @@ export const CompleteProfileModal: React.FC<CompleteProfileModalProps> = ({ isOp
                       onClick={() => setRiskTolerance(r)}
                       className={`py-1.5 text-[10px] font-extrabold rounded-lg transition-all text-center cursor-pointer ${
                         riskTolerance === r
-                          ? 'bg-[#00f59b] text-slate-950 font-black shadow-xs'
+                          ? 'bg-mint text-slate-950 font-black shadow-xs'
                           : 'text-slate-400 hover:text-white'
                       }`}
                     >
@@ -278,7 +278,7 @@ export const CompleteProfileModal: React.FC<CompleteProfileModalProps> = ({ isOp
                 <label className="block text-xs font-mono font-bold uppercase tracking-wider text-slate-300">
                   4. Sectors of Interest (Select up to 3)
                 </label>
-                <span className="text-[10px] font-mono text-[#00f59b]">
+                <span className="text-[10px] font-mono text-mint">
                   {selectedSectors.length}/3 selected
                 </span>
               </div>
@@ -292,7 +292,7 @@ export const CompleteProfileModal: React.FC<CompleteProfileModalProps> = ({ isOp
                       onClick={() => toggleSector(sec.id)}
                       className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
                         isChecked
-                          ? 'bg-[#00f59b]/12 border-[#00f59b]/70 text-white'
+                          ? 'bg-mint/12 border-mint/70 text-white'
                           : 'bg-white/5 border-white/10 hover:border-white/20 text-slate-400'
                       }`}
                     >
@@ -301,7 +301,7 @@ export const CompleteProfileModal: React.FC<CompleteProfileModalProps> = ({ isOp
                         <div className="text-[9.5px] text-slate-400 truncate">{sec.ticker}</div>
                       </div>
                       <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0 ${
-                        isChecked ? 'border-[#00f59b] bg-[#00f59b] text-slate-950' : 'border-white/20'
+                        isChecked ? 'border-mint bg-mint text-slate-950' : 'border-white/20'
                       }`}>
                         {isChecked && <CheckCircle2 className="w-3.5 h-3.5" />}
                       </div>
@@ -324,7 +324,7 @@ export const CompleteProfileModal: React.FC<CompleteProfileModalProps> = ({ isOp
                     value={alias}
                     onChange={(e) => setAlias(e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
                     placeholder="aarav_trader"
-                    className="w-full pl-8 pr-3 py-2 bg-black/40 border border-white/15 focus:border-[#00f59b] focus:ring-1 focus:ring-[#00f59b] rounded-xl text-xs font-bold text-white placeholder-slate-500 transition-all"
+                    className="w-full pl-8 pr-3 py-2 bg-black/40 border border-white/15 focus:border-mint focus:ring-1 focus:ring-mint rounded-xl text-xs font-bold text-white placeholder-slate-500 transition-all"
                   />
                 </div>
               </div>
@@ -338,7 +338,7 @@ export const CompleteProfileModal: React.FC<CompleteProfileModalProps> = ({ isOp
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
                   placeholder="e.g. Learning price action and disciplined risk"
-                  className="w-full px-3 py-2 bg-black/40 border border-white/15 focus:border-[#00f59b] focus:ring-1 focus:ring-[#00f59b] rounded-xl text-xs text-white placeholder-slate-500 transition-all"
+                  className="w-full px-3 py-2 bg-black/40 border border-white/15 focus:border-mint focus:ring-1 focus:ring-mint rounded-xl text-xs text-white placeholder-slate-500 transition-all"
                 />
               </div>
             </div>
@@ -347,7 +347,7 @@ export const CompleteProfileModal: React.FC<CompleteProfileModalProps> = ({ isOp
             <div className="pt-2 flex items-center gap-3">
               <button
                 type="submit"
-                className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-[#00f59b] to-[#10b981] hover:brightness-110 active:scale-[0.99] text-slate-950 font-black text-xs sm:text-sm shadow-[0_0_20px_rgba(0,245,155,0.3)] transition-all cursor-pointer flex items-center justify-center gap-2"
+                className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-mint to-emerald-500 hover:brightness-110 active:scale-[0.99] text-slate-950 font-black text-xs sm:text-sm shadow-[0_0_20px_rgba(0,245,155,0.3)] transition-all cursor-pointer flex items-center justify-center gap-2"
               >
                 <span>Save Profile & Enter Dashboard</span>
                 <ArrowRight className="w-4 h-4" />

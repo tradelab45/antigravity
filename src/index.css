@@ -15,6 +15,14 @@
   --color-input: var(--rr-ui-input);
   --color-ring: var(--rr-ui-ring);
   --color-destructive: #b33629;
+  /* Several components reference these two shades, which are not part of the
+     default Tailwind slate ramp, so the utilities generated nothing. */
+  --color-slate-750: #293548;
+  --color-slate-850: #172033;
+  /* The terminal accent, previously repeated as a raw hex in ~320 class names.
+     As a theme colour it gains the usual utilities and opacity modifiers. */
+  --color-mint: #00f59b;
+  --color-mint-deep: #00dc8b;
 }
 :root { --rr-ui-primary:#122019; --rr-ui-primary-foreground:#f5f4e9; --rr-ui-secondary:#d3f780; --rr-ui-background:#f5f4e9; --rr-ui-input:#87947b; --rr-ui-ring:#618334; }
 :root.dark { --rr-ui-primary:#d3f780; --rr-ui-primary-foreground:#122019; --rr-ui-secondary:#324633; --rr-ui-background:#122019; --rr-ui-input:#78906a; --rr-ui-ring:#d3f780; }
@@ -49,7 +57,7 @@
     transition: background-color 0.2s ease, color 0.2s ease;
     margin: 0;
     min-width: 320px;
-    background: #f8fafc;
+    background: var(--rr-app-bg);
     overflow-x: hidden;
     touch-action: pan-y;
     -webkit-overflow-scrolling: touch;
@@ -61,7 +69,7 @@
   button, input, select, textarea { font: inherit; }
 
   .dark body {
-    background-color: #030712;
+    background-color: var(--rr-app-bg);
     color: #f3f4f6;
   }
 
@@ -80,6 +88,394 @@
   [class~="text-[10px]"] { font-size: 0.6875rem; }
   [class~="text-[11px]"] { line-height: 1rem; }
 }
+
+/* =========================================================================
+   Background palettes
+   Only the page canvas and its soft accent washes are re-tinted; cards,
+   text and status colours keep the contrast they were designed with.
+   ========================================================================= */
+:root {
+  --rr-app-bg: #f8fafc;
+  --rr-app-wash-1: rgb(99 102 241 / 0.05);
+  --rr-app-wash-2: rgb(16 185 129 / 0.045);
+  --rr-app-accent: #4f46e5;
+}
+:root {
+  --rr-surface: #ffffff;
+  --rr-surface-raised: #f1f5f9;
+  --rr-surface-sunken: #f8fafc;
+  --rr-border: #e2e8f0;
+  --rr-text: #0f172a;
+  --rr-text-muted: #475569;
+  --rr-text-subtle: #64748b;
+}
+:root.dark {
+  --rr-app-bg: #030712;
+  --rr-app-wash-1: rgb(99 102 241 / 0.11);
+  --rr-app-wash-2: rgb(16 185 129 / 0.07);
+  --rr-app-accent: #818cf8;
+}
+:root.dark {
+  --rr-surface: #0f172a;
+  --rr-surface-raised: #334155;
+  --rr-surface-sunken: #1e293b;
+  --rr-border: #334155;
+  --rr-text: #f1f5f9;
+  --rr-text-muted: #cbd5e1;
+  --rr-text-subtle: #94a3b8;
+}
+
+:root[data-rr-palette="midnight"] {
+  --rr-app-bg: #f1f3fb;
+  --rr-app-wash-1: rgb(79 70 229 / 0.09);
+  --rr-app-wash-2: rgb(129 140 248 / 0.07);
+  --rr-app-accent: #4338ca;
+}
+:root.dark[data-rr-palette="midnight"] {
+  --rr-app-bg: #080c1f;
+  --rr-app-wash-1: rgb(99 102 241 / 0.18);
+  --rr-app-wash-2: rgb(56 189 248 / 0.09);
+  --rr-app-accent: #818cf8;
+  --rr-surface: #121736;
+  --rr-surface-raised: #2d3566;
+  --rr-surface-sunken: #1c2450;
+  --rr-border: #2d3566;
+}
+
+:root[data-rr-palette="forest"] {
+  --rr-app-bg: #f1f8f3;
+  --rr-app-wash-1: rgb(5 150 105 / 0.09);
+  --rr-app-wash-2: rgb(132 204 22 / 0.07);
+  --rr-app-accent: #047857;
+}
+:root.dark[data-rr-palette="forest"] {
+  --rr-app-bg: #04140d;
+  --rr-app-wash-1: rgb(16 185 129 / 0.16);
+  --rr-app-wash-2: rgb(132 204 22 / 0.08);
+  --rr-app-accent: #34d399;
+  --rr-surface: #0a1f16;
+  --rr-surface-raised: #1d4235;
+  --rr-surface-sunken: #122e23;
+  --rr-border: #1d4235;
+}
+
+:root[data-rr-palette="sunrise"] {
+  --rr-app-bg: #fdf7ef;
+  --rr-app-wash-1: rgb(217 119 6 / 0.09);
+  --rr-app-wash-2: rgb(244 114 182 / 0.06);
+  --rr-app-accent: #b45309;
+}
+:root.dark[data-rr-palette="sunrise"] {
+  --rr-app-bg: #191207;
+  --rr-app-wash-1: rgb(245 158 11 / 0.16);
+  --rr-app-wash-2: rgb(249 115 22 / 0.09);
+  --rr-app-accent: #fbbf24;
+  --rr-surface: #241a0d;
+  --rr-surface-raised: #4c3a1c;
+  --rr-surface-sunken: #332512;
+  --rr-border: #4c3a1c;
+}
+
+:root[data-rr-palette="ocean"] {
+  --rr-app-bg: #eef8fb;
+  --rr-app-wash-1: rgb(8 145 178 / 0.09);
+  --rr-app-wash-2: rgb(45 212 191 / 0.07);
+  --rr-app-accent: #0e7490;
+}
+:root.dark[data-rr-palette="ocean"] {
+  --rr-app-bg: #04161c;
+  --rr-app-wash-1: rgb(34 211 238 / 0.15);
+  --rr-app-wash-2: rgb(45 212 191 / 0.09);
+  --rr-app-accent: #22d3ee;
+  --rr-surface: #08242e;
+  --rr-surface-raised: #12505f;
+  --rr-surface-sunken: #0d3945;
+  --rr-border: #12505f;
+}
+
+:root[data-rr-palette="plum"] {
+  --rr-app-bg: #faf1f8;
+  --rr-app-wash-1: rgb(162 28 175 / 0.08);
+  --rr-app-wash-2: rgb(139 92 246 / 0.07);
+  --rr-app-accent: #86198f;
+}
+:root.dark[data-rr-palette="plum"] {
+  --rr-app-bg: #170a18;
+  --rr-app-wash-1: rgb(217 70 239 / 0.15);
+  --rr-app-wash-2: rgb(167 139 250 / 0.1);
+  --rr-app-accent: #e879f9;
+  --rr-surface: #22122a;
+  --rr-surface-raised: #4a2850;
+  --rr-surface-sunken: #321a3a;
+  --rr-border: #4a2850;
+}
+
+:root[data-rr-palette="mono"] {
+  --rr-app-bg: #ffffff;
+  --rr-app-wash-1: transparent;
+  --rr-app-wash-2: transparent;
+  --rr-app-accent: #111827;
+}
+:root.dark[data-rr-palette="mono"] {
+  --rr-app-bg: #000000;
+  --rr-app-wash-1: transparent;
+  --rr-app-wash-2: transparent;
+  --rr-app-accent: #e5e7eb;
+  --rr-surface: #0a0a0a;
+  --rr-surface-raised: #262626;
+  --rr-surface-sunken: #171717;
+  --rr-border: #2e2e2e;
+}
+
+/* The app shell paints the palette canvas plus two very soft accent washes. */
+.rr-app-canvas {
+  background-color: var(--rr-app-bg);
+  background-image:
+    radial-gradient(1100px 520px at 12% -8%, var(--rr-app-wash-1), transparent 62%),
+    radial-gradient(900px 480px at 92% 4%, var(--rr-app-wash-2), transparent 60%);
+  background-attachment: fixed;
+}
+
+/* slate-400 is 2.63:1 on a white card, below the 3:1 floor the contrast check
+   enforces, so secondary label text drops one step in light mode. On the dark
+   panels that also use it this reads slightly dimmer and still clears 5:1.
+   Declared before the scoped blocks below so their tokens keep priority. */
+:root:not(.dark) :where(.text-slate-400) { color: #64748b; }
+:root:not(.dark) :where(.text-zinc-400) { color: #71717a; }
+
+/* =========================================================================
+   Semantic dark surfaces (.rr-surfaces)
+   The Academy, Tax Centre, Screener and Portfolio were authored with light
+   surfaces only, so in dark mode they rendered as a white sheet. Rather than
+   rewriting several hundred class names, the light surface utilities are
+   remapped inside .rr-surfaces to the tokens below, which each palette tints.
+
+   :not([class*="dark:"]) leaves any element that already declares its own dark
+   variant in charge of itself, and :where() keeps the inner selector at zero
+   specificity so a dark: utility added later still wins.
+   ========================================================================= */
+.dark .rr-surfaces :where(.bg-white:not([class*="dark:bg-"])) { background-color: var(--rr-surface); }
+.dark .rr-surfaces :where(.bg-slate-50:not([class*="dark:bg-"])),
+.dark .rr-surfaces :where(.bg-gray-50:not([class*="dark:bg-"])) { background-color: var(--rr-surface-sunken); }
+.dark .rr-surfaces :where(.bg-slate-100:not([class*="dark:bg-"])),
+.dark .rr-surfaces :where(.bg-slate-200:not([class*="dark:bg-"])) { background-color: var(--rr-surface-raised); }
+.dark .rr-surfaces :where(.bg-indigo-50:not([class*="dark:bg-"])) { background-color: #1e1b4b; }
+.dark .rr-surfaces :where(.bg-emerald-50:not([class*="dark:bg-"])) { background-color: #052e21; }
+.dark .rr-surfaces :where(.bg-rose-50:not([class*="dark:bg-"])) { background-color: #3b0713; }
+.dark .rr-surfaces :where(.bg-amber-50:not([class*="dark:bg-"])) { background-color: #3a2506; }
+.dark .rr-surfaces :where(.bg-violet-50:not([class*="dark:bg-"])) { background-color: #2e1065; }
+.dark .rr-surfaces :where(.bg-blue-50:not([class*="dark:bg-"])) { background-color: #16295c; }
+/* The -100 chips are darkened too, since the mid-shade text on them is
+   lightened by the rules further down. */
+.dark .rr-surfaces :where(.bg-indigo-100:not([class*="dark:bg-"])) { background-color: #272264; }
+.dark .rr-surfaces :where(.bg-emerald-100:not([class*="dark:bg-"])) { background-color: #07402f; }
+.dark .rr-surfaces :where(.bg-rose-100:not([class*="dark:bg-"])) { background-color: #4d0c1c; }
+.dark .rr-surfaces :where(.bg-amber-100:not([class*="dark:bg-"])) { background-color: #4b3008; }
+.dark .rr-surfaces :where(.bg-violet-100:not([class*="dark:bg-"])) { background-color: #3b1480; }
+.dark .rr-surfaces :where(.bg-blue-100:not([class*="dark:bg-"])) { background-color: #1d3878; }
+
+.dark .rr-surfaces :where(.border-slate-100:not([class*="dark:border-"])),
+.dark .rr-surfaces :where(.border-slate-200:not([class*="dark:border-"])),
+.dark .rr-surfaces :where(.border-slate-300:not([class*="dark:border-"])),
+.dark .rr-surfaces :where(.border-slate-400:not([class*="dark:border-"])),
+.dark .rr-surfaces :where(.border-zinc-300:not([class*="dark:border-"])) { border-color: var(--rr-border); }
+.dark .rr-surfaces :where(.border-indigo-100:not([class*="dark:border-"])),
+.dark .rr-surfaces :where(.border-indigo-200:not([class*="dark:border-"])) { border-color: #3730a3; }
+.dark .rr-surfaces :where(.border-emerald-200:not([class*="dark:border-"])) { border-color: #065f46; }
+.dark .rr-surfaces :where(.border-rose-200:not([class*="dark:border-"])) { border-color: #9f1239; }
+.dark .rr-surfaces :where(.border-amber-200:not([class*="dark:border-"])),
+.dark .rr-surfaces :where(.border-amber-300:not([class*="dark:border-"])) { border-color: #b45309; }
+.dark .rr-surfaces :where(.divide-slate-100 > * + *),
+.dark .rr-surfaces :where(.divide-slate-200 > * + *) { border-color: var(--rr-border); }
+
+/* Text is only lightened when it sits directly on the page or on one of the
+   surfaces this scope darkens. An element painting any other background is a
+   coloured chip or button, and lightening its text would leave it unreadable
+   — which is what happened when the mint accent became a named token. */
+.dark .rr-surfaces :where(.text-slate-950, .text-slate-900):not([class*="dark:text-"]):not([class*="bg-"]),
+.dark .rr-surfaces :where(.bg-white, .bg-slate-50, .bg-slate-100, .bg-slate-200, .bg-gray-50, .bg-indigo-50, .bg-indigo-100, .bg-emerald-50, .bg-emerald-100, .bg-rose-50, .bg-rose-100, .bg-amber-50, .bg-amber-100, .bg-violet-50, .bg-violet-100, .bg-blue-50, .bg-blue-100):where(.text-slate-950, .text-slate-900):not([class*="dark:text-"]) { color: var(--rr-text); }
+.dark .rr-surfaces :where(.text-slate-800):not([class*="dark:text-"]):not([class*="bg-"]),
+.dark .rr-surfaces :where(.bg-white, .bg-slate-50, .bg-slate-100, .bg-slate-200, .bg-gray-50, .bg-indigo-50, .bg-indigo-100, .bg-emerald-50, .bg-emerald-100, .bg-rose-50, .bg-rose-100, .bg-amber-50, .bg-amber-100, .bg-violet-50, .bg-violet-100, .bg-blue-50, .bg-blue-100):where(.text-slate-800):not([class*="dark:text-"]) { color: #e2e8f0; }
+.dark .rr-surfaces :where(.text-slate-700, .text-slate-600, .text-zinc-700):not([class*="dark:text-"]):not([class*="bg-"]),
+.dark .rr-surfaces :where(.bg-white, .bg-slate-50, .bg-slate-100, .bg-slate-200, .bg-gray-50, .bg-indigo-50, .bg-indigo-100, .bg-emerald-50, .bg-emerald-100, .bg-rose-50, .bg-rose-100, .bg-amber-50, .bg-amber-100, .bg-violet-50, .bg-violet-100, .bg-blue-50, .bg-blue-100):where(.text-slate-700, .text-slate-600, .text-zinc-700):not([class*="dark:text-"]) { color: var(--rr-text-muted); }
+.dark .rr-surfaces :where(.text-slate-500, .text-zinc-500):not([class*="dark:text-"]):not([class*="bg-"]),
+.dark .rr-surfaces :where(.bg-white, .bg-slate-50, .bg-slate-100, .bg-slate-200, .bg-gray-50, .bg-indigo-50, .bg-indigo-100, .bg-emerald-50, .bg-emerald-100, .bg-rose-50, .bg-rose-100, .bg-amber-50, .bg-amber-100, .bg-violet-50, .bg-violet-100, .bg-blue-50, .bg-blue-100):where(.text-slate-500, .text-zinc-500):not([class*="dark:text-"]) { color: var(--rr-text-subtle); }
+.dark .rr-surfaces :where(.text-slate-400, .text-zinc-400):not([class*="dark:text-"]):not([class*="bg-"]),
+.dark .rr-surfaces :where(.bg-white, .bg-slate-50, .bg-slate-100, .bg-slate-200, .bg-gray-50, .bg-indigo-50, .bg-indigo-100, .bg-emerald-50, .bg-emerald-100, .bg-rose-50, .bg-rose-100, .bg-amber-50, .bg-amber-100, .bg-violet-50, .bg-violet-100, .bg-blue-50, .bg-blue-100):where(.text-slate-400, .text-zinc-400):not([class*="dark:text-"]) { color: #7c8ba1; }
+/* The mid shades sit on the tinted -50 chips that are darkened above, so they
+   have to lighten with them. */
+.dark .rr-surfaces :where(.text-indigo-950, .text-indigo-900, .text-indigo-800, .text-indigo-700, .text-indigo-600):not([class*="dark:text-"]):not([class*="bg-"]),
+.dark .rr-surfaces :where(.bg-white, .bg-slate-50, .bg-slate-100, .bg-slate-200, .bg-gray-50, .bg-indigo-50, .bg-indigo-100, .bg-emerald-50, .bg-emerald-100, .bg-rose-50, .bg-rose-100, .bg-amber-50, .bg-amber-100, .bg-violet-50, .bg-violet-100, .bg-blue-50, .bg-blue-100):where(.text-indigo-950, .text-indigo-900, .text-indigo-800, .text-indigo-700, .text-indigo-600):not([class*="dark:text-"]) { color: #a5b4fc; }
+.dark .rr-surfaces :where(.text-violet-900, .text-violet-800, .text-violet-700):not([class*="dark:text-"]):not([class*="bg-"]),
+.dark .rr-surfaces :where(.bg-white, .bg-slate-50, .bg-slate-100, .bg-slate-200, .bg-gray-50, .bg-indigo-50, .bg-indigo-100, .bg-emerald-50, .bg-emerald-100, .bg-rose-50, .bg-rose-100, .bg-amber-50, .bg-amber-100, .bg-violet-50, .bg-violet-100, .bg-blue-50, .bg-blue-100):where(.text-violet-900, .text-violet-800, .text-violet-700):not([class*="dark:text-"]) { color: #c4b5fd; }
+.dark .rr-surfaces :where(.text-emerald-950, .text-emerald-900, .text-emerald-800, .text-emerald-700):not([class*="dark:text-"]):not([class*="bg-"]),
+.dark .rr-surfaces :where(.bg-white, .bg-slate-50, .bg-slate-100, .bg-slate-200, .bg-gray-50, .bg-indigo-50, .bg-indigo-100, .bg-emerald-50, .bg-emerald-100, .bg-rose-50, .bg-rose-100, .bg-amber-50, .bg-amber-100, .bg-violet-50, .bg-violet-100, .bg-blue-50, .bg-blue-100):where(.text-emerald-950, .text-emerald-900, .text-emerald-800, .text-emerald-700):not([class*="dark:text-"]) { color: #6ee7b7; }
+.dark .rr-surfaces :where(.text-rose-950, .text-rose-900, .text-rose-800, .text-rose-700):not([class*="dark:text-"]):not([class*="bg-"]),
+.dark .rr-surfaces :where(.bg-white, .bg-slate-50, .bg-slate-100, .bg-slate-200, .bg-gray-50, .bg-indigo-50, .bg-indigo-100, .bg-emerald-50, .bg-emerald-100, .bg-rose-50, .bg-rose-100, .bg-amber-50, .bg-amber-100, .bg-violet-50, .bg-violet-100, .bg-blue-50, .bg-blue-100):where(.text-rose-950, .text-rose-900, .text-rose-800, .text-rose-700):not([class*="dark:text-"]) { color: #fda4af; }
+.dark .rr-surfaces :where(.text-amber-950, .text-amber-900, .text-amber-800, .text-amber-700):not([class*="dark:text-"]):not([class*="bg-"]),
+.dark .rr-surfaces :where(.bg-white, .bg-slate-50, .bg-slate-100, .bg-slate-200, .bg-gray-50, .bg-indigo-50, .bg-indigo-100, .bg-emerald-50, .bg-emerald-100, .bg-rose-50, .bg-rose-100, .bg-amber-50, .bg-amber-100, .bg-violet-50, .bg-violet-100, .bg-blue-50, .bg-blue-100):where(.text-amber-950, .text-amber-900, .text-amber-800, .text-amber-700):not([class*="dark:text-"]) { color: #fcd34d; }
+.dark .rr-surfaces :where(.text-blue-900, .text-blue-800, .text-blue-700):not([class*="dark:text-"]):not([class*="bg-"]),
+.dark .rr-surfaces :where(.bg-white, .bg-slate-50, .bg-slate-100, .bg-slate-200, .bg-gray-50, .bg-indigo-50, .bg-indigo-100, .bg-emerald-50, .bg-emerald-100, .bg-rose-50, .bg-rose-100, .bg-amber-50, .bg-amber-100, .bg-violet-50, .bg-violet-100, .bg-blue-50, .bg-blue-100):where(.text-blue-900, .text-blue-800, .text-blue-700):not([class*="dark:text-"]) { color: #93c5fd; }
+
+/* Form controls follow the same surfaces. */
+.dark .rr-surfaces :where(input, textarea, select):not([class*="dark:bg-"]) { color: var(--rr-text); }
+.dark .rr-surfaces :where(input, textarea)::placeholder { color: #64748b; }
+
+/* An element already inside a dark panel must not be re-darkened: a white chip
+   on a slate-900 card stays a white chip. */
+.dark .rr-surfaces :where(.bg-slate-800, .bg-slate-900, .bg-slate-950) :where(.bg-white:not([class*="dark:bg-"])) { background-color: #ffffff; }
+.dark .rr-surfaces :where(.bg-slate-800, .bg-slate-900, .bg-slate-950) :where(.text-slate-900:not([class*="dark:text-"])) { color: #0f172a; }
+
+/* =========================================================================
+   Screener stock card (.rr-terminal-card)
+   The card was authored as a fixed dark "trading terminal" panel, so it stayed
+   dark in light mode while every surface around it was white. Its surface is
+   now driven by tokens, and the white-alpha utilities inside it are remapped
+   to ink-alpha in light mode so the existing markup works on both canvases.
+   ========================================================================= */
+.rr-terminal-card {
+  --tc-bg: #07150c;
+  --tc-gradient: linear-gradient(to bottom right, #030805, #07150c 50%, #020503);
+  --tc-border: rgb(255 255 255 / 0.1);
+  --tc-border-hover: rgb(0 245 155 / 0.5);
+  --tc-shadow: inset 0 1px 1.5px rgb(255 255 255 / 0.18), 0 20px 45px -12px rgb(0 0 0 / 0.85);
+  --tc-shadow-hover: 0 20px 40px -10px rgb(0 245 155 / 0.25);
+  --tc-fg: #ffffff;
+  --tc-fg-muted: #cbd5e1;
+  --tc-fg-subtle: #94a3b8;
+  --tc-chip: rgb(255 255 255 / 0.1);
+  --tc-chip-soft: rgb(255 255 255 / 0.05);
+  --tc-chip-strong: rgb(255 255 255 / 0.2);
+  --tc-line: rgb(255 255 255 / 0.1);
+  --tc-line-strong: rgb(255 255 255 / 0.15);
+  --tc-well: rgb(0 0 0 / 0.4);
+  --tc-accent: #00f59b;
+  --tc-bevel: rgb(0 245 155 / 0.6);
+  --tc-wash: radial-gradient(ellipse 120% 80% at 50% -20%, rgb(0 245 155 / 0.18), transparent 70%),
+             radial-gradient(ellipse at 100% 100%, rgb(16 185 129 / 0.1), transparent 50%);
+  --tc-grid: rgb(255 255 255 / 0.07);
+  --tc-axis: rgb(255 255 255 / 0.25);
+
+  /* Solid fallback under the gradient so the card has a defined colour even
+     before the gradient paints. */
+  background-color: var(--tc-bg);
+  background-image: var(--tc-gradient);
+  border-color: var(--tc-border);
+  box-shadow: var(--tc-shadow);
+}
+.rr-terminal-card:hover {
+  border-color: var(--tc-border-hover);
+  box-shadow: var(--tc-shadow-hover);
+}
+.rr-terminal-bevel { background-image: linear-gradient(to right, transparent, var(--tc-bevel), transparent); }
+.rr-terminal-wash { background-image: var(--tc-wash); }
+
+/* Light mode: a paper card with ink text and an emerald accent that passes
+   contrast, keeping the same structure and depth cues. */
+:root:not(.dark) .rr-terminal-card {
+  --tc-bg: #fbfcfe;
+  --tc-gradient: linear-gradient(to bottom right, #ffffff, #f8fafc 55%, #f1f5f9);
+  --tc-border: rgb(15 23 42 / 0.1);
+  --tc-border-hover: rgb(5 150 105 / 0.55);
+  --tc-shadow: 0 1px 2px rgb(15 23 42 / 0.05), 0 12px 28px -16px rgb(15 23 42 / 0.3);
+  --tc-shadow-hover: 0 18px 34px -14px rgb(5 150 105 / 0.35);
+  --tc-fg: #0f172a;
+  --tc-fg-muted: #475569;
+  --tc-fg-subtle: #64748b;
+  --tc-chip: rgb(15 23 42 / 0.06);
+  --tc-chip-soft: rgb(15 23 42 / 0.04);
+  --tc-chip-strong: rgb(15 23 42 / 0.1);
+  --tc-line: rgb(15 23 42 / 0.1);
+  --tc-line-strong: rgb(15 23 42 / 0.14);
+  --tc-well: rgb(15 23 42 / 0.04);
+  --tc-accent: #047857;
+  --tc-bevel: rgb(5 150 105 / 0.35);
+  --tc-wash: radial-gradient(ellipse 120% 80% at 50% -20%, rgb(5 150 105 / 0.06), transparent 70%),
+             radial-gradient(ellipse at 100% 100%, rgb(16 185 129 / 0.05), transparent 50%);
+  --tc-grid: rgb(15 23 42 / 0.09);
+  --tc-axis: rgb(15 23 42 / 0.22);
+}
+
+/* The card's markup uses white-alpha utilities throughout; they follow the
+   tokens so the same classes work on either canvas. */
+.rr-terminal-card :where(.text-white) { color: var(--tc-fg); }
+.rr-terminal-card :where(.text-slate-200) { color: var(--tc-fg-muted); }
+.rr-terminal-card :where(.text-slate-300) { color: var(--tc-fg-muted); }
+.rr-terminal-card :where(.text-slate-400) { color: var(--tc-fg-subtle); }
+.rr-terminal-card :where(.text-slate-500) { color: var(--tc-fg-subtle); }
+.rr-terminal-card :where(.text-slate-600) { color: var(--tc-fg-muted); }
+.rr-terminal-card :where(.bg-white\/10) { background-color: var(--tc-chip); }
+.rr-terminal-card :where(.bg-white\/5) { background-color: var(--tc-chip-soft); }
+.rr-terminal-card :where(.bg-white\/20) { background-color: var(--tc-chip-strong); }
+.rr-terminal-card :where(.border-white\/10) { border-color: var(--tc-line); }
+.rr-terminal-card :where(.border-white\/15) { border-color: var(--tc-line-strong); }
+.rr-terminal-card :where(.bg-black\/40) { background-color: var(--tc-well); }
+.rr-terminal-card :where(.text-mint) { color: var(--tc-accent); }
+.rr-terminal-card :where(.group:hover .group-hover\:text-mint) { color: var(--tc-accent); }
+
+/* Recharts sets grid and axis colours as SVG presentation attributes, which a
+   CSS property overrides, so the charts follow the card tokens without
+   threading a theme value through the component. */
+.rr-terminal-card :where(.recharts-cartesian-grid line) { stroke: var(--tc-grid); }
+.rr-terminal-card :where(.recharts-cartesian-axis-line, .recharts-cartesian-axis-tick-line) { stroke: var(--tc-axis); }
+.rr-terminal-card :where(.recharts-cartesian-axis-tick-value) { fill: var(--tc-fg-subtle); }
+.rr-terminal-card :where(.recharts-reference-line line) { stroke: var(--tc-axis); }
+
+/* In light mode the mint-on-dark status chips need a readable tint. */
+:root:not(.dark) .rr-terminal-card :where(.bg-emerald-500\/20) { background-color: rgb(16 185 129 / 0.14); }
+:root:not(.dark) .rr-terminal-card :where(.border-emerald-500\/40) { border-color: rgb(5 150 105 / 0.35); }
+:root:not(.dark) .rr-terminal-card :where(.bg-rose-500\/20) { background-color: rgb(244 63 94 / 0.12); }
+:root:not(.dark) .rr-terminal-card :where(.border-rose-500\/40) { border-color: rgb(225 29 72 / 0.35); }
+:root:not(.dark) .rr-terminal-card :where(.text-rose-400) { color: #be123c; }
+:root:not(.dark) .rr-terminal-card :where(.text-amber-300) { color: #b45309; }
+:root:not(.dark) .rr-terminal-card :where(.bg-amber-500\/20) { background-color: rgb(245 158 11 / 0.16); }
+:root:not(.dark) .rr-terminal-card :where(.border-amber-500\/40) { border-color: rgb(180 83 9 / 0.35); }
+
+/* =========================================================================
+   Terminal panels (.rr-terminal)
+   The Trade Review hub was authored as a permanently dark "terminal" view, so
+   in light mode it sat as a black sheet on a white page. In light mode its
+   dark panel utilities are remapped to paper surfaces; in dark mode the
+   original styling is used unchanged.
+   ========================================================================= */
+:root:not(.dark) .rr-terminal :where(.bg-slate-900) { background-color: #ffffff; }
+:root:not(.dark) .rr-terminal :where(.bg-slate-900\/50) { background-color: rgb(255 255 255 / 0.75); }
+:root:not(.dark) .rr-terminal :where(.bg-slate-950) { background-color: #f8fafc; }
+:root:not(.dark) .rr-terminal :where(.bg-slate-950\/75, .bg-slate-950\/80) { background-color: rgb(248 250 252 / 0.85); }
+:root:not(.dark) .rr-terminal :where(.bg-slate-800) { background-color: #f1f5f9; }
+:root:not(.dark) .rr-terminal :where(.bg-slate-800\/70) { background-color: rgb(241 245 249 / 0.85); }
+:root:not(.dark) .rr-terminal :where(.bg-slate-800\/60) { background-color: rgb(241 245 249 / 0.75); }
+:root:not(.dark) .rr-terminal :where(.bg-slate-800\/40) { background-color: rgb(241 245 249 / 0.6); }
+/* Progress tracks and dividers. */
+:root:not(.dark) .rr-terminal :where(.bg-slate-700) { background-color: #e2e8f0; }
+:root:not(.dark) .rr-terminal :where(.border-slate-800) { border-color: #e2e8f0; }
+:root:not(.dark) .rr-terminal :where(.border-slate-700) { border-color: #cbd5e1; }
+:root:not(.dark) .rr-terminal :where(.divide-slate-800 > * + *) { border-color: #e2e8f0; }
+
+/* Plain panel text. An element painting its own background is a coloured
+   button or chip, so its white text is left alone — unless that background is
+   one of the slate panels lightened above, in which case the text has to come
+   with it. */
+:root:not(.dark) .rr-terminal :where(.text-white):not([class*="bg-"]),
+:root:not(.dark) .rr-terminal :where(.bg-slate-700, .bg-slate-800, .bg-slate-800\/40, .bg-slate-800\/60, .bg-slate-800\/70, .bg-slate-900, .bg-slate-900\/50, .bg-slate-950, .bg-slate-950\/75, .bg-slate-950\/80):where(.text-white) { color: #0f172a; }
+:root:not(.dark) .rr-terminal :where(.text-slate-200):not([class*="bg-"]),
+:root:not(.dark) .rr-terminal :where(.bg-slate-700, .bg-slate-800, .bg-slate-800\/40, .bg-slate-800\/60, .bg-slate-800\/70, .bg-slate-900, .bg-slate-900\/50, .bg-slate-950, .bg-slate-950\/75, .bg-slate-950\/80):where(.text-slate-200) { color: #1e293b; }
+:root:not(.dark) .rr-terminal :where(.text-slate-300):not([class*="bg-"]),
+:root:not(.dark) .rr-terminal :where(.bg-slate-700, .bg-slate-800, .bg-slate-800\/40, .bg-slate-800\/60, .bg-slate-800\/70, .bg-slate-900, .bg-slate-900\/50, .bg-slate-950, .bg-slate-950\/75, .bg-slate-950\/80):where(.text-slate-300) { color: #334155; }
+:root:not(.dark) .rr-terminal :where(.text-slate-400):not([class*="bg-"]),
+:root:not(.dark) .rr-terminal :where(.bg-slate-700, .bg-slate-800, .bg-slate-800\/40, .bg-slate-800\/60, .bg-slate-800\/70, .bg-slate-900, .bg-slate-900\/50, .bg-slate-950, .bg-slate-950\/75, .bg-slate-950\/80):where(.text-slate-400) { color: #64748b; }
+
+/* Accents tuned for a dark backdrop need darkening on paper. */
+:root:not(.dark) .rr-terminal :where(.text-emerald-300, .text-emerald-400) { color: #047857; }
+:root:not(.dark) .rr-terminal :where(.text-indigo-200, .text-indigo-300, .text-indigo-400) { color: #4338ca; }
+:root:not(.dark) .rr-terminal :where(.text-rose-300, .text-rose-400) { color: #be123c; }
+:root:not(.dark) .rr-terminal :where(.text-amber-300, .text-amber-400) { color: #b45309; }
+:root:not(.dark) .rr-terminal :where(.text-violet-300, .text-violet-400) { color: #6d28d9; }
+:root:not(.dark) .rr-terminal :where(.text-sky-300, .text-sky-400) { color: #0369a1; }
+
+/* High contrast always wins over a decorative palette. */
+:root[data-rr-contrast="true"] .rr-app-canvas { background-image: none; background-color: #ffffff; }
+:root.dark[data-rr-contrast="true"] .rr-app-canvas { background-image: none; background-color: #000000; }
 
 :root[data-rr-contrast="true"] body { background: #ffffff; }
 :root.dark[data-rr-contrast="true"] body { background: #000000; }

@@ -39,6 +39,7 @@ import {
   NotebookTabs
 } from 'lucide-react';
 import { useSimulator } from '../context/SimulatorContext';
+import { formatINR } from '../utils/formatters';
 import { TraderDNA, SkillScoreBreakdown, TradeJournalEntry, ProductType, Order } from '../types';
 
 export interface TradeHistoryTransaction {
@@ -84,194 +85,22 @@ interface StoredTradeReview {
   updatedAt: string;
 }
 
+// A standard deviation estimated from a handful of trades is noise, so the
+// Sharpe ratio stays hidden until the sample is large enough to mean something.
+const SHARPE_MINIMUM_TRADES = 8;
+
+/** Plain-language band for a per-trade Sharpe ratio. */
+const describeSharpe = (ratio: number): string => {
+  if (ratio < 0) return 'Negative';
+  if (ratio < 0.5) return 'Weak';
+  if (ratio < 1) return 'Fair';
+  if (ratio < 2) return 'Good';
+  return 'Strong';
+};
+
 const REVIEW_TAGS = ['FOMO', 'Earnings', 'Breakout', 'Value thesis', 'Revenge trade', 'Long-term'];
 const EMOTIONS = ['Calm', 'Confident', 'Uncertain', 'Excited', 'Fearful', 'Frustrated'];
 
-// Curated realistic past trades to seed trade log history
-export const SAMPLE_PAST_TRADES: TradeHistoryTransaction[] = [
-  {
-    id: 'th-seed-1',
-    orderId: 'ORD-8921',
-    symbol: 'TATAMOTORS',
-    stockName: 'Tata Motors Ltd.',
-    type: 'SELL',
-    productType: 'CNC',
-    orderType: 'LIMIT',
-    quantity: 120,
-    price: 895.50,
-    totalAmount: 107460.00,
-    buyAvgPrice: 852.00,
-    realizedPnL: 5220.00,
-    realizedPnLPercent: 5.11,
-    rMultiple: 2.4,
-    exitReason: 'TARGET_HIT',
-    charges: 112.50,
-    holdTime: '3 Days',
-    status: 'EXECUTED',
-    timestamp: 'Today, 02:45 PM',
-    executionTime: '02:45:12 PM IST',
-    isClosedPosition: true,
-    setup: 'Opening Range Breakout',
-    notes: 'Exited at upper resistance band near all-time high.',
-    aiFeedback: 'Flawless target execution. Position was sized within 8% portfolio cap and trailing stop was protected.',
-    executionScore: 94,
-    riskScore: 96
-  },
-  {
-    id: 'th-seed-2',
-    orderId: 'ORD-8919',
-    symbol: 'TATAMOTORS',
-    stockName: 'Tata Motors Ltd.',
-    type: 'BUY',
-    productType: 'CNC',
-    orderType: 'MARKET',
-    quantity: 120,
-    price: 852.00,
-    totalAmount: 102240.00,
-    status: 'EXECUTED',
-    timestamp: '3 Days ago, 10:15 AM',
-    executionTime: '10:15:30 AM IST',
-    isClosedPosition: false,
-    setup: 'Opening Range Breakout',
-    notes: 'Long entry on confirmed high-volume 15-min candle breakout.',
-    aiFeedback: 'Strong entry criteria satisfied. Stop-loss was placed precisely under previous swing low.',
-    executionScore: 91,
-    riskScore: 92
-  },
-  {
-    id: 'th-seed-3',
-    orderId: 'ORD-8874',
-    symbol: 'RELIANCE',
-    stockName: 'Reliance Industries Ltd.',
-    type: 'SELL',
-    productType: 'MIS',
-    orderType: 'LIMIT',
-    quantity: 60,
-    price: 1416.20,
-    totalAmount: 84972.00,
-    buyAvgPrice: 1432.00,
-    realizedPnL: -948.00,
-    realizedPnLPercent: -1.10,
-    rMultiple: -0.9,
-    exitReason: 'STOP_LOSS_HIT',
-    charges: 41.20,
-    holdTime: '45 Mins (Intraday)',
-    status: 'EXECUTED',
-    timestamp: 'Yesterday, 01:20 PM',
-    executionTime: '01:20:05 PM IST',
-    isClosedPosition: true,
-    setup: 'VWAP Pullback',
-    notes: 'Stop loss triggered when price dipped below morning VWAP anchor.',
-    aiFeedback: 'Disciplined exit! You took a small, controlled loss rather than letting an intraday position bleed.',
-    executionScore: 82,
-    riskScore: 95
-  },
-  {
-    id: 'th-seed-4',
-    orderId: 'ORD-8869',
-    symbol: 'RELIANCE',
-    stockName: 'Reliance Industries Ltd.',
-    type: 'BUY',
-    productType: 'MIS',
-    orderType: 'MARKET',
-    quantity: 60,
-    price: 1432.00,
-    totalAmount: 85920.00,
-    status: 'EXECUTED',
-    timestamp: 'Yesterday, 12:35 PM',
-    executionTime: '12:35:18 PM IST',
-    isClosedPosition: false,
-    setup: 'VWAP Pullback',
-    notes: 'Intraday long with 5x leverage on pullback to support.',
-    aiFeedback: 'Entry was executed with acceptable slippage, though RSI was slightly stretched.',
-    executionScore: 78,
-    riskScore: 84
-  },
-  {
-    id: 'th-seed-5',
-    orderId: 'ORD-8812',
-    symbol: 'HDFCBANK',
-    stockName: 'HDFC Bank Ltd.',
-    type: 'SELL',
-    productType: 'CNC',
-    orderType: 'LIMIT',
-    quantity: 80,
-    price: 1742.00,
-    totalAmount: 139360.00,
-    buyAvgPrice: 1690.00,
-    realizedPnL: 4160.00,
-    realizedPnLPercent: 3.08,
-    rMultiple: 1.9,
-    exitReason: 'TARGET_HIT',
-    charges: 145.00,
-    holdTime: '5 Days',
-    status: 'EXECUTED',
-    timestamp: '26 Aug, 03:10 PM',
-    executionTime: '03:10:44 PM IST',
-    isClosedPosition: true,
-    setup: 'Double Bottom Reversal',
-    notes: 'Swing trade target hit at 200 EMA resistance.',
-    aiFeedback: 'Patiently held through consolidation to capture the full mean reversion move.',
-    executionScore: 95,
-    riskScore: 94
-  },
-  {
-    id: 'th-seed-6',
-    orderId: 'ORD-8801',
-    symbol: 'INFY',
-    stockName: 'Infosys Ltd.',
-    type: 'SELL',
-    productType: 'MIS',
-    orderType: 'MARKET',
-    quantity: 100,
-    price: 1820.00,
-    totalAmount: 182000.00,
-    buyAvgPrice: 1820.00,
-    realizedPnL: 0.00,
-    realizedPnLPercent: 0.00,
-    rMultiple: 0.0,
-    exitReason: 'SQUARE_OFF',
-    charges: 45.00,
-    holdTime: '2 Hours (Intraday)',
-    status: 'EXECUTED',
-    timestamp: '25 Aug, 03:20 PM',
-    executionTime: '03:20:00 PM IST',
-    isClosedPosition: true,
-    setup: 'Range Scalp',
-    notes: 'Breakeven auto square-off before market close.',
-    aiFeedback: 'Neutral exit. Stock lacked intraday volume follow-through.',
-    executionScore: 80,
-    riskScore: 90
-  },
-  {
-    id: 'th-seed-7',
-    orderId: 'ORD-8760',
-    symbol: 'ZOMATO',
-    stockName: 'Zomato Ltd.',
-    type: 'SELL',
-    productType: 'CNC',
-    orderType: 'LIMIT',
-    quantity: 350,
-    price: 242.50,
-    totalAmount: 84875.00,
-    buyAvgPrice: 226.00,
-    realizedPnL: 5775.00,
-    realizedPnLPercent: 7.30,
-    rMultiple: 3.1,
-    exitReason: 'TARGET_HIT',
-    charges: 90.00,
-    holdTime: '1 Week',
-    status: 'EXECUTED',
-    timestamp: '24 Aug, 11:45 AM',
-    executionTime: '11:45:22 AM IST',
-    isClosedPosition: true,
-    setup: 'Earnings Momentum',
-    notes: 'Surged following quarterly delivery volume updates.',
-    aiFeedback: 'Exceptional R-Multiple (+3.1R). Rode the momentum wave without premature exit.',
-    executionScore: 98,
-    riskScore: 92
-  }
-];
 
 export function TradeReviewHub({ initialTab = 'HISTORY' }: { initialTab?: 'HISTORY' | 'PERFORMANCE' | 'JOURNAL' | 'BEHAVIOR' | 'DNA' | 'SKILL' }) {
   const { totalPnL, totalPnLPercent, orders, userXP, notifyUser, currentUser } = useSimulator();
@@ -320,11 +149,18 @@ export function TradeReviewHub({ initialTab = 'HISTORY' }: { initialTab?: 'HISTO
         ? ord.realizedPnLPercent
         : (isSell && buyPrice > 0 ? Number((((ord.price - buyPrice) / buyPrice) * 100).toFixed(2)) : undefined);
 
+      // An R-multiple is profit measured against the capital genuinely put at
+      // risk, so it only exists when the trade carried a stop-loss. Assigning
+      // a figure from the sign of the P&L would be circular, so it stays
+      // undefined and the UI omits it.
+      const stopLossPrice = ord.bracketOrder?.stopLossPrice;
+      const riskPerShare = stopLossPrice && buyPrice > stopLossPrice ? buyPrice - stopLossPrice : 0;
       const rMult = ord.rMultiple !== undefined
         ? ord.rMultiple
-        : (isSell && realizedPnL !== undefined ? (realizedPnL >= 0 ? 1.8 : -0.9) : undefined);
+        : (isSell && riskPerShare > 0 ? Number(((ord.price - buyPrice) / riskPerShare).toFixed(2)) : undefined);
 
-      const exitReason = ord.exitReason || (isSell ? (realizedPnL && realizedPnL >= 0 ? 'TARGET_HIT' : 'STOP_LOSS_HIT') : undefined);
+      // Without a recorded stop or target, why a position closed is not known.
+      const exitReason = ord.exitReason || undefined;
       const charges = ord.charges || (ord.productType === 'MIS' ? 20.0 + (ord.totalAmount * 0.00025) : ord.totalAmount * 0.001);
 
       return {
@@ -349,13 +185,18 @@ export function TradeReviewHub({ initialTab = 'HISTORY' }: { initialTab?: 'HISTO
         exitReason,
         charges: Number(charges.toFixed(2)),
         holdTime: ord.holdTime || (ord.productType === 'MIS' ? 'Intraday (Same Day)' : '1 Day+'),
-        setup: ord.notes || (isSell ? 'Technical Profit Target' : 'Momentum Entry'),
+        // The setup is whatever the trader actually wrote. Naming it
+        // "Technical Profit Target" on their behalf invents a rationale.
+        setup: ord.notes || undefined,
         notes: ord.notes || `${ord.type} order of ${ord.quantity} shares of ${ord.symbol}`,
-        aiFeedback: isSell 
-          ? (realizedPnL && realizedPnL >= 0 ? 'Disciplined target harvest. Risk-to-reward ratio maintained.' : 'Risk contained within predefined maximum daily loss limits.')
-          : `Entry filled at ₹${ord.price.toFixed(2)}. Stop-loss monitored in real time.`,
-        executionScore: isSell ? (realizedPnL && realizedPnL >= 0 ? 92 : 84) : 88,
-        riskScore: ord.productType === 'MIS' ? 86 : 94
+        // A factual note about the fill, rather than a verdict on discipline
+        // that nothing in the order measured.
+        aiFeedback: isSell && riskPerShare > 0
+          ? `Exited at ₹${ord.price.toFixed(2)} against a stop at ₹${stopLossPrice!.toFixed(2)}.`
+          : `${isSell ? 'Exit' : 'Entry'} filled at ₹${ord.price.toFixed(2)}${riskPerShare > 0 ? '' : ' · no stop-loss recorded'}.`,
+        // executionScore and riskScore are intentionally absent: nothing in an
+        // order supports a 0-100 quality grade, and a fabricated one reads as
+        // evidence of skill.
       };
     });
 
@@ -436,6 +277,28 @@ export function TradeReviewHub({ initialTab = 'HISTORY' }: { initialTab?: 'HISTO
     const winRate = closedItems.length > 0 ? (winTrades.length / closedItems.length) * 100 : 0;
     const profitFactor = lossSum > 0 ? (winSum / lossSum) : winSum > 0 ? 9.99 : 0;
 
+    // Per-trade Sharpe ratio measured on this account's own realised returns.
+    // Sharpe = mean(return) / standard deviation(return). Capital only carries
+    // market risk while a position is open, so the per-trade risk-free rate is
+    // 0% and the mean return is already the excess return.
+    // A ratio needs dispersion to mean anything, so it stays unavailable until
+    // there are enough closed trades to estimate a standard deviation.
+    const tradeReturns = closedItems
+      .map((item) => item.realizedPnLPercent)
+      .filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+    const sharpeSampleSize = tradeReturns.length;
+    const sharpeMinimumTrades = SHARPE_MINIMUM_TRADES;
+    let sharpeRatio: number | null = null;
+
+    if (sharpeSampleSize >= sharpeMinimumTrades) {
+      const meanReturn = tradeReturns.reduce((acc, value) => acc + value, 0) / sharpeSampleSize;
+      const variance = tradeReturns.reduce((acc, value) => acc + (value - meanReturn) ** 2, 0) / (sharpeSampleSize - 1);
+      const standardDeviation = Math.sqrt(variance);
+      if (standardDeviation > 0.0001) {
+        sharpeRatio = meanReturn / standardDeviation;
+      }
+    }
+
     return {
       totalTradesCount: allTransactions.length,
       closedTradesCount: closedItems.length,
@@ -446,7 +309,48 @@ export function TradeReviewHub({ initialTab = 'HISTORY' }: { initialTab?: 'HISTO
       avgWin,
       avgLoss,
       profitFactor,
-      totalTurnover
+      totalTurnover,
+      sharpeRatio,
+      sharpeSampleSize,
+      sharpeMinimumTrades
+    };
+  }, [allTransactions]);
+
+  // Equity curve built from this account's own realised P&L, oldest trade first.
+  // `allTransactions` is newest-first, so it is reversed before accumulating.
+  const equityCurve = useMemo(() => {
+    const closedOldestFirst = [...allTransactions]
+      .reverse()
+      .filter((item) => item.isClosedPosition && typeof item.realizedPnL === 'number');
+
+    const startingCapital = 1000000;
+    let running = startingCapital;
+    const points = [{ index: 0, equity: startingCapital }];
+    closedOldestFirst.forEach((item, position) => {
+      running += item.realizedPnL || 0;
+      points.push({ index: position + 1, equity: running });
+    });
+
+    const equities = points.map((point) => point.equity);
+    const minEquity = Math.min(...equities);
+    const maxEquity = Math.max(...equities);
+    const span = maxEquity - minEquity || 1;
+
+    // Chart viewBox is 700x180 with a 40px left gutter and 20px vertical padding.
+    const plotted = points.map((point) => {
+      const x = points.length === 1 ? 40 : 40 + (point.index / (points.length - 1)) * 620;
+      const y = 160 - ((point.equity - minEquity) / span) * 140;
+      return { x, y, equity: point.equity };
+    });
+
+    return {
+      hasTrades: closedOldestFirst.length > 0,
+      tradeCount: closedOldestFirst.length,
+      startingCapital,
+      finalEquity: running,
+      path: plotted.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(' '),
+      lastPoint: plotted[plotted.length - 1],
+      baselineY: 160 - ((startingCapital - minEquity) / span) * 140,
     };
   }, [allTransactions]);
 
@@ -564,20 +468,23 @@ export function TradeReviewHub({ initialTab = 'HISTORY' }: { initialTab?: 'HISTO
       plannedTarget: (t.buyAvgPrice || t.price) * 1.05,
       pnl: t.realizedPnL || 0,
       pnlPercent: t.realizedPnLPercent || 0,
-      mfe: Math.abs(t.realizedPnLPercent || 2.4) + 1.2,
-      mae: 0.7,
-      rMultiple: t.rMultiple || 1.6,
-      slippage: 1.5,
-      charges: t.charges || 35.0,
-      holdTimeMinutes: 120,
-      setup: t.setup || 'Breakout Continuation',
-      tags: ['Planned', 'Breakout'],
-      emotion: (t.realizedPnL || 0) >= 0 ? 'Calm & Disciplined' : 'Hesitant',
-      executionScore: t.executionScore || 88,
-      riskScore: t.riskScore || 92,
-      disciplineScore: 90,
-      ruleCompliance: true,
-      aiFeedback: t.aiFeedback || 'Solid trade execution adhering to predefined risk management constraints.',
+      // Excursion, slippage and hold time are not recorded by the simulator,
+      // so they are left at zero rather than invented. Scores and tags are
+      // omitted for the same reason: the trader supplies those in a review.
+      mfe: 0,
+      mae: 0,
+      rMultiple: t.rMultiple ?? 0,
+      slippage: 0,
+      charges: t.charges || 0,
+      holdTimeMinutes: 0,
+      setup: t.setup || 'Not recorded',
+      tags: [],
+      emotion: '',
+      executionScore: 0,
+      riskScore: 0,
+      disciplineScore: 0,
+      ruleCompliance: false,
+      aiFeedback: t.aiFeedback || '',
       timestamp: t.timestamp
     }));
   }, [allTransactions]);
@@ -723,7 +630,7 @@ export function TradeReviewHub({ initialTab = 'HISTORY' }: { initialTab?: 'HISTO
   const activeShareCardTrade = tradeToShare || allTransactions[0];
 
   return (
-    <div className="w-full max-w-7xl mx-auto space-y-6 pb-16 animate-in fade-in duration-200">
+    <div className="rr-terminal w-full max-w-7xl mx-auto space-y-6 pb-16 animate-in fade-in duration-200">
       {/* Top Main Banner */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl text-white relative overflow-hidden">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -746,15 +653,15 @@ export function TradeReviewHub({ initialTab = 'HISTORY' }: { initialTab?: 'HISTO
           </div>
 
           {/* Quick Actions */}
-          <div className="flex items-center gap-2">
+          <div className="flex w-full shrink-0 items-center gap-2 md:w-auto">
             <button
               id="export-csv-top-btn"
               type="button"
               onClick={handleExportCSV}
-              className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-bold rounded-xl flex items-center gap-2 border border-slate-700 transition-all cursor-pointer"
+              className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-slate-700 bg-slate-800 px-3.5 py-2.5 text-xs font-bold text-slate-200 transition-all hover:bg-slate-700 hover:text-white cursor-pointer md:flex-none"
               title="Export filtered trade history to CSV"
             >
-              <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+              <FileSpreadsheet className="w-4 h-4 shrink-0 text-emerald-400" />
               <span>Export CSV</span>
             </button>
             <button
@@ -762,23 +669,24 @@ export function TradeReviewHub({ initialTab = 'HISTORY' }: { initialTab?: 'HISTO
               type="button"
               onClick={() => allTransactions[0] && handleOpenShareModal(allTransactions[0])}
               disabled={allTransactions.length === 0}
-              className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black rounded-xl flex items-center gap-2 shadow-lg transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-black text-white shadow-lg transition-all hover:bg-indigo-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 md:flex-none"
             >
-              <Share2 className="w-4 h-4" />
-              <span>VERIFIED TRADE CARD</span>
+              <Share2 className="w-4 h-4 shrink-0" />
+              <span className="sm:hidden">Trade Card</span>
+              <span className="hidden sm:inline">VERIFIED TRADE CARD</span>
             </button>
           </div>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex items-center gap-2 mt-6 border-t border-slate-800 pt-4 overflow-x-auto">
+        <div className="mt-6 grid grid-cols-2 gap-2 border-t border-slate-800 pt-4 sm:flex sm:items-center sm:overflow-x-auto">
           {[
-            { id: 'HISTORY', label: 'Trade History Log', icon: Clock, countBadge: allTransactions.length },
-            { id: 'PERFORMANCE', label: 'Performance Analytics', icon: BarChart3 },
-            { id: 'JOURNAL', label: 'Trade Journal & AI Notes', icon: BookOpen },
-            { id: 'BEHAVIOR', label: 'Behavioral Analytics', icon: AlertTriangle },
-            { id: 'DNA', label: 'Trader DNA Radar', icon: Dna },
-            { id: 'SKILL', label: 'Skill Score (0-1000)', icon: Award }
+            { id: 'HISTORY', label: 'Trade History Log', shortLabel: 'History', icon: Clock, countBadge: allTransactions.length },
+            { id: 'PERFORMANCE', label: 'Performance Analytics', shortLabel: 'Performance', icon: BarChart3 },
+            { id: 'JOURNAL', label: 'Trade Journal & AI Notes', shortLabel: 'Journal', icon: BookOpen },
+            { id: 'BEHAVIOR', label: 'Behavioral Analytics', shortLabel: 'Behaviour', icon: AlertTriangle },
+            { id: 'DNA', label: 'Trader DNA Radar', shortLabel: 'Trader DNA', icon: Dna },
+            { id: 'SKILL', label: 'Skill Score (0-1000)', shortLabel: 'Skill Score', icon: Award }
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -788,14 +696,15 @@ export function TradeReviewHub({ initialTab = 'HISTORY' }: { initialTab?: 'HISTO
                 id={`trade-hub-tab-${tab.id.toLowerCase()}`}
                 type="button"
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`px-4 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+                className={`flex min-h-11 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-3 py-2.5 text-xs font-black transition-all cursor-pointer sm:justify-start sm:px-4 ${
                   isActive
                     ? 'bg-indigo-600 text-white shadow-md'
                     : 'bg-slate-800/60 text-slate-400 hover:bg-slate-800 hover:text-white'
                 }`}
               >
-                <Icon className="w-4 h-4" />
-                <span>{tab.label}</span>
+                <Icon className="w-4 h-4 shrink-0" />
+                <span className="sm:hidden">{tab.shortLabel}</span>
+                <span className="hidden sm:inline">{tab.label}</span>
                 {tab.countBadge !== undefined && (
                   <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${
                     isActive ? 'bg-indigo-700 text-white' : 'bg-slate-700 text-slate-300'
@@ -1291,8 +1200,15 @@ export function TradeReviewHub({ initialTab = 'HISTORY' }: { initialTab?: 'HISTO
             </div>
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 text-white">
               <span className="text-[10px] text-slate-400 font-bold uppercase block">Sharpe Ratio</span>
-              <span className="text-xl font-black font-mono text-amber-300 mt-1 block">
-                1.85 (Strong)
+              <span className={`text-xl font-black font-mono mt-1 block ${closedPositionStats.sharpeRatio === null ? 'text-slate-500' : closedPositionStats.sharpeRatio >= 1 ? 'text-emerald-400' : closedPositionStats.sharpeRatio >= 0 ? 'text-amber-300' : 'text-rose-400'}`}>
+                {closedPositionStats.sharpeRatio === null
+                  ? '—'
+                  : `${closedPositionStats.sharpeRatio.toFixed(2)} (${describeSharpe(closedPositionStats.sharpeRatio)})`}
+              </span>
+              <span className="mt-1 block text-[10px] font-medium leading-snug text-slate-400">
+                {closedPositionStats.sharpeRatio === null
+                  ? `${closedPositionStats.sharpeSampleSize}/${closedPositionStats.sharpeMinimumTrades} closed trades needed`
+                  : `Per-trade, from ${closedPositionStats.sharpeSampleSize} closed trades`}
               </span>
             </div>
           </div>
@@ -1303,22 +1219,42 @@ export function TradeReviewHub({ initialTab = 'HISTORY' }: { initialTab?: 'HISTO
               <h3 className="text-sm font-black uppercase tracking-wider text-slate-300">
                 Simulated Equity Curve Progression
               </h3>
-              <span className="text-xs text-slate-400 font-mono">Benchmark: NIFTY 50 (+1.2%)</span>
+              <span className="text-xs text-slate-400 font-mono">
+                {equityCurve.hasTrades ? `${equityCurve.tradeCount} closed trade${equityCurve.tradeCount === 1 ? '' : 's'}` : 'No closed trades yet'}
+              </span>
             </div>
             <div className="w-full bg-slate-950/80 rounded-2xl p-4 border border-slate-800">
-              <svg viewBox="0 0 700 180" className="w-full h-auto select-none">
-                <line x1="40" y1="90" x2="660" y2="90" stroke="#334155" strokeDasharray="3,3" />
-                <path
-                  d="M 40 100 Q 180 80, 320 60 T 500 45 T 660 30"
-                  fill="none"
-                  stroke="#10b981"
-                  strokeWidth="3"
-                />
-                <circle cx="660" cy="30" r="5" fill="#10b981" />
-                <text x="660" y="20" fill="#10b981" fontSize="10" fontWeight="bold" textAnchor="end" fontFamily="monospace">
-                  ₹{(1000000 + totalPnL).toLocaleString('en-IN')}
-                </text>
-              </svg>
+              {equityCurve.hasTrades ? (
+                <>
+                  <svg viewBox="0 0 700 180" className="w-full h-auto select-none" role="img" aria-label={`Equity curve across ${equityCurve.tradeCount} closed trades, ending at ${formatINR(equityCurve.finalEquity)}`}>
+                    <line x1="40" y1={equityCurve.baselineY} x2="660" y2={equityCurve.baselineY} stroke="#334155" strokeDasharray="3,3" />
+                    <text x="40" y={equityCurve.baselineY - 5} fill="#64748b" fontSize="9" fontFamily="monospace">
+                      Start ₹{equityCurve.startingCapital.toLocaleString('en-IN')}
+                    </text>
+                    <path
+                      d={equityCurve.path}
+                      fill="none"
+                      stroke={equityCurve.finalEquity >= equityCurve.startingCapital ? '#10b981' : '#f43f5e'}
+                      strokeWidth="3"
+                      strokeLinejoin="round"
+                      strokeLinecap="round"
+                    />
+                    <circle
+                      cx={equityCurve.lastPoint.x}
+                      cy={equityCurve.lastPoint.y}
+                      r="5"
+                      fill={equityCurve.finalEquity >= equityCurve.startingCapital ? '#10b981' : '#f43f5e'}
+                    />
+                  </svg>
+                  <p className="mt-2 text-right font-mono text-xs font-bold text-slate-300">
+                    Realised equity: {formatINR(equityCurve.finalEquity)}
+                  </p>
+                </>
+              ) : (
+                <p className="py-8 text-center text-xs font-medium text-slate-400">
+                  Close your first simulated position to plot a real equity curve. Nothing is drawn from sample data.
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -1852,8 +1788,10 @@ export function TradeReviewHub({ initialTab = 'HISTORY' }: { initialTab?: 'HISTO
               </div>
 
               <div className="flex justify-between items-center text-xs text-slate-400 font-mono pt-1">
-                <span>Execution: {activeShareCardTrade.executionScore || 90}/100</span>
-                <span>Risk Control: {activeShareCardTrade.riskScore || 92}/100</span>
+                {/* Facts from the order, not a skill grade. A shareable card
+                    is the last place to assert a score nothing measured. */}
+                <span>Charges: ₹{(activeShareCardTrade.charges ?? 0).toFixed(2)}</span>
+                <span>Held: {activeShareCardTrade.holdTime || '—'}</span>
               </div>
             </div>
 

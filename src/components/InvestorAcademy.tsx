@@ -18,7 +18,6 @@ import {
   X,
   Filter,
   Bookmark,
-  Lock,
   Volume2,
   VolumeX
 } from 'lucide-react';
@@ -29,6 +28,10 @@ import { Lesson, LessonQuizOption } from '../types';
 import { formatINR } from '../utils/formatters';
 import { HistoricalEventsLab } from './HistoricalEventsLab';
 import { PortfolioConstructionLab } from './PortfolioConstructionLab';
+import { TaxCentre } from './TaxCentre';
+import { startPracticeTask } from './PracticeTaskBanner';
+import { getPracticeAction } from '../data/practiceActions';
+import type { AppTabType } from './Header';
 import { useAccessibility } from '../context/AccessibilityContext';
 
 const HINDI_LESSON_SUMMARIES: Record<string, string> = {
@@ -46,13 +49,88 @@ const HINDI_LESSON_SUMMARIES: Record<string, string> = {
   'lesson-12': 'ESG और carbon credits कंपनी की लागत और अवसरों को प्रभावित कर सकते हैं, लेकिन प्रमाण के बिना green label पर भरोसा न करें।',
 };
 
+/**
+ * The curriculum is grouped into stages. A learner picks the stage they are on
+ * and only that stage's modules are listed, instead of one long scroll of every
+ * lesson in the Academy.
+ *
+ * Stages are a recommended order, not a gate: every stage can be opened at any
+ * time so nothing in the Academy is unreachable.
+ */
 const LEARNING_PATH = [
-  { name: 'Beginner', range: 'Lessons 1–2', outcome: 'Shares, indices and basic risk', required: 0 },
-  { name: 'Explorer', range: 'Lessons 3–4', outcome: 'Valuation, trends and compounding', required: 2 },
-  { name: 'Builder', range: 'Lessons 5–7', outcome: 'Allocation, diversification and orders', required: 4 },
-  { name: 'Analyst', range: 'Lessons 8–10', outcome: 'Inflation, statements and planning', required: 7 },
-  { name: 'Responsible Simulator', range: 'Lessons 11–12', outcome: 'Behaviour, evidence and discipline', required: 10 },
+  {
+    id: 'beginner',
+    name: 'Beginner',
+    icon: '🌱',
+    outcome: 'Shares, indices and basic risk',
+    blurb: 'Start here if the market is new to you.',
+    lessonIds: ['lesson-1', 'lesson-2'],
+  },
+  {
+    id: 'explorer',
+    name: 'Explorer',
+    icon: '🧭',
+    outcome: 'Valuation, trends and compounding',
+    blurb: 'Learn what makes a price cheap or expensive.',
+    lessonIds: ['lesson-3', 'lesson-4'],
+  },
+  {
+    id: 'builder',
+    name: 'Builder',
+    icon: '🧱',
+    outcome: 'Allocation, diversification and orders',
+    blurb: 'Build a portfolio and place orders with intent.',
+    lessonIds: ['lesson-5', 'lesson-6', 'lesson-7'],
+  },
+  {
+    id: 'analyst',
+    name: 'Analyst',
+    icon: '🔍',
+    outcome: 'Inflation, statements and planning',
+    blurb: 'Read the numbers behind a business.',
+    lessonIds: ['lesson-8', 'lesson-9', 'lesson-10'],
+  },
+  {
+    id: 'responsible',
+    name: 'Responsible Simulator',
+    icon: '🧠',
+    outcome: 'Behaviour, evidence and discipline',
+    blurb: 'Manage the investor, not just the portfolio.',
+    lessonIds: ['lesson-11', 'lesson-12'],
+  },
+  {
+    id: 'taxation',
+    name: 'Tax Smart',
+    icon: '🧾',
+    outcome: 'Slabs, capital gains, harvesting and filing',
+    blurb: 'Keep more of what you earn, legally.',
+    lessonIds: ['lesson-tax-1', 'lesson-tax-2', 'lesson-tax-3', 'lesson-tax-4', 'lesson-tax-5'],
+  },
 ] as const;
+
+type LearningStageId = typeof LEARNING_PATH[number]['id'];
+
+const getStageForLesson = (lessonId: string): LearningStageId =>
+  LEARNING_PATH.find((stage) => (stage.lessonIds as readonly string[]).includes(lessonId))?.id ?? LEARNING_PATH[0].id;
+
+type AcademyTabId =
+  | 'LESSONS'
+  | 'CASE_STUDIES'
+  | 'TAX_CENTRE'
+  | 'PORTFOLIO_MODELS'
+  | 'HISTORICAL_EVENTS'
+  | 'DAILY_QUIZ'
+  | 'JARGON_BUSTER';
+
+const ACADEMY_TABS: Array<{ id: AcademyTabId; icon: string; label: string; count?: number }> = [
+  { id: 'LESSONS', icon: '📚', label: 'Lessons', count: INITIAL_LESSONS.length },
+  { id: 'CASE_STUDIES', icon: '📊', label: 'Case Studies', count: CASE_STUDIES_DATA.length },
+  { id: 'TAX_CENTRE', icon: '🧾', label: 'Tax Centre' },
+  { id: 'PORTFOLIO_MODELS', icon: '🧭', label: 'Portfolio Models' },
+  { id: 'HISTORICAL_EVENTS', icon: '🕰️', label: 'Market History' },
+  { id: 'DAILY_QUIZ', icon: '🎯', label: 'Investor Quiz' },
+  { id: 'JARGON_BUSTER', icon: '📖', label: 'Jargon Glossary' },
+];
 
 // Helper to format text with bold, italics, formulas, and structured lists
 function FormattedLessonContent({ content }: { content: string }) {
@@ -86,36 +164,46 @@ function FormattedLessonContent({ content }: { content: string }) {
           );
         }
 
-        // Bullet / Ordered lists
+        // A block can mix a lead-in sentence with bullet or numbered lines.
+        // Splitting it into runs keeps the bullets on their own rows instead of
+        // collapsing the whole block into one paragraph.
         const lines = trimmed.split('\n');
-        const isList = lines.length > 1 && lines.every((line) => line.trim().startsWith('- ') || /^\d+\.\s/.test(line.trim()));
+        const isBullet = (line: string) => line.trim().startsWith('- ') || /^\d+\.\s/.test(line.trim());
 
-        if (isList) {
-          return (
-            <ul key={idx} className="space-y-2 my-2">
-              {lines.map((line, lIdx) => {
-                const isOrdered = /^\d+\.\s/.test(line.trim());
-                const cleanText = line.replace(/^[-\d.]+\s+/, '');
-                return (
-                  <li key={lIdx} className="flex items-start gap-2.5 text-sm sm:text-base text-slate-900">
-                    <span className="mt-0.5 w-4 h-4 rounded-full bg-[#E2E8F0]/60 text-slate-900 text-[10px] font-black flex items-center justify-center shrink-0">
-                      {isOrdered ? lIdx + 1 : '•'}
-                    </span>
-                    <span className="flex-1 leading-relaxed">
-                      {renderInlineFormatting(cleanText)}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          );
-        }
+        const runs: Array<{ type: 'text' | 'list'; lines: string[] }> = [];
+        lines.forEach((line) => {
+          if (!line.trim()) return;
+          const type = isBullet(line) ? 'list' : 'text';
+          const previous = runs[runs.length - 1];
+          if (previous && previous.type === type) previous.lines.push(line);
+          else runs.push({ type, lines: [line] });
+        });
 
-        // Regular paragraph
         return (
-          <p key={idx} className="text-sm sm:text-base text-slate-900/85 leading-7">
-            {renderInlineFormatting(trimmed)}
-          </p>
+          <div key={idx} className="space-y-3">
+            {runs.map((run, runIdx) => run.type === 'list' ? (
+              <ul key={runIdx} className="space-y-2 my-2">
+                {run.lines.map((line, lIdx) => {
+                  const isOrdered = /^\d+\.\s/.test(line.trim());
+                  const cleanText = line.trim().replace(/^(?:-|\d+\.)\s+/, '');
+                  return (
+                    <li key={lIdx} className="flex items-start gap-2.5 text-sm sm:text-base text-slate-900 dark:text-slate-200">
+                      <span className="mt-0.5 w-4 h-4 rounded-full bg-slate-200 text-slate-900 dark:bg-slate-700 dark:text-slate-100 text-[10px] font-black flex items-center justify-center shrink-0">
+                        {isOrdered ? lIdx + 1 : '•'}
+                      </span>
+                      <span className="flex-1 leading-relaxed">
+                        {renderInlineFormatting(cleanText)}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p key={runIdx} className="text-sm sm:text-base text-slate-900 dark:text-slate-200 leading-7">
+                {renderInlineFormatting(run.lines.join(' '))}
+              </p>
+            ))}
+          </div>
         );
       })}
     </div>
@@ -157,7 +245,12 @@ function renderInlineFormatting(text: string) {
   });
 }
 
-export const InvestorAcademy: React.FC = () => {
+interface InvestorAcademyProps {
+  /** Lets a finished lesson send the learner to the view its task belongs in. */
+  setActiveTab?: (tab: AppTabType) => void;
+}
+
+export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }) => {
   const { completedLessonIds, completeLesson, currentUser } = useSimulator();
   const { settings } = useAccessibility();
 
@@ -167,7 +260,14 @@ export const InvestorAcademy: React.FC = () => {
   const [activeLessonId, setActiveLessonId] = useState<string>(() => localStorage.getItem(`${academyKey}:last`) || recommendedLesson.id);
   const [selectedQuizOption, setSelectedQuizOption] = useState<LessonQuizOption | null>(null);
   const [isQuizSubmitted, setIsQuizSubmitted] = useState<boolean>(false);
-  const [activeSubTab, setActiveSubTab] = useState<'LESSONS' | 'CASE_STUDIES' | 'PORTFOLIO_MODELS' | 'HISTORICAL_EVENTS' | 'JARGON_BUSTER' | 'DAILY_QUIZ'>('LESSONS');
+  const [activeSubTab, setActiveSubTab] = useState<AcademyTabId>('LESSONS');
+  // Which learning stage the person is currently working through. Only this
+  // stage's modules are listed, which keeps the lesson list short and readable.
+  const [activeStageId, setActiveStageId] = useState<LearningStageId>(() => {
+    const saved = localStorage.getItem(`${academyKey}:stage`);
+    if (saved && LEARNING_PATH.some((stage) => stage.id === saved)) return saved as LearningStageId;
+    return getStageForLesson(localStorage.getItem(`${academyKey}:last`) || recommendedLesson.id);
+  });
   
   // Case Studies State
   const [activeCaseStudyId, setActiveCaseStudyId] = useState<string>(CASE_STUDIES_DATA[0].id);
@@ -180,7 +280,6 @@ export const InvestorAcademy: React.FC = () => {
     try { return JSON.parse(localStorage.getItem(`${academyKey}:bookmarks`) || '[]'); } catch { return []; }
   });
   const [isReadingAloud, setIsReadingAloud] = useState(false);
-  const caseStudiesUnlocked = completedLessonIds.length >= 2;
 
   useEffect(() => () => window.speechSynthesis?.cancel(), []);
 
@@ -248,15 +347,50 @@ export const InvestorAcademy: React.FC = () => {
     return INITIAL_LESSONS.find((l) => l.id === activeLessonId) || INITIAL_LESSONS[0];
   }, [activeLessonId]);
 
+  const activeStage = useMemo(
+    () => LEARNING_PATH.find((stage) => stage.id === activeStageId) || LEARNING_PATH[0],
+    [activeStageId],
+  );
+
+  /** Lessons belonging to a stage, in curriculum order. */
+  const lessonsForStage = (stageId: LearningStageId): Lesson[] => {
+    const stage = LEARNING_PATH.find((item) => item.id === stageId) || LEARNING_PATH[0];
+    return (stage.lessonIds as readonly string[])
+      .map((id) => INITIAL_LESSONS.find((lesson) => lesson.id === id))
+      .filter((lesson): lesson is Lesson => Boolean(lesson));
+  };
+
+  // A search looks across the whole Academy; with no search we stay inside the
+  // selected stage so the list is never longer than a handful of modules.
   const filteredLessons = useMemo(() => {
     const query = lessonQuery.trim().toLowerCase();
-    if (!query) return INITIAL_LESSONS;
+    if (!query) return lessonsForStage(activeStageId);
     return INITIAL_LESSONS.filter((lesson) => `${lesson.title} ${lesson.summary} ${lesson.category}`.toLowerCase().includes(query));
-  }, [lessonQuery]);
+  }, [activeStageId, lessonQuery]);
+
+  // completeLesson() is also used by the daily quiz, so completedLessonIds can
+  // contain quiz ids. Progress counters must only count real Academy modules.
+  const completedModuleCount = useMemo(
+    () => INITIAL_LESSONS.filter((lesson) => completedLessonIds.includes(lesson.id)).length,
+    [completedLessonIds],
+  );
+
+  const stageProgress = useMemo(() => LEARNING_PATH.map((stage) => {
+    const ids = stage.lessonIds as readonly string[];
+    const done = ids.filter((id) => completedLessonIds.includes(id)).length;
+    return { id: stage.id, done, total: ids.length, complete: done === ids.length };
+  }), [completedLessonIds]);
+
+  // The stage the learner should tackle next: the first one not yet finished.
+  const recommendedStageId = useMemo(
+    () => (stageProgress.find((stage) => !stage.complete) || stageProgress[0]).id,
+    [stageProgress],
+  );
 
   const continueLesson = INITIAL_LESSONS.find((lesson) => !completedLessonIds.includes(lesson.id)) || INITIAL_LESSONS[INITIAL_LESSONS.length - 1];
 
   useEffect(() => { localStorage.setItem(`${academyKey}:last`, activeLessonId); }, [academyKey, activeLessonId]);
+  useEffect(() => { localStorage.setItem(`${academyKey}:stage`, activeStageId); }, [academyKey, activeStageId]);
   useEffect(() => { localStorage.setItem(`${academyKey}:bookmarks`, JSON.stringify(bookmarkedLessonIds)); }, [academyKey, bookmarkedLessonIds]);
 
   const toggleLessonBookmark = (lessonId: string) => {
@@ -264,6 +398,7 @@ export const InvestorAcademy: React.FC = () => {
   };
 
   const isCurrentCompleted = completedLessonIds.includes(activeLesson.id);
+  const practiceAction = getPracticeAction(activeLesson.id);
 
   const handleOptionSelect = (option: LessonQuizOption) => {
     if (isQuizSubmitted) return;
@@ -280,6 +415,9 @@ export const InvestorAcademy: React.FC = () => {
 
   const handleSelectLesson = (lesson: Lesson) => {
     setActiveLessonId(lesson.id);
+    // Keep the stage selector in sync when a lesson is opened from a search
+    // result, the "continue learning" button or another stage.
+    setActiveStageId(getStageForLesson(lesson.id));
     setSelectedQuizOption(null);
     setIsQuizSubmitted(false);
   };
@@ -324,7 +462,7 @@ export const InvestorAcademy: React.FC = () => {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="rr-surfaces space-y-6">
       
       {/* Academy Top Header & Sub-Navigation */}
       <div className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 shadow-sm flex flex-col items-start gap-5">
@@ -335,90 +473,117 @@ export const InvestorAcademy: React.FC = () => {
               Investor Academy for Teens
             </h2>
             <span className="bg-emerald-100 text-emerald-800 text-xs font-black px-2.5 py-0.5 rounded-full">
-              {completedLessonIds.length} / {INITIAL_LESSONS.length} Completed
+              {completedModuleCount} / {INITIAL_LESSONS.length} Completed
             </span>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">
             {settings.learningLanguage === 'HINDI' ? 'छोटे और सरल पाठों से valuation, compounding और बाज़ार जोखिम को चरण-दर-चरण समझें।' : 'Master stock valuation, compounding superpowers, and market risk through bite-sized interactive modules.'}
           </p>
           <p className="mt-2 text-[11px] font-bold text-indigo-700">First lesson for your {currentUser?.experienceLevel.toLowerCase()} level: {recommendedLesson.title.split(':')[0]}</p>
-          <button type="button" onClick={() => { setActiveSubTab('LESSONS'); handleSelectLesson(continueLesson); }} className="mt-3 inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-black text-white hover:bg-indigo-700">
-            Continue learning <ArrowRight className="h-3.5 w-3.5" />
-            <span className="max-w-[180px] truncate text-indigo-100">{continueLesson.title.split(':')[0]}</span>
+          <button
+            type="button"
+            onClick={() => { setActiveSubTab('LESSONS'); setLessonQuery(''); handleSelectLesson(continueLesson); }}
+            className="mt-3 flex w-full items-center justify-between gap-3 rounded-xl bg-indigo-600 px-4 py-2.5 text-left text-xs font-black text-white hover:bg-indigo-700 sm:w-auto sm:min-w-[320px]"
+          >
+            <span className="min-w-0">
+              <span className="block">Continue learning</span>
+              <span className="mt-0.5 block truncate font-bold text-indigo-100">{continueLesson.title.split(':')[0]}</span>
+            </span>
+            <ArrowRight className="h-4 w-4 shrink-0" />
           </button>
 
+          {/* Stage picker — choose the stage you are on and only its modules load. */}
           <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/60">
-            <div className="flex items-center justify-between gap-3"><div><h3 className="text-xs font-black text-slate-900 dark:text-white">Your learning path</h3><p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Progress unlocks deeper analysis; trading profit does not.</p></div><span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-black text-indigo-700 dark:bg-slate-900 dark:text-indigo-300">{completedLessonIds.length}/{INITIAL_LESSONS.length}</span></div>
-            <ol className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 className="text-xs font-black text-slate-900 dark:text-white">Pick the stage you are on</h3>
+                <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Only that stage's modules are shown, so the list stays short.</p>
+              </div>
+              <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-black text-indigo-700 dark:bg-slate-900 dark:text-indigo-300">
+                {completedModuleCount}/{INITIAL_LESSONS.length} modules
+              </span>
+            </div>
+
+            <ol className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
               {LEARNING_PATH.map((stage, index) => {
-                const unlocked = completedLessonIds.length >= stage.required;
-                const complete = completedLessonIds.length >= (LEARNING_PATH[index + 1]?.required ?? INITIAL_LESSONS.length);
-                return <li key={stage.name} className={`rounded-xl border p-3 ${complete ? 'border-emerald-300 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30' : unlocked ? 'border-indigo-300 bg-white dark:border-indigo-800 dark:bg-slate-900' : 'border-slate-200 bg-slate-100 text-slate-500 dark:border-slate-700 dark:bg-slate-800'}`}><div className="flex items-center justify-between"><span className="text-[10px] font-black uppercase tracking-wide">Stage {index + 1}</span>{complete ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : !unlocked ? <Lock className="h-3.5 w-3.5" /> : null}</div><p className="mt-1 text-xs font-black">{stage.name}</p><p className="mt-1 text-[10px] font-bold text-indigo-700 dark:text-indigo-300">{stage.range}</p><p className="mt-1 text-[11px] leading-relaxed">{stage.outcome}</p></li>;
+                const progress = stageProgress[index];
+                const selected = stage.id === activeStageId && activeSubTab === 'LESSONS';
+                const recommended = stage.id === recommendedStageId;
+                return (
+                  <li key={stage.id}>
+                    <button
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => {
+                        setActiveSubTab('LESSONS');
+                        setActiveStageId(stage.id);
+                        setLessonQuery('');
+                        const stageLessons = lessonsForStage(stage.id);
+                        const nextLesson = stageLessons.find((lesson) => !completedLessonIds.includes(lesson.id)) || stageLessons[0];
+                        if (nextLesson) handleSelectLesson(nextLesson);
+                      }}
+                      className={`h-full w-full rounded-xl border p-3 text-left transition-all ${
+                        selected
+                          ? 'border-slate-900 bg-slate-900 text-white shadow-sm dark:border-indigo-400 dark:bg-indigo-700'
+                          : progress.complete
+                          ? 'border-emerald-300 bg-emerald-50 hover:border-emerald-400 dark:border-emerald-900 dark:bg-emerald-950/30'
+                          : 'border-slate-200 bg-white hover:border-indigo-300 dark:border-slate-700 dark:bg-slate-900'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={`text-[10px] font-black uppercase tracking-wide ${selected ? 'text-indigo-200' : 'text-slate-500 dark:text-slate-400'}`}>
+                          Stage {index + 1}
+                        </span>
+                        {progress.complete
+                          ? <CheckCircle2 className={`h-4 w-4 ${selected ? 'text-emerald-300' : 'text-emerald-600'}`} />
+                          : recommended && !selected
+                          ? <span className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-[9px] font-black text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">NEXT</span>
+                          : null}
+                      </div>
+                      <p className="mt-1 flex items-center gap-1.5 text-xs font-black">
+                        <span aria-hidden="true">{stage.icon}</span>
+                        {stage.name}
+                      </p>
+                      <p className={`mt-1 text-[11px] leading-relaxed ${selected ? 'text-slate-300' : 'text-slate-600 dark:text-slate-300'}`}>
+                        {stage.outcome}
+                      </p>
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className={`h-1.5 flex-1 overflow-hidden rounded-full ${selected ? 'bg-white/20' : 'bg-slate-200 dark:bg-slate-700'}`}>
+                          <span
+                            className={`block h-full rounded-full ${progress.complete ? 'bg-emerald-500' : 'bg-indigo-500'}`}
+                            style={{ width: `${(progress.done / progress.total) * 100}%` }}
+                          />
+                        </span>
+                        <span className={`font-mono text-[10px] font-black ${selected ? 'text-slate-300' : 'text-slate-500 dark:text-slate-400'}`}>
+                          {progress.done}/{progress.total}
+                        </span>
+                      </div>
+                    </button>
+                  </li>
+                );
               })}
             </ol>
           </div>
         </div>
 
-        {/* Sub-Tabs */}
-        <div className="grid w-full grid-cols-2 gap-1.5 rounded-2xl border border-slate-200 bg-slate-50 p-1.5 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
-          <button
-            onClick={() => setActiveSubTab('LESSONS')}
-            className={`min-h-11 rounded-xl px-2 py-2 text-center text-xs font-black leading-tight transition-all cursor-pointer ${
-              activeSubTab === 'LESSONS'
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'text-[#556952] hover:text-slate-900 hover:bg-white/60'
-            }`}
-          >
-            📚 Lessons ({INITIAL_LESSONS.length})
-          </button>
-          <button
-            onClick={() => caseStudiesUnlocked && setActiveSubTab('CASE_STUDIES')}
-            disabled={!caseStudiesUnlocked}
-            aria-label={caseStudiesUnlocked ? 'Open case studies and comparisons' : 'Complete two lessons to unlock case studies'}
-            className={`min-h-11 rounded-xl px-2 py-2 text-center text-xs font-black leading-tight transition-all cursor-pointer ${
-              activeSubTab === 'CASE_STUDIES'
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'text-[#556952] hover:text-slate-900 hover:bg-white/60'
-            }`}
-          >
-            {caseStudiesUnlocked ? '📊' : '🔒'} Case Studies ({CASE_STUDIES_DATA.length})
-          </button>
-          <button
-            onClick={() => setActiveSubTab('PORTFOLIO_MODELS')}
-            className={`min-h-11 rounded-xl px-2 py-2 text-center text-xs font-black leading-tight transition-all cursor-pointer ${
-              activeSubTab === 'PORTFOLIO_MODELS'
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'text-[#556952] hover:text-slate-900 hover:bg-white/60'
-            }`}
-          >
-            🧭 Portfolio Models
-          </button>
-          <button
-            onClick={() => setActiveSubTab('HISTORICAL_EVENTS')}
-            className={`min-h-11 rounded-xl px-2 py-2 text-center text-xs font-black leading-tight transition-all cursor-pointer ${activeSubTab === 'HISTORICAL_EVENTS' ? 'bg-slate-900 text-white shadow-xs' : 'text-[#556952] hover:text-slate-900 hover:bg-white/60'}`}
-          >
-            🕰️ Market History Lab
-          </button>
-          <button
-            onClick={() => setActiveSubTab('DAILY_QUIZ')}
-            className={`min-h-11 rounded-xl px-2 py-2 text-center text-xs font-black leading-tight transition-all cursor-pointer ${
-              activeSubTab === 'DAILY_QUIZ'
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'text-[#556952] hover:text-slate-900 hover:bg-white/60'
-            }`}
-          >
-            🎯 Investor Quiz
-          </button>
-          <button
-            onClick={() => setActiveSubTab('JARGON_BUSTER')}
-            className={`min-h-11 rounded-xl px-2 py-2 text-center text-xs font-black leading-tight transition-all cursor-pointer ${
-              activeSubTab === 'JARGON_BUSTER'
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'text-[#556952] hover:text-slate-900 hover:bg-white/60'
-            }`}
-          >
-            📖 Jargon Glossary
-          </button>
+        {/* Sub-Tabs — every section is reachable; nothing is gated behind progress. */}
+        <div className="grid w-full grid-cols-2 gap-1.5 rounded-2xl border border-slate-200 bg-slate-50 p-1.5 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
+          {ACADEMY_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              aria-pressed={activeSubTab === tab.id}
+              onClick={() => setActiveSubTab(tab.id)}
+              className={`min-h-11 rounded-xl px-2 py-2 text-center text-xs font-black leading-tight transition-all cursor-pointer ${
+                activeSubTab === tab.id
+                  ? 'bg-slate-900 text-white shadow-xs dark:bg-indigo-600'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white'
+              }`}
+            >
+              {tab.icon} {tab.label}
+              {tab.count !== undefined && ` (${tab.count})`}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -426,14 +591,19 @@ export const InvestorAcademy: React.FC = () => {
       {activeSubTab === 'LESSONS' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           
-          {/* Left 4 Cols: Lesson List & Progress */}
+          {/* Left 4 Cols: Stage Modules & Search */}
           <div className="lg:col-span-4 space-y-3">
-            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">
-              Learning Modules ({INITIAL_LESSONS.length} Steps to Mastery)
-            </h3>
+            <div className="rounded-2xl border border-indigo-200 bg-indigo-50 px-3 py-2.5 dark:border-indigo-900 dark:bg-indigo-950/40">
+              <p className="text-[10px] font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-300">
+                {lessonQuery.trim() ? 'Searching all modules' : `Stage ${LEARNING_PATH.findIndex((stage) => stage.id === activeStageId) + 1} · ${activeStage.name}`}
+              </p>
+              <p className="mt-0.5 text-[11px] font-medium leading-snug text-indigo-950 dark:text-indigo-100">
+                {lessonQuery.trim() ? `${filteredLessons.length} module${filteredLessons.length === 1 ? '' : 's'} match your search across the whole Academy.` : activeStage.blurb}
+              </p>
+            </div>
             <label className="relative block">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input type="search" value={lessonQuery} onChange={(event) => setLessonQuery(event.target.value)} placeholder="Search lessons and topics" className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-xs font-bold text-slate-800 outline-none focus:border-indigo-400" />
+              <input type="search" value={lessonQuery} onChange={(event) => setLessonQuery(event.target.value)} placeholder="Search all lessons and topics" className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-xs font-bold text-slate-800 outline-none focus:border-indigo-400" />
             </label>
             
             <div className="space-y-2.5">
@@ -459,7 +629,7 @@ export const InvestorAcademy: React.FC = () => {
                         isCompleted
                           ? 'bg-emerald-600 text-white'
                           : isActive
-                          ? 'bg-slate-900 text-white'
+                          ? 'bg-slate-900 text-white dark:bg-indigo-600'
                           : 'bg-slate-50 text-slate-900 border border-slate-200 '
                       }`}>
                         {isCompleted ? <CheckCircle2 className="w-4 h-4" /> : idx + 1}
@@ -483,7 +653,14 @@ export const InvestorAcademy: React.FC = () => {
                   </div>
                 );
               })}
-              {filteredLessons.length === 0 && <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center text-xs font-medium text-slate-500">No lessons match “{lessonQuery}”.</div>}
+              {filteredLessons.length === 0 && (
+                <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center text-xs font-medium text-slate-500">
+                  No lessons match “{lessonQuery}”.
+                  <button type="button" onClick={() => setLessonQuery('')} className="mt-2 block w-full rounded-lg bg-slate-900 px-3 py-2 text-[11px] font-black text-white">
+                    Back to {activeStage.name} modules
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -515,7 +692,7 @@ export const InvestorAcademy: React.FC = () => {
             )}
 
             {/* Lesson Content Sections */}
-            <div className="space-y-7 text-zinc-700 text-base leading-7">
+            <div className="space-y-7 text-slate-700 dark:text-slate-200 text-base leading-7">
               {activeLesson.sections.map((sec, sIdx) => (
                 <div key={sIdx} className="space-y-3">
                   <h3 className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
@@ -526,14 +703,14 @@ export const InvestorAcademy: React.FC = () => {
 
                   {/* Relatable Analogy Box */}
                   {sec.exampleBox && (
-                    <div className="bg-indigo-600/10 border border-[#4F46E5]/30 rounded-2xl p-4 my-3">
+                    <div className="bg-indigo-600/10 border border-indigo-600/30 rounded-2xl p-4 my-3">
                       <div className="font-extrabold text-indigo-600 text-xs sm:text-sm mb-1">
                         {sec.exampleBox.title}
                       </div>
                       <p className="text-xs text-indigo-600 leading-relaxed">
                         {sec.exampleBox.description}
                       </p>
-                      <p className="text-xs text-indigo-600 font-bold mt-2 pt-2 border-t border-[#4F46E5]/30">
+                      <p className="text-xs text-indigo-600 font-bold mt-2 pt-2 border-t border-indigo-600/30">
                         💡 <strong>Real-World Takeaway:</strong> {sec.exampleBox.analogy}
                       </p>
                     </div>
@@ -640,6 +817,37 @@ export const InvestorAcademy: React.FC = () => {
                 )}
               </div>
 
+              {/* Hand the finished lesson over to the part of the app where it
+                  can actually be used. */}
+              {isCurrentCompleted && practiceAction && (
+                <div className="rounded-2xl border border-indigo-300 bg-indigo-50 p-4">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-indigo-700">
+                    Put it into practice
+                  </p>
+                  <p className="mt-1 text-sm font-black leading-snug text-indigo-950">{practiceAction.task}</p>
+                  <p className="mt-1 text-[11px] font-medium leading-relaxed text-indigo-900/80">
+                    {practiceAction.reason}
+                  </p>
+                  {setActiveTab ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        startPracticeTask(practiceAction, activeLesson.title.split(':')[0]);
+                        setActiveTab(practiceAction.tab);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className="mt-3 inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-black text-white hover:bg-indigo-700"
+                    >
+                      {practiceAction.label} <ArrowRight className="h-3.5 w-3.5" />
+                    </button>
+                  ) : (
+                    <p className="mt-3 text-[11px] font-bold text-indigo-800">
+                      Open the {practiceAction.tab} section to try this.
+                    </p>
+                  )}
+                </div>
+              )}
+
             </div>
 
           </div>
@@ -658,7 +866,7 @@ export const InvestorAcademy: React.FC = () => {
                 onClick={() => setCaseStudyCategory(cat)}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all whitespace-nowrap cursor-pointer ${
                   caseStudyCategory === cat
-                    ? 'bg-slate-900 text-white shadow-xs'
+                    ? 'bg-slate-900 text-white shadow-xs dark:bg-indigo-600'
                     : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                 }`}
               >
@@ -676,12 +884,14 @@ export const InvestorAcademy: React.FC = () => {
                     <Layers className="w-5 h-5 text-indigo-600" />
                     <h3 className="font-extrabold text-sm text-slate-900">Case Studies ({CASE_STUDIES_DATA.length})</h3>
                   </div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                  <span className="hidden text-[10px] font-bold text-slate-500 uppercase tracking-wider sm:inline">
                     Dalal Street Battles
                   </span>
                 </div>
 
-                <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
+                {/* A nested scroll area inside a page that already scrolls is
+                    awkward on a phone, so the cap only applies from lg upwards. */}
+                <div className="space-y-2 lg:max-h-[600px] lg:overflow-y-auto lg:pr-1">
                   {CASE_STUDIES_DATA.filter((cs) => caseStudyCategory === 'ALL' || cs.category === caseStudyCategory).map((cs) => {
                     const isSelected = cs.id === activeCaseStudyId;
 
@@ -691,7 +901,7 @@ export const InvestorAcademy: React.FC = () => {
                         onClick={() => setActiveCaseStudyId(cs.id)}
                         className={`w-full text-left p-3.5 rounded-2xl border transition-all cursor-pointer ${
                           isSelected
-                            ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                            ? 'bg-slate-900 text-white border-slate-900 shadow-xs dark:border-indigo-500 dark:bg-indigo-700'
                             : 'bg-white border-slate-200 text-slate-800 hover:border-slate-300 hover:bg-slate-50'
                         }`}
                       >
@@ -990,6 +1200,19 @@ export const InvestorAcademy: React.FC = () => {
         </div>
       )}
 
+      {activeSubTab === 'TAX_CENTRE' && (
+        <TaxCentre
+          onOpenLesson={(lessonId) => {
+            const lesson = INITIAL_LESSONS.find((item) => item.id === lessonId);
+            if (!lesson) return;
+            setActiveSubTab('LESSONS');
+            setLessonQuery('');
+            handleSelectLesson(lesson);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        />
+      )}
+
       {activeSubTab === 'HISTORICAL_EVENTS' && <HistoricalEventsLab />}
 
       {activeSubTab === 'PORTFOLIO_MODELS' && <PortfolioConstructionLab />}
@@ -1021,7 +1244,7 @@ export const InvestorAcademy: React.FC = () => {
                 placeholder="Search term (e.g. Bull, P/E, IPO, Demat)..."
                 value={jargonQuery}
                 onChange={(e) => setJargonQuery(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9.5 pr-8 py-2.5 text-xs text-slate-900 placeholder-[#64748B]/70 focus:outline-none focus:border-slate-900 focus:bg-white transition-all"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9.5 pr-8 py-2.5 text-xs text-slate-900 placeholder-slate-500/70 focus:outline-none focus:border-slate-900 focus:bg-white transition-all"
               />
               {jargonQuery && (
                 <button
@@ -1047,7 +1270,7 @@ export const InvestorAcademy: React.FC = () => {
                   onClick={() => setSelectedJargonCategory(cat)}
                   className={`px-3 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all cursor-pointer ${
                     isActive
-                      ? 'bg-slate-900 text-white shadow-xs'
+                      ? 'bg-slate-900 text-white shadow-xs dark:bg-indigo-600'
                       : 'bg-slate-50 text-slate-500 hover:text-slate-900 hover:bg-white border border-slate-200'
                   }`}
                 >
@@ -1093,7 +1316,7 @@ export const InvestorAcademy: React.FC = () => {
                     <h4 className="text-sm font-black text-slate-900 group-hover:text-amber-700 transition-colors">
                       {item.term}
                     </h4>
-                    <p className="text-xs text-[#556952] mt-2 leading-relaxed font-medium">
+                    <p className="text-xs text-slate-600 mt-2 leading-relaxed font-medium">
                       {item.desc}
                     </p>
                   </div>
@@ -1139,7 +1362,7 @@ export const InvestorAcademy: React.FC = () => {
                 Test your knowledge and earn Academy Points to level up!
               </p>
             </div>
-            <div className="bg-indigo-600/10 border border-[#4F46E5]/30 px-3 py-1.5 rounded-xl flex items-center gap-2">
+            <div className="bg-indigo-600/10 border border-indigo-600/30 px-3 py-1.5 rounded-xl flex items-center gap-2">
               <Award className="w-4 h-4 text-indigo-600" />
               <span className="text-xs font-bold text-indigo-600">+50 XP per question</span>
             </div>
@@ -1173,14 +1396,14 @@ export const InvestorAcademy: React.FC = () => {
                       
                       if (hasAnswered) {
                         if (idx === q.correctIndex) {
-                          btnStateClass = 'bg-indigo-600/10 border-[#4F46E5] text-indigo-600 font-bold'; // Correct
+                          btnStateClass = 'bg-indigo-600/10 border-indigo-600 text-indigo-600 font-bold'; // Correct
                         } else if (idx === selectedAnswerIdx) {
                           btnStateClass = 'bg-rose-50 border-rose-300 text-rose-700'; // Incorrect pick
                         } else {
                           btnStateClass = 'bg-slate-50 border-slate-200 text-slate-500 opacity-60'; // Other
                         }
                       } else if (selectedAnswerIdx === idx) {
-                        btnStateClass = 'bg-slate-900 border-slate-900 text-white'; // Selected (if we want to allow picking before submit, but let's just make it immediate)
+                        btnStateClass = 'bg-slate-900 border-slate-900 text-white dark:border-indigo-500 dark:bg-indigo-700'; // Selected (if we want to allow picking before submit, but let's just make it immediate)
                       }
 
                       return (
@@ -1211,7 +1434,7 @@ export const InvestorAcademy: React.FC = () => {
                       animate={{ opacity: 1, y: 0 }}
                       className="bg-slate-900 text-white p-5 rounded-2xl border border-slate-900/80 mt-6"
                     >
-                      <h5 className="text-xs font-bold text-[#E2E8F0] uppercase tracking-wider mb-2">
+                      <h5 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-2">
                         {selectedAnswerIdx === q.correctIndex || isCompleted ? 'Awesome! Correct Answer.' : 'Not quite right.'}
                       </h5>
                       <p className="text-sm font-medium leading-relaxed text-white">
@@ -1227,7 +1450,7 @@ export const InvestorAcademy: React.FC = () => {
                             }
                           }}
                           disabled={activeQuizIndex >= QUIZ_QUESTIONS.length - 1}
-                          className="bg-indigo-600 hover:bg-[#3d4d1d] text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                         >
                           Next Question <ArrowRight className="w-4 h-4" />
                         </button>

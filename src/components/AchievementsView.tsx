@@ -167,7 +167,7 @@ export const AchievementsView: React.FC = () => {
     <div className="space-y-6">
       
       {/* Top Banner: User Level & XP Progression */}
-      <div className="bg-gradient-to-r from-[#0F172A] via-[#2A3C52] to-[#0F172A] text-white rounded-3xl p-6 shadow-md border border-[#3A4C62]">
+      <div className="bg-gradient-to-r from-slate-900 via-[#2A3C52] to-slate-900 text-white rounded-3xl p-6 shadow-md border border-[#3A4C62]">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 rounded-2xl bg-indigo-600 p-1 shadow-md shrink-0 flex items-center justify-center">
@@ -297,8 +297,8 @@ export const AchievementsView: React.FC = () => {
                 >
                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shrink-0 border ${
                     isUnlocked
-                      ? 'bg-indigo-600/20 border-[#4F46E5]/40 text-indigo-600 shadow-xs'
-                      : 'bg-[#E2E8F0] border-slate-200 grayscale'
+                      ? 'bg-indigo-600/20 border-indigo-600/40 text-indigo-600 shadow-xs'
+                      : 'bg-slate-200 border-slate-200 dark:bg-slate-700 dark:border-slate-600 grayscale'
                   }`}>
                     {b.icon}
                   </div>
@@ -449,7 +449,7 @@ export const AchievementsView: React.FC = () => {
                           ? 'bg-slate-300 text-slate-900 font-bold'
                           : user.currentRank === 3
                           ? 'bg-amber-700 text-amber-100 font-bold'
-                          : 'bg-[#E2E8F0] text-slate-500'
+                          : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
                       }`}>
                         {user.currentRank}
                       </div>
@@ -459,7 +459,7 @@ export const AchievementsView: React.FC = () => {
                             {user.name}
                           </span>
                           {isUser && (
-                            <span className="text-[9px] bg-slate-900 text-white font-black px-1.5 py-0.2 rounded">
+                            <span className="text-[9px] bg-slate-900 text-white font-black px-1.5 py-0.5 rounded">
                               YOU
                             </span>
                           )}

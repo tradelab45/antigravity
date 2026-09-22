@@ -50,17 +50,19 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({ onSelectStock, onN
 
   if (watchlistStocks.length === 0) {
     return (
-      <div className="bg-white border border-slate-200 rounded-3xl p-8 sm:p-12 text-center shadow-sm">
+      <div className="rr-surfaces">
+        <div className="bg-white border border-slate-200 rounded-3xl p-8 sm:p-12 text-center shadow-sm">
         <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-200"><Star className="w-8 h-8 text-slate-500" /></div>
         <h3 className="text-xl sm:text-2xl font-black text-slate-900 mb-2">Your watchlist is empty</h3>
         <p className="text-sm text-slate-500 max-w-md mx-auto mb-8 font-medium">Save companies you want to study. A watchlist is for observation—not a signal to trade.</p>
         <button onClick={onNavigateToScreener} className="inline-flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-xl text-sm font-extrabold hover:bg-indigo-700 transition-colors shadow-md">Explore companies <ArrowRight className="w-4 h-4" /></button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-5">
+    <div className="rr-surfaces space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-2xl font-black text-slate-900 flex items-center gap-2"><Star className="w-6 h-6 fill-amber-400 text-amber-500" /> My Watchlist</h2>

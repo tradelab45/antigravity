@@ -233,7 +233,7 @@ export const IPOView: React.FC<IPOViewProps> = ({ onNavigateToScreener }) => {
                       <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${
                         ipo.status === 'Open' ? 'bg-emerald-100 text-emerald-800' :
                         ipo.status === 'Upcoming' ? 'bg-amber-100 text-amber-900' :
-                        'bg-[#E2E8F0] text-zinc-700'
+                        'bg-slate-200 text-zinc-700'
                       }`}>
                         {ipo.status === 'Open' ? '🟢 OPEN FOR BIDDING' : ipo.status}
                       </span>

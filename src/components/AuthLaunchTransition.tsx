@@ -101,11 +101,11 @@ export const AuthLaunchTransition: React.FC<AuthLaunchTransitionProps> = ({
       />
 
       {/* Dramatic Top Spotlight Cone Shining on Pedestal */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[450px] bg-gradient-to-b from-amber-400/10 via-[#00f59b]/5 to-transparent blur-3xl pointer-events-none" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[450px] bg-gradient-to-b from-amber-400/10 via-mint/5 to-transparent blur-3xl pointer-events-none" />
 
       {/* Atmospheric Ambient Glow Orbs */}
       <motion.div
-        className="absolute -left-28 top-16 h-96 w-96 rounded-full bg-[#00f59b]/15 blur-3xl pointer-events-none"
+        className="absolute -left-28 top-16 h-96 w-96 rounded-full bg-mint/15 blur-3xl pointer-events-none"
         animate={{ x: [0, 40, 0], y: [0, 25, 0] }}
         transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut' }}
       />
@@ -127,7 +127,7 @@ export const AuthLaunchTransition: React.FC<AuthLaunchTransitionProps> = ({
           <div className="absolute bottom-6 flex items-center justify-center pointer-events-none">
             {/* Outer Rotating Dashed Ring */}
             <div
-              className="h-56 w-56 sm:h-64 sm:w-64 rounded-full border border-dashed border-[#00f59b]/35 animate-[spin_20s_linear_infinite]"
+              className="h-56 w-56 sm:h-64 sm:w-64 rounded-full border border-dashed border-mint/35 animate-[spin_20s_linear_infinite]"
               style={{ transform: 'perspective(400px) rotateX(72deg)' }}
             />
             {/* Inner Concentric Glow Disc */}
@@ -145,7 +145,7 @@ export const AuthLaunchTransition: React.FC<AuthLaunchTransitionProps> = ({
                     initial={{ scale: 0.3, opacity: 0.9 }}
                     animate={{ scale: 2.5, opacity: 0 }}
                     transition={{ duration: 0.85, ease: 'easeOut' }}
-                    className="absolute h-36 w-36 rounded-full border-2 border-[#00f59b]"
+                    className="absolute h-36 w-36 rounded-full border-2 border-mint"
                     style={{ transform: 'perspective(400px) rotateX(72deg)' }}
                   />
                   <motion.div
@@ -278,7 +278,7 @@ export const AuthLaunchTransition: React.FC<AuthLaunchTransitionProps> = ({
 
               {/* FRONT FACE (Main Golden Rupee Emblem) */}
               <div
-                className="absolute inset-0 rounded-full border-4 border-amber-300/90 bg-gradient-to-br from-[#FFF3B0] via-[#F59E0B] to-[#92400E] p-1.5 shadow-[0_10px_35px_rgba(245,158,11,0.5),inset_0_3px_8px_rgba(255,255,255,0.9),inset_0_-4px_8px_rgba(120,53,15,0.9)]"
+                className="absolute inset-0 rounded-full border-4 border-amber-300/90 bg-gradient-to-br from-[#FFF3B0] via-amber-500 to-[#92400E] p-1.5 shadow-[0_10px_35px_rgba(245,158,11,0.5),inset_0_3px_8px_rgba(255,255,255,0.9),inset_0_-4px_8px_rgba(120,53,15,0.9)]"
                 style={{
                   transform: 'translateZ(1px)',
                   backfaceVisibility: 'hidden',
@@ -376,9 +376,9 @@ export const AuthLaunchTransition: React.FC<AuthLaunchTransitionProps> = ({
                   initial={{ opacity: 0, y: -8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1 }}
-                  className="mb-2 flex items-center gap-1.5 rounded-full border border-[#00f59b]/50 bg-[#00f59b]/15 px-3.5 py-1 text-[10px] font-black uppercase tracking-widest text-[#00f59b] shadow-[0_0_20px_rgba(0,245,155,0.35)]"
+                  className="mb-2 flex items-center gap-1.5 rounded-full border border-mint/50 bg-mint/15 px-3.5 py-1 text-[10px] font-black uppercase tracking-widest text-mint shadow-[0_0_20px_rgba(0,245,155,0.35)]"
                 >
-                  <Zap className="h-3.5 w-3.5 text-[#00f59b]" />
+                  <Zap className="h-3.5 w-3.5 text-mint" />
                   <span>Portfolio Ready • Dalal Street Live</span>
                 </motion.div>
 
@@ -395,7 +395,7 @@ export const AuthLaunchTransition: React.FC<AuthLaunchTransitionProps> = ({
                 {/* Sub-phrase with personal touch */}
                 <p className="mt-2 max-w-lg text-sm sm:text-base font-semibold text-slate-200 leading-relaxed">
                   Welcome to the Dalal Street arena,{' '}
-                  <span className="text-[#00f59b] font-bold">{firstName}</span>!
+                  <span className="text-mint font-bold">{firstName}</span>!
                   Your <span className="text-amber-300 font-bold">₹10,00,000</span> virtual capital is primed and ready.
                 </p>
 
@@ -408,14 +408,14 @@ export const AuthLaunchTransition: React.FC<AuthLaunchTransitionProps> = ({
                 >
                   <button
                     onClick={handleProceed}
-                    className="group relative inline-flex items-center gap-2.5 rounded-xl bg-gradient-to-r from-[#00f59b] via-emerald-400 to-teal-300 px-7 py-3 text-sm font-black text-slate-950 shadow-[0_0_30px_rgba(0,245,155,0.5)] hover:scale-105 active:scale-95 transition-all duration-150 cursor-pointer"
+                    className="group relative inline-flex items-center gap-2.5 rounded-xl bg-gradient-to-r from-mint via-emerald-400 to-teal-300 px-7 py-3 text-sm font-black text-slate-950 shadow-[0_0_30px_rgba(0,245,155,0.5)] hover:scale-105 active:scale-95 transition-all duration-150 cursor-pointer"
                   >
                     <span>Enter Terminal Now</span>
                     <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                   </button>
 
                   <div className="text-[11px] font-mono text-slate-400">
-                    Auto-entering in <span className="text-[#00f59b] font-bold">{countdown}s</span>…
+                    Auto-entering in <span className="text-mint font-bold">{countdown}s</span>…
                   </div>
                 </motion.div>
               </motion.div>

@@ -94,7 +94,7 @@ export const HelpSupportCenter: React.FC<HelpSupportCenterProps> = ({ setActiveT
       </section>
 
       <section aria-labelledby="feature-finder-title">
-        <div className="mb-3 flex items-end justify-between gap-3"><div><h2 id="feature-finder-title" className="text-lg font-black">Feature finder</h2><p className="text-xs text-slate-500 dark:text-slate-400">Go directly to the right workspace.</p></div><span className="text-[10px] font-black uppercase text-slate-400">{featureResults.length} matches</span></div>
+        <div className="mb-3 flex items-end justify-between gap-3"><div><h2 id="feature-finder-title" className="text-lg font-black">Feature finder</h2><p className="text-xs text-slate-500 dark:text-slate-400">Go directly to the right workspace.</p></div><span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400">{featureResults.length} matches</span></div>
         {featureResults.length > 0 ? (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {featureResults.map(({ title, detail, tab, Icon }) => (

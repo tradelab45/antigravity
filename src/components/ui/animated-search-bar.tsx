@@ -210,8 +210,8 @@ export const AnimatedSearchBar: React.FC<AnimatedSearchBarProps> = ({
             ? "bg-gradient-to-r from-[#040906]/90 via-[#0a150e]/85 to-[#050c07]/90 border-white/15 text-white shadow-xl"
             : "bg-gradient-to-r from-white/90 via-white/80 to-slate-50/90 dark:from-[#040906]/90 dark:via-[#0a150e]/85 dark:to-[#050c07]/90 border-white/70 dark:border-white/15 text-slate-900 dark:text-white",
           isFocused
-            ? "border-[#00f59b] ring-1 ring-[#00f59b]/40 cursor-text"
-            : "hover:border-[#00f59b]/50 hover:ring-1 hover:ring-[#00f59b]/30"
+            ? "border-mint ring-1 ring-mint/40 cursor-text"
+            : "hover:border-mint/50 hover:ring-1 hover:ring-mint/30"
         )}
       >
         {/* Liquid Glass Specular Reflection Highlight (top edge bevel) */}
@@ -236,9 +236,9 @@ export const AnimatedSearchBar: React.FC<AnimatedSearchBarProps> = ({
             transition={{ type: "spring", stiffness: 350, damping: 25 }}
             className="relative"
           >
-            <Search className="w-4 h-4 text-emerald-600 dark:text-[#00f59b]" />
+            <Search className="w-4 h-4 text-emerald-600 dark:text-mint" />
             {/* Ambient liquid glow behind icon */}
-            <span className="absolute inset-0 rounded-full bg-[#00f59b]/25 blur-sm -z-10" />
+            <span className="absolute inset-0 rounded-full bg-mint/25 blur-sm -z-10" />
           </motion.div>
         </div>
 
@@ -320,7 +320,7 @@ export const AnimatedSearchBar: React.FC<AnimatedSearchBarProps> = ({
 
         {/* Bottom liquid meniscus accent bar on focus */}
         <motion.div
-          className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#00f59b] to-transparent pointer-events-none"
+          className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-mint to-transparent pointer-events-none"
           initial={{ opacity: 0, scaleX: 0 }}
           animate={{ opacity: isFocused ? 1 : 0, scaleX: isFocused ? 1 : 0 }}
           transition={{ duration: 0.25 }}
@@ -342,7 +342,7 @@ export const AnimatedSearchBar: React.FC<AnimatedSearchBarProps> = ({
                 <Sparkles className="w-3 h-3 text-emerald-500" />
                 <span>Matching Dalal Street Equities</span>
               </span>
-              <span className="text-emerald-600 dark:text-[#00f59b] font-mono">Live NSE</span>
+              <span className="text-emerald-600 dark:text-mint font-mono">Live NSE</span>
             </div>
             {matchingSuggestions.map((item) => (
               <button
@@ -356,7 +356,7 @@ export const AnimatedSearchBar: React.FC<AnimatedSearchBarProps> = ({
               >
                 <div>
                   <div className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
-                    <span className="group-hover:text-emerald-600 dark:group-hover:text-[#00f59b] transition-colors">
+                    <span className="group-hover:text-emerald-600 dark:group-hover:text-mint transition-colors">
                       {item.symbol}
                     </span>
                     <span className="text-[10px] text-slate-400 font-normal font-sans">
@@ -379,7 +379,7 @@ export const AnimatedSearchBar: React.FC<AnimatedSearchBarProps> = ({
                         className={cn(
                           "text-[10px] font-bold",
                           item.changePercent >= 0
-                            ? "text-emerald-600 dark:text-[#00f59b]"
+                            ? "text-emerald-600 dark:text-mint"
                             : "text-rose-600"
                         )}
                       >

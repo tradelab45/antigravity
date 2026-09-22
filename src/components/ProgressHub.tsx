@@ -11,7 +11,7 @@ export const ProgressHub: React.FC<ProgressHubProps> = ({ initialSection = 'chal
   const [activeSection, setActiveSection] = useState<'challenges' | 'achievements'>(initialSection);
 
   return (
-    <div className="space-y-6">
+    <div className="rr-surfaces space-y-6">
       <nav
         aria-label="Progress sections"
         className="grid w-full grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:max-w-[460px]"
