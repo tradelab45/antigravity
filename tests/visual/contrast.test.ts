@@ -8,11 +8,13 @@ import { chromium, type Browser } from 'playwright';
 import {
   auditContrast,
   MINIMUM_CONTRAST,
+  PALETTES,
   seedSession,
   THEMES,
   VIEWS,
   waitForStableView,
   type ContrastFinding,
+  type Palette,
   type Theme,
 } from './contrastAudit';
 
@@ -88,6 +90,52 @@ for (const view of VIEWS) {
           `${view} (${theme}) has ${findings.length} text node(s) below ${MINIMUM_CONTRAST}:1.\n` +
             `${describeFindings(findings)}\n` +
             'Give the element a dark: variant, or move it off a shade that collides with its surface.',
+        );
+      } finally {
+        await page.close();
+      }
+    });
+  }
+}
+
+/**
+ * The per-view sweep above runs on the classic palette. Every other palette
+ * re-tints the canvas, and in dark mode the card surfaces too, so each one is
+ * swept across a few representative views: a dense data screen, a reading
+ * screen and a form-heavy screen.
+ */
+const PALETTE_VIEWS = ['screener', 'academy', 'portfolio'] as const;
+
+for (const palette of PALETTES.filter((option): option is Palette => option !== 'classic')) {
+  for (const theme of THEMES as readonly Theme[]) {
+    test(`the ${palette} palette stays readable in ${theme} mode`, { timeout: 120_000 }, async () => {
+      const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+      const pageErrors: string[] = [];
+      page.on('pageerror', (error) => pageErrors.push(error.message));
+
+      try {
+        await seedSession(page, theme, palette);
+        const failures: string[] = [];
+
+        for (const view of PALETTE_VIEWS) {
+          await page.goto(`${baseUrl}/?view=${view}`, { waitUntil: 'domcontentloaded' });
+          await waitForStableView(page);
+          const findings = await auditContrast(page);
+          if (findings.length > 0) {
+            failures.push(`${view} (${palette}/${theme}):\n${describeFindings(findings)}`);
+          }
+        }
+
+        assert.deepEqual(
+          pageErrors,
+          [],
+          `${palette} (${theme}) raised a runtime error:\n  ${pageErrors.join('\n  ')}`,
+        );
+        assert.equal(
+          failures.length,
+          0,
+          `The ${palette} palette drops text below ${MINIMUM_CONTRAST}:1 in ${theme} mode.\n${failures.join('\n')}\n` +
+            'Re-tune the palette tokens in src/index.css rather than the components.',
         );
       } finally {
         await page.close();

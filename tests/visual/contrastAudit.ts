@@ -32,6 +32,23 @@ export const THEMES = ['light', 'dark'] as const;
 
 export type Theme = typeof THEMES[number];
 
+/**
+ * Every background palette. Each one re-tints the page canvas, and in dark
+ * mode the card surfaces as well, so a palette can break contrast on its own
+ * without any component changing.
+ */
+export const PALETTES = [
+  'classic',
+  'midnight',
+  'forest',
+  'sunrise',
+  'ocean',
+  'plum',
+  'mono',
+] as const;
+
+export type Palette = typeof PALETTES[number];
+
 export interface ContrastFinding {
   text: string;
   ratio: number;
@@ -53,7 +70,7 @@ const DEMO_USER = {
  * Signs in a local demo account and suppresses the first-run overlays, which
  * otherwise cover the page and hide most of what needs measuring.
  */
-export async function seedSession(page: Page, theme: Theme): Promise<void> {
+export async function seedSession(page: Page, theme: Theme, palette: Palette = 'classic'): Promise<void> {
   // tsx transpiles with esbuild, which wraps named functions in a `__name`
   // helper. That helper does not travel with a function serialised into
   // page.evaluate, so it is defined in the page first. Passed as raw content
@@ -61,13 +78,13 @@ export async function seedSession(page: Page, theme: Theme): Promise<void> {
   await page.addInitScript({ content: 'globalThis.__name = globalThis.__name || ((fn) => fn);' });
 
   await page.addInitScript(
-    ([user, mode]: [typeof DEMO_USER, string]) => {
+    ([user, mode, tint]: [typeof DEMO_USER, string, string]) => {
       const now = new Date().toISOString();
       const account = { ...user, registeredAt: now, lastLoginAt: now };
       localStorage.setItem('rr_current_user', JSON.stringify(account));
       localStorage.setItem(`rr_last_activity:${account.id}`, String(Date.now()));
       localStorage.setItem('rupeeRookie_theme', mode);
-      localStorage.setItem('rupeeRookie_palette', 'classic');
+      localStorage.setItem('rupeeRookie_palette', tint);
       localStorage.setItem(`rr_profile_completed_${account.id}`, 'true');
       localStorage.setItem('rupeerookie-mobile-menu-hint-seen-v1', 'true');
       sessionStorage.setItem(`rr_guided_session_${account.id}`, 'true');
@@ -79,7 +96,7 @@ export async function seedSession(page: Page, theme: Theme): Promise<void> {
       }).format(new Date());
       localStorage.setItem(`rr_daily_tip_seen:${account.id}:${day}`, 'true');
     },
-    [DEMO_USER, theme] as [typeof DEMO_USER, string],
+    [DEMO_USER, theme, palette] as [typeof DEMO_USER, string, string],
   );
 }
 
