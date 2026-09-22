@@ -155,8 +155,10 @@ export const IPOView: React.FC<IPOViewProps> = ({ onNavigateToScreener }) => {
     const app = appliedIpos[ipoId];
     if (!app) return;
 
-    // Simulate realistic allotment lottery (e.g. 1 in 3 chance)
-    const isAllotted = Math.random() < 0.65;
+    // Allotment in an oversubscribed IPO really is a lottery, so randomising it
+    // is the honest simulation. The rate is illustrative, not a real ratio.
+    const ALLOTMENT_PROBABILITY = 0.65;
+    const isAllotted = Math.random() < ALLOTMENT_PROBABILITY;
     const ipo = UPCOMING_IPOS.find(i => i.id === ipoId);
     if (!ipo) return;
 
@@ -284,7 +286,7 @@ export const IPOView: React.FC<IPOViewProps> = ({ onNavigateToScreener }) => {
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-200">
                   <div className="flex items-center gap-3 w-full sm:w-auto">
                     <div className="bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl flex items-center gap-2">
-                      <span className="text-[10px] text-emerald-800 font-bold uppercase">Estimated GMP</span>
+                      <span className="text-[10px] text-emerald-800 font-bold uppercase">Illustrative GMP</span>
                       <span className="font-black text-emerald-700 text-xs font-mono">{ipo.gmp}</span>
                     </div>
                     <div className="bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-xl flex items-center gap-2">
@@ -414,7 +416,7 @@ export const IPOView: React.FC<IPOViewProps> = ({ onNavigateToScreener }) => {
                     <span className="font-black text-slate-900 font-mono">{selectedIpo.lotSize} Shares / Lot</span>
                   </div>
                   <div className="flex justify-between text-xs">
-                    <span className="text-slate-500 font-medium">Current GMP:</span>
+                    <span className="text-slate-500 font-medium">Illustrative GMP:</span>
                     <span className="font-black text-emerald-700 font-mono">{selectedIpo.gmp}</span>
                   </div>
                 </div>
