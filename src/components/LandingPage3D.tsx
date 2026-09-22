@@ -277,7 +277,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
             </p>
 
             <div className="rr-hero-actions">
-              <MetalButton variant="success" onClick={() => onEnter('SIGNUP', 'academy')}>
+              <MetalButton variant="brand" onClick={() => onEnter('SIGNUP', 'academy')}>
                 Start learning <ArrowUpRight size={20} />
               </MetalButton>
               <LiquidButton asChild size="lg">
