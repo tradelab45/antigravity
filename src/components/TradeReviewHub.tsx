@@ -62,6 +62,9 @@ export interface TradeHistoryTransaction {
   realizedPnL?: number;
   realizedPnLPercent?: number;
   rMultiple?: number;
+  /** Stop and target as recorded on the order, absent when none was set. */
+  plannedStopLoss?: number;
+  plannedTarget?: number;
   exitReason?: 'TARGET_HIT' | 'STOP_LOSS_HIT' | 'MANUAL_EXIT' | 'SQUARE_OFF';
   charges?: number;
   holdTime?: string;
@@ -182,6 +185,8 @@ export function TradeReviewHub({ initialTab = 'HISTORY' }: { initialTab?: 'HISTO
         realizedPnL,
         realizedPnLPercent,
         rMultiple: rMult,
+        plannedStopLoss: stopLossPrice,
+        plannedTarget: ord.bracketOrder?.targetPrice,
         exitReason,
         charges: Number(charges.toFixed(2)),
         holdTime: ord.holdTime || (ord.productType === 'MIS' ? 'Intraday (Same Day)' : '1 Day+'),
@@ -461,11 +466,13 @@ export function TradeReviewHub({ initialTab = 'HISTORY' }: { initialTab?: 'HISTO
       side: t.type,
       productType: t.productType,
       quantity: t.quantity,
-      plannedEntry: t.buyAvgPrice ? t.buyAvgPrice * 0.998 : t.price * 0.98,
+      // No separate planned entry is recorded, so the fill stands for both
+      // rather than a price invented a fraction below it.
+      plannedEntry: t.buyAvgPrice || t.price,
       actualEntry: t.buyAvgPrice || t.price,
-      plannedStopLoss: (t.buyAvgPrice || t.price) * 0.98,
+      plannedStopLoss: t.plannedStopLoss ?? 0,
       actualExit: t.price,
-      plannedTarget: (t.buyAvgPrice || t.price) * 1.05,
+      plannedTarget: t.plannedTarget ?? 0,
       pnl: t.realizedPnL || 0,
       pnlPercent: t.realizedPnLPercent || 0,
       // Excursion, slippage and hold time are not recorded by the simulator,
@@ -1301,9 +1308,11 @@ export function TradeReviewHub({ initialTab = 'HISTORY' }: { initialTab?: 'HISTO
                     <span className="font-extrabold text-white text-sm font-mono">
                       {entry.symbol} ({entry.quantity} Qty)
                     </span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300">
-                      {entry.setup}
-                    </span>
+                    {entry.setup && entry.setup !== 'Not recorded' && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300">
+                        {entry.setup}
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-3">
                     <span className={`font-black font-mono text-sm ${entry.pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
@@ -1316,15 +1325,21 @@ export function TradeReviewHub({ initialTab = 'HISTORY' }: { initialTab?: 'HISTO
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono text-slate-400 bg-slate-900/50 p-2.5 rounded-xl">
-                  <div>Planned: ₹{entry.plannedEntry.toFixed(1)}</div>
-                  <div>Filled: ₹{entry.actualEntry.toFixed(1)}</div>
-                  <div>R-Multiple: +{entry.rMultiple}R</div>
-                  <div>Charges: ₹{entry.charges}</div>
+                  <div>Entry: ₹{entry.actualEntry.toFixed(2)}</div>
+                  <div>Exit: ₹{entry.actualExit.toFixed(2)}</div>
+                  <div title="An R-multiple needs a recorded stop-loss to measure risk against.">
+                    {entry.plannedStopLoss > 0
+                      ? `R-Multiple: ${entry.rMultiple >= 0 ? '+' : ''}${entry.rMultiple}R`
+                      : 'R-Multiple: no stop set'}
+                  </div>
+                  <div>Charges: ₹{entry.charges.toFixed(2)}</div>
                 </div>
 
-                <p className="text-xs text-slate-300 italic">
-                  💡 AI Insight: {entry.aiFeedback}
-                </p>
+                {entry.aiFeedback && (
+                  <p className="text-xs text-slate-300 italic">
+                    💡 AI Insight: {entry.aiFeedback}
+                  </p>
+                )}
                 {storedReview && (
                   <div className="grid grid-cols-1 gap-3 rounded-2xl border border-indigo-500/30 bg-indigo-950/30 p-3 sm:grid-cols-[1fr_112px]">
                     <div>
