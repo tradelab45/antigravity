@@ -490,7 +490,7 @@ export const HomeDashboard: React.FC<{ setActiveTab: (tab: AppTabType) => void }
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
                       <h3 className="text-xs font-extrabold text-slate-900 dark:text-white">{step.title}</h3>
-                      <span className="text-[10px] font-bold text-slate-400">{step.time}</span>
+                      <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">{step.time}</span>
                     </div>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400">{step.detail}</p>
                   </div>
@@ -523,9 +523,9 @@ export const HomeDashboard: React.FC<{ setActiveTab: (tab: AppTabType) => void }
             <div className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-emerald-600" /><h2 className="text-sm font-black">Portfolio risk check</h2></div>
             <p className="mt-2 text-xs leading-relaxed text-slate-600 dark:text-slate-300">{concentrationNote}</p>
             <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-xl bg-slate-50 p-2 dark:bg-slate-800"><p className="text-[9px] uppercase text-slate-400">Holdings</p><p className="font-mono text-sm font-black">{Object.keys(holdings).length}</p></div>
-              <div className="rounded-xl bg-slate-50 p-2 dark:bg-slate-800"><p className="text-[9px] uppercase text-slate-400">Trades</p><p className="font-mono text-sm font-black">{executedTrades}</p></div>
-              <div className="rounded-xl bg-slate-50 p-2 dark:bg-slate-800"><p className="text-[9px] uppercase text-slate-400">Cash</p><p className="truncate font-mono text-xs font-black">{formatINR(cashBalance, false)}</p></div>
+              <div className="rounded-xl bg-slate-50 p-2 dark:bg-slate-800"><p className="text-[9px] uppercase text-slate-500 dark:text-slate-400">Holdings</p><p className="font-mono text-sm font-black">{Object.keys(holdings).length}</p></div>
+              <div className="rounded-xl bg-slate-50 p-2 dark:bg-slate-800"><p className="text-[9px] uppercase text-slate-500 dark:text-slate-400">Trades</p><p className="font-mono text-sm font-black">{executedTrades}</p></div>
+              <div className="rounded-xl bg-slate-50 p-2 dark:bg-slate-800"><p className="text-[9px] uppercase text-slate-500 dark:text-slate-400">Cash</p><p className="truncate font-mono text-xs font-black">{formatINR(cashBalance, false)}</p></div>
             </div>
             <button type="button" onClick={() => setActiveTab('portfolio')} className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-black text-white dark:bg-indigo-600">Open risk heatmap <ArrowRight className="h-3.5 w-3.5" /></button>
           </section>

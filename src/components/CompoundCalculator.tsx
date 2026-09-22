@@ -295,7 +295,7 @@ export const CompoundCalculator: React.FC = () => {
   }, [annualReturn, calcMode, inflationRate, lumpsumAmount, monthlySip, results, stepUpPercent, taxRate, years]);
 
   return (
-    <div className="space-y-6">
+    <div className="rr-surfaces space-y-6">
       
       {/* 1. Header Banner */}
       <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-lg relative overflow-hidden">
@@ -723,7 +723,7 @@ export const CompoundCalculator: React.FC = () => {
                     <CheckCircle2 className="w-4 h-4" />
                   </span>
                 ) : (
-                  <span className="text-[10px] font-bold text-slate-400 bg-slate-200 px-2 py-0.5 rounded-full">
+                  <span className="text-[10px] font-bold text-slate-600 bg-slate-200 dark:bg-slate-700 dark:text-slate-200 px-2 py-0.5 rounded-full">
                     Beyond {years}y
                   </span>
                 )}

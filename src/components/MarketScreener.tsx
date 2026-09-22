@@ -1883,12 +1883,12 @@ const StockCardItem: React.FC<StockCardItemProps> = ({
           : 'perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(0px)',
         transition: isHovered ? 'transform 0.12s ease-out, box-shadow 0.25s ease' : 'transform 0.35s ease-out, box-shadow 0.25s ease',
       }}
-      className="relative bg-gradient-to-br from-[#030805] via-[#07150c] to-[#020503] border border-white/10 rounded-3xl p-6 shadow-[inset_0_1px_1.5px_rgba(255,255,255,0.18),0_20px_45px_-12px_rgba(0,0,0,0.85)] flex flex-col justify-between group cursor-pointer overflow-hidden isolate hover:border-[#00f59b]/50 hover:shadow-[0_20px_40px_-10px_rgba(0,245,155,0.25)] transition-all"
+      className="rr-terminal-card relative rounded-3xl border p-6 flex flex-col justify-between group cursor-pointer overflow-hidden isolate transition-all"
       onClick={() => onSelectStock(stock)}
     >
       {/* 0. Polymo Lighting Specular Top Bevel & Ambient Gradient Wash */}
-      <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#00f59b]/60 to-transparent pointer-events-none z-10" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_120%_80%_at_50%_-20%,rgba(0,245,155,0.18),transparent_70%),radial-gradient(ellipse_at_100%_100%,rgba(16,185,129,0.1),transparent_50%)] -z-10" />
+      <div className="rr-terminal-bevel absolute inset-x-0 top-0 h-[1.5px] pointer-events-none z-10" />
+      <div className="rr-terminal-wash pointer-events-none absolute inset-0 -z-10" />
 
       {/* 1. Dynamic Radial Spotlight Beam */}
       <div 

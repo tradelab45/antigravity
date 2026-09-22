@@ -412,9 +412,9 @@ export const ShareBoxAreaChart: React.FC<ShareBoxAreaChartProps> = ({
       </div>
 
       {/* Min / Max Low & High Bounds Footer */}
-      <div className="flex justify-between items-center text-[9px] text-slate-400 font-mono pt-1">
+      <div className="flex justify-between items-center text-[9px] text-slate-500 dark:text-slate-400 font-mono pt-1">
         <span>L: ₹{minVal.toFixed(0)}</span>
-        <span className="text-slate-300 font-semibold tracking-wider">
+        <span className="text-slate-600 dark:text-slate-300 font-semibold tracking-wider">
           {timeframe === '1D' ? 'NSE Indicative' : `${timeframe} Trend`}
         </span>
         <span>H: ₹{maxVal.toFixed(0)}</span>
@@ -449,10 +449,10 @@ export const GrowthSnowballAreaChart: React.FC<GrowthSnowballAreaChartProps> = (
   height = 320,
 }) => {
   return (
-    <div className="relative w-full rounded-3xl bg-gradient-to-br from-[#050b14] via-[#0b1528] to-[#040810] border border-white/15 p-5 sm:p-6 shadow-[inset_0_1px_1.5px_rgba(255,255,255,0.18),0_20px_45px_-12px_rgba(0,0,0,0.85)] overflow-hidden">
+    <div className="rr-terminal-card relative w-full rounded-3xl border p-5 sm:p-6 overflow-hidden">
       {/* Specular Top Glow & Radial Wash */}
-      <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#00f59b]/50 to-transparent pointer-events-none" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_120%_80%_at_50%_-20%,rgba(0,245,155,0.12),transparent_70%)]" />
+      <div className="rr-terminal-bevel absolute inset-x-0 top-0 h-[1.5px] pointer-events-none" />
+      <div className="rr-terminal-wash pointer-events-none absolute inset-0" />
 
       {/* Chart Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-4 mb-4 relative z-10">
@@ -652,9 +652,9 @@ export const PortfolioEquityAreaChart: React.FC<PortfolioEquityAreaChartProps> =
   const strokeColor = isNetPositive ? '#00f59b' : '#f43f5e';
 
   return (
-    <div className="relative w-full rounded-2xl bg-gradient-to-br from-[#060e1a] via-[#091526] to-[#040810] border border-white/15 p-4 shadow-xl overflow-hidden">
+    <div className="rr-terminal-card relative w-full rounded-2xl border p-4 overflow-hidden">
       {/* Top Specular Sheen */}
-      <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-cyan-400/40 to-transparent pointer-events-none" />
+      <div className="rr-terminal-bevel absolute inset-x-0 top-0 h-[1.5px] pointer-events-none" />
 
       <div className="h-full w-full" style={{ height }}>
         <ResponsiveContainer width="100%" height="100%">

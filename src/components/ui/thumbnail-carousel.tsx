@@ -254,7 +254,7 @@ export const ThumbnailCarousel: React.FC<ThumbnailCarouselProps> = ({
               )}
             >
               <div className="flex items-center justify-between gap-1">
-                <span className="text-[10px] font-mono font-black text-slate-400 dark:text-slate-500">
+                <span className="text-[10px] font-mono font-black text-slate-500 dark:text-slate-400">
                   0{idx + 1}
                 </span>
                 {item.badge && (

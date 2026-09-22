@@ -298,7 +298,7 @@ export const AchievementsView: React.FC = () => {
                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shrink-0 border ${
                     isUnlocked
                       ? 'bg-indigo-600/20 border-[#4F46E5]/40 text-indigo-600 shadow-xs'
-                      : 'bg-[#E2E8F0] border-slate-200 grayscale'
+                      : 'bg-slate-200 border-slate-200 dark:bg-slate-700 dark:border-slate-600 grayscale'
                   }`}>
                     {b.icon}
                   </div>
@@ -449,7 +449,7 @@ export const AchievementsView: React.FC = () => {
                           ? 'bg-slate-300 text-slate-900 font-bold'
                           : user.currentRank === 3
                           ? 'bg-amber-700 text-amber-100 font-bold'
-                          : 'bg-[#E2E8F0] text-slate-500'
+                          : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
                       }`}>
                         {user.currentRank}
                       </div>

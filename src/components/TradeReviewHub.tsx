@@ -800,7 +800,7 @@ export function TradeReviewHub({ initialTab = 'HISTORY' }: { initialTab?: 'HISTO
   const activeShareCardTrade = tradeToShare || allTransactions[0];
 
   return (
-    <div className="w-full max-w-7xl mx-auto space-y-6 pb-16 animate-in fade-in duration-200">
+    <div className="rr-terminal w-full max-w-7xl mx-auto space-y-6 pb-16 animate-in fade-in duration-200">
       {/* Top Main Banner */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl text-white relative overflow-hidden">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">

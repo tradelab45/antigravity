@@ -121,7 +121,7 @@ export const InteractiveListPreview: React.FC<InteractiveListPreviewProps> = ({
                   <span
                     className={cn(
                       "text-[10px] font-bold font-mono flex items-center justify-end gap-0.5",
-                      isPositive ? "text-emerald-500" : "text-rose-500"
+                      isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
                     )}
                   >
                     {isPositive ? "+" : ""}
