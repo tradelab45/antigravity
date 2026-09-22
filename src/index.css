@@ -15,6 +15,10 @@
   --color-input: var(--rr-ui-input);
   --color-ring: var(--rr-ui-ring);
   --color-destructive: #b33629;
+  /* Several components reference these two shades, which are not part of the
+     default Tailwind slate ramp, so the utilities generated nothing. */
+  --color-slate-750: #293548;
+  --color-slate-850: #172033;
 }
 :root { --rr-ui-primary:#122019; --rr-ui-primary-foreground:#f5f4e9; --rr-ui-secondary:#d3f780; --rr-ui-background:#f5f4e9; --rr-ui-input:#87947b; --rr-ui-ring:#618334; }
 :root.dark { --rr-ui-primary:#d3f780; --rr-ui-primary-foreground:#122019; --rr-ui-secondary:#324633; --rr-ui-background:#122019; --rr-ui-input:#78906a; --rr-ui-ring:#d3f780; }
@@ -92,11 +96,29 @@
   --rr-app-wash-2: rgb(16 185 129 / 0.045);
   --rr-app-accent: #4f46e5;
 }
+:root {
+  --rr-surface: #ffffff;
+  --rr-surface-raised: #f1f5f9;
+  --rr-surface-sunken: #f8fafc;
+  --rr-border: #e2e8f0;
+  --rr-text: #0f172a;
+  --rr-text-muted: #475569;
+  --rr-text-subtle: #64748b;
+}
 :root.dark {
   --rr-app-bg: #030712;
   --rr-app-wash-1: rgb(99 102 241 / 0.11);
   --rr-app-wash-2: rgb(16 185 129 / 0.07);
   --rr-app-accent: #818cf8;
+}
+:root.dark {
+  --rr-surface: #0f172a;
+  --rr-surface-raised: #334155;
+  --rr-surface-sunken: #1e293b;
+  --rr-border: #334155;
+  --rr-text: #f1f5f9;
+  --rr-text-muted: #cbd5e1;
+  --rr-text-subtle: #94a3b8;
 }
 
 :root[data-rr-palette="midnight"] {
@@ -110,6 +132,10 @@
   --rr-app-wash-1: rgb(99 102 241 / 0.18);
   --rr-app-wash-2: rgb(56 189 248 / 0.09);
   --rr-app-accent: #818cf8;
+  --rr-surface: #121736;
+  --rr-surface-raised: #2d3566;
+  --rr-surface-sunken: #1c2450;
+  --rr-border: #2d3566;
 }
 
 :root[data-rr-palette="forest"] {
@@ -123,6 +149,10 @@
   --rr-app-wash-1: rgb(16 185 129 / 0.16);
   --rr-app-wash-2: rgb(132 204 22 / 0.08);
   --rr-app-accent: #34d399;
+  --rr-surface: #0a1f16;
+  --rr-surface-raised: #1d4235;
+  --rr-surface-sunken: #122e23;
+  --rr-border: #1d4235;
 }
 
 :root[data-rr-palette="sunrise"] {
@@ -136,6 +166,10 @@
   --rr-app-wash-1: rgb(245 158 11 / 0.16);
   --rr-app-wash-2: rgb(249 115 22 / 0.09);
   --rr-app-accent: #fbbf24;
+  --rr-surface: #241a0d;
+  --rr-surface-raised: #4c3a1c;
+  --rr-surface-sunken: #332512;
+  --rr-border: #4c3a1c;
 }
 
 :root[data-rr-palette="ocean"] {
@@ -149,6 +183,10 @@
   --rr-app-wash-1: rgb(34 211 238 / 0.15);
   --rr-app-wash-2: rgb(45 212 191 / 0.09);
   --rr-app-accent: #22d3ee;
+  --rr-surface: #08242e;
+  --rr-surface-raised: #12505f;
+  --rr-surface-sunken: #0d3945;
+  --rr-border: #12505f;
 }
 
 :root[data-rr-palette="plum"] {
@@ -162,6 +200,10 @@
   --rr-app-wash-1: rgb(217 70 239 / 0.15);
   --rr-app-wash-2: rgb(167 139 250 / 0.1);
   --rr-app-accent: #e879f9;
+  --rr-surface: #22122a;
+  --rr-surface-raised: #4a2850;
+  --rr-surface-sunken: #321a3a;
+  --rr-border: #4a2850;
 }
 
 :root[data-rr-palette="mono"] {
@@ -175,6 +217,10 @@
   --rr-app-wash-1: transparent;
   --rr-app-wash-2: transparent;
   --rr-app-accent: #e5e7eb;
+  --rr-surface: #0a0a0a;
+  --rr-surface-raised: #262626;
+  --rr-surface-sunken: #171717;
+  --rr-border: #2e2e2e;
 }
 
 /* The app shell paints the palette canvas plus two very soft accent washes. */
@@ -187,53 +233,75 @@
 }
 
 /* =========================================================================
-   Dark-mode surfaces for the Learn section (.rr-learn)
-   The Academy and Tax Centre were authored with light surfaces only, so in
-   dark mode they rendered as a white sheet. Rather than rewriting every class,
-   the light surface utilities are remapped inside .rr-learn.
+   Semantic dark surfaces (.rr-surfaces)
+   The Academy, Tax Centre, Screener and Portfolio were authored with light
+   surfaces only, so in dark mode they rendered as a white sheet. Rather than
+   rewriting several hundred class names, the light surface utilities are
+   remapped inside .rr-surfaces to the tokens below, which each palette tints.
 
-   :not([class*="dark:"]) keeps any element that already declares its own dark
+   :not([class*="dark:"]) leaves any element that already declares its own dark
    variant in charge of itself, and :where() keeps the inner selector at zero
-   specificity so a future dark: utility on the element still wins.
+   specificity so a dark: utility added later still wins.
    ========================================================================= */
-.dark .rr-learn :where(.bg-white:not([class*="dark:bg-"])) { background-color: #0f172a; }
-.dark .rr-learn :where(.bg-slate-50:not([class*="dark:bg-"])) { background-color: #1e293b; }
-.dark .rr-learn :where(.bg-slate-100:not([class*="dark:bg-"])) { background-color: #334155; }
-.dark .rr-learn :where(.bg-indigo-50:not([class*="dark:bg-"])) { background-color: #1e1b4b; }
-.dark .rr-learn :where(.bg-emerald-50:not([class*="dark:bg-"])) { background-color: #052e21; }
-.dark .rr-learn :where(.bg-rose-50:not([class*="dark:bg-"])) { background-color: #3b0713; }
-.dark .rr-learn :where(.bg-amber-50:not([class*="dark:bg-"])) { background-color: #3a2506; }
-.dark .rr-learn :where(.bg-violet-50:not([class*="dark:bg-"])) { background-color: #2e1065; }
+.dark .rr-surfaces :where(.bg-white:not([class*="dark:bg-"])) { background-color: var(--rr-surface); }
+.dark .rr-surfaces :where(.bg-slate-50:not([class*="dark:bg-"])),
+.dark .rr-surfaces :where(.bg-gray-50:not([class*="dark:bg-"])) { background-color: var(--rr-surface-sunken); }
+.dark .rr-surfaces :where(.bg-slate-100:not([class*="dark:bg-"])),
+.dark .rr-surfaces :where(.bg-slate-200:not([class*="dark:bg-"])) { background-color: var(--rr-surface-raised); }
+.dark .rr-surfaces :where(.bg-indigo-50:not([class*="dark:bg-"])) { background-color: #1e1b4b; }
+.dark .rr-surfaces :where(.bg-emerald-50:not([class*="dark:bg-"])) { background-color: #052e21; }
+.dark .rr-surfaces :where(.bg-rose-50:not([class*="dark:bg-"])) { background-color: #3b0713; }
+.dark .rr-surfaces :where(.bg-amber-50:not([class*="dark:bg-"])) { background-color: #3a2506; }
+.dark .rr-surfaces :where(.bg-violet-50:not([class*="dark:bg-"])) { background-color: #2e1065; }
+.dark .rr-surfaces :where(.bg-blue-50:not([class*="dark:bg-"])) { background-color: #16295c; }
+/* The -100 chips are darkened too, since the mid-shade text on them is
+   lightened by the rules further down. */
+.dark .rr-surfaces :where(.bg-indigo-100:not([class*="dark:bg-"])) { background-color: #272264; }
+.dark .rr-surfaces :where(.bg-emerald-100:not([class*="dark:bg-"])) { background-color: #07402f; }
+.dark .rr-surfaces :where(.bg-rose-100:not([class*="dark:bg-"])) { background-color: #4d0c1c; }
+.dark .rr-surfaces :where(.bg-amber-100:not([class*="dark:bg-"])) { background-color: #4b3008; }
+.dark .rr-surfaces :where(.bg-violet-100:not([class*="dark:bg-"])) { background-color: #3b1480; }
+.dark .rr-surfaces :where(.bg-blue-100:not([class*="dark:bg-"])) { background-color: #1d3878; }
 
-.dark .rr-learn :where(.border-slate-100:not([class*="dark:border-"])),
-.dark .rr-learn :where(.border-slate-200:not([class*="dark:border-"])),
-.dark .rr-learn :where(.border-slate-300:not([class*="dark:border-"])) { border-color: #334155; }
-.dark .rr-learn :where(.border-indigo-100:not([class*="dark:border-"])),
-.dark .rr-learn :where(.border-indigo-200:not([class*="dark:border-"])) { border-color: #3730a3; }
-.dark .rr-learn :where(.border-emerald-200:not([class*="dark:border-"])) { border-color: #065f46; }
-.dark .rr-learn :where(.border-rose-200:not([class*="dark:border-"])) { border-color: #9f1239; }
-.dark .rr-learn :where(.border-amber-200:not([class*="dark:border-"])),
-.dark .rr-learn :where(.border-amber-300:not([class*="dark:border-"])) { border-color: #b45309; }
-.dark .rr-learn :where(.divide-slate-100 > * + *) { border-color: #334155; }
+.dark .rr-surfaces :where(.border-slate-100:not([class*="dark:border-"])),
+.dark .rr-surfaces :where(.border-slate-200:not([class*="dark:border-"])),
+.dark .rr-surfaces :where(.border-slate-300:not([class*="dark:border-"])),
+.dark .rr-surfaces :where(.border-slate-400:not([class*="dark:border-"])),
+.dark .rr-surfaces :where(.border-zinc-300:not([class*="dark:border-"])) { border-color: var(--rr-border); }
+.dark .rr-surfaces :where(.border-indigo-100:not([class*="dark:border-"])),
+.dark .rr-surfaces :where(.border-indigo-200:not([class*="dark:border-"])) { border-color: #3730a3; }
+.dark .rr-surfaces :where(.border-emerald-200:not([class*="dark:border-"])) { border-color: #065f46; }
+.dark .rr-surfaces :where(.border-rose-200:not([class*="dark:border-"])) { border-color: #9f1239; }
+.dark .rr-surfaces :where(.border-amber-200:not([class*="dark:border-"])),
+.dark .rr-surfaces :where(.border-amber-300:not([class*="dark:border-"])) { border-color: #b45309; }
+.dark .rr-surfaces :where(.divide-slate-100 > * + *),
+.dark .rr-surfaces :where(.divide-slate-200 > * + *) { border-color: var(--rr-border); }
 
-.dark .rr-learn :where(.text-slate-900:not([class*="dark:text-"])) { color: #f1f5f9; }
-.dark .rr-learn :where(.text-slate-800:not([class*="dark:text-"])) { color: #e2e8f0; }
-.dark .rr-learn :where(.text-slate-700:not([class*="dark:text-"])),
-.dark .rr-learn :where(.text-slate-600:not([class*="dark:text-"])) { color: #cbd5e1; }
-.dark .rr-learn :where(.text-slate-500:not([class*="dark:text-"])) { color: #94a3b8; }
-/* Quiz options and a few legacy spots still use the zinc ramp. */
-.dark .rr-learn :where(.text-zinc-700:not([class*="dark:text-"])) { color: #cbd5e1; }
-.dark .rr-learn :where(.text-indigo-950:not([class*="dark:text-"])),
-.dark .rr-learn :where(.text-indigo-900:not([class*="dark:text-"])) { color: #c7d2fe; }
-.dark .rr-learn :where(.text-emerald-950:not([class*="dark:text-"])),
-.dark .rr-learn :where(.text-emerald-900:not([class*="dark:text-"])) { color: #a7f3d0; }
-.dark .rr-learn :where(.text-rose-950:not([class*="dark:text-"])),
-.dark .rr-learn :where(.text-rose-900:not([class*="dark:text-"])) { color: #fecdd3; }
-.dark .rr-learn :where(.text-amber-950:not([class*="dark:text-"])) { color: #fde68a; }
+/* An element that paints its own arbitrary background (bg-[#...]) keeps its
+   original text colour: the remap cannot see that background, so lightening
+   the text would leave it unreadable on a bright chip. */
+.dark .rr-surfaces :where(.text-slate-950, .text-slate-900):not([class*="dark:text-"]):not([class*="bg-["]) { color: var(--rr-text); }
+.dark .rr-surfaces :where(.text-slate-800):not([class*="dark:text-"]):not([class*="bg-["]) { color: #e2e8f0; }
+.dark .rr-surfaces :where(.text-slate-700, .text-slate-600, .text-zinc-700):not([class*="dark:text-"]):not([class*="bg-["]) { color: var(--rr-text-muted); }
+.dark .rr-surfaces :where(.text-slate-500, .text-zinc-500):not([class*="dark:text-"]):not([class*="bg-["]) { color: var(--rr-text-subtle); }
+.dark .rr-surfaces :where(.text-slate-400, .text-zinc-400):not([class*="dark:text-"]):not([class*="bg-["]) { color: #7c8ba1; }
+/* The mid shades sit on the tinted -50 chips that are darkened above, so they
+   have to lighten with them. */
+.dark .rr-surfaces :where(.text-indigo-950, .text-indigo-900, .text-indigo-800, .text-indigo-700, .text-indigo-600):not([class*="dark:text-"]):not([class*="bg-["]) { color: #a5b4fc; }
+.dark .rr-surfaces :where(.text-violet-900, .text-violet-800, .text-violet-700):not([class*="dark:text-"]):not([class*="bg-["]) { color: #c4b5fd; }
+.dark .rr-surfaces :where(.text-emerald-950, .text-emerald-900, .text-emerald-800, .text-emerald-700):not([class*="dark:text-"]):not([class*="bg-["]) { color: #6ee7b7; }
+.dark .rr-surfaces :where(.text-rose-950, .text-rose-900, .text-rose-800, .text-rose-700):not([class*="dark:text-"]):not([class*="bg-["]) { color: #fda4af; }
+.dark .rr-surfaces :where(.text-amber-950, .text-amber-900, .text-amber-800, .text-amber-700):not([class*="dark:text-"]):not([class*="bg-["]) { color: #fcd34d; }
+.dark .rr-surfaces :where(.text-blue-900, .text-blue-800, .text-blue-700):not([class*="dark:text-"]):not([class*="bg-["]) { color: #93c5fd; }
 
-/* Form controls inside the Learn section follow the same surfaces. */
-.dark .rr-learn :where(input, textarea, select):not([class*="dark:bg-"]) { color: #f1f5f9; }
-.dark .rr-learn :where(input, textarea)::placeholder { color: #64748b; }
+/* Form controls follow the same surfaces. */
+.dark .rr-surfaces :where(input, textarea, select):not([class*="dark:bg-"]) { color: var(--rr-text); }
+.dark .rr-surfaces :where(input, textarea)::placeholder { color: #64748b; }
+
+/* An element already inside a dark panel must not be re-darkened: a white chip
+   on a slate-900 card stays a white chip. */
+.dark .rr-surfaces :where(.bg-slate-800, .bg-slate-900, .bg-slate-950) :where(.bg-white:not([class*="dark:bg-"])) { background-color: #ffffff; }
+.dark .rr-surfaces :where(.bg-slate-800, .bg-slate-900, .bg-slate-950) :where(.text-slate-900:not([class*="dark:text-"])) { color: #0f172a; }
 
 /* High contrast always wins over a decorative palette. */
 :root[data-rr-contrast="true"] .rr-app-canvas { background-image: none; background-color: #ffffff; }

@@ -347,7 +347,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ onSelectStock, onN
   }, [orders]);
 
   return (
-    <div className="space-y-6">
+    <div className="rr-surfaces space-y-6">
 
       {/* Real-time Data Sync Status & Manual Sync Trigger */}
       <div className="bg-white border border-slate-200 rounded-2xl px-4 py-2.5 shadow-xs flex flex-wrap items-center justify-between gap-3">
@@ -556,14 +556,14 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ onSelectStock, onN
             onClick={() => setPortfolioTab('holdings')}
             className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
               portfolioTab === 'holdings'
-                ? 'bg-slate-900 text-white shadow-md shadow-indigo-900/20'
+                ? 'bg-slate-900 text-white shadow-md shadow-indigo-900/20 dark:bg-indigo-600'
                 : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
             <Layers className="w-4 h-4" />
             <span>Holdings & Allocation</span>
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-extrabold ${
-              portfolioTab === 'holdings' ? 'bg-white/20 text-white' : 'bg-[#E2E8F0] text-slate-900'
+              portfolioTab === 'holdings' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-900 dark:bg-slate-700 dark:text-slate-100'
             }`}>
               {holdingsList.length}
             </span>
@@ -574,7 +574,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ onSelectStock, onN
             onClick={() => setPortfolioTab('analytics')}
             className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
               portfolioTab === 'analytics'
-                ? 'bg-slate-900 text-white shadow-md shadow-indigo-900/20'
+                ? 'bg-slate-900 text-white shadow-md shadow-indigo-900/20 dark:bg-indigo-600'
                 : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
@@ -587,7 +587,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ onSelectStock, onN
             onClick={() => setPortfolioTab('pending')}
             className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
               portfolioTab === 'pending'
-                ? 'bg-slate-900 text-white shadow-md shadow-indigo-900/20'
+                ? 'bg-slate-900 text-white shadow-md shadow-indigo-900/20 dark:bg-indigo-600'
                 : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
@@ -598,7 +598,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ onSelectStock, onN
                 ? 'bg-amber-400 text-amber-950 animate-pulse' 
                 : portfolioTab === 'pending' 
                   ? 'bg-white/20 text-white' 
-                  : 'bg-[#E2E8F0] text-slate-900'
+                  : 'bg-slate-200 text-slate-900 dark:bg-slate-700 dark:text-slate-100'
             }`}>
               {pendingOrdersList.length}
             </span>
@@ -609,14 +609,14 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ onSelectStock, onN
             onClick={() => setPortfolioTab('history')}
             className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
               portfolioTab === 'history'
-                ? 'bg-slate-900 text-white shadow-md shadow-indigo-900/20'
+                ? 'bg-slate-900 text-white shadow-md shadow-indigo-900/20 dark:bg-indigo-600'
                 : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
             <History className="w-4 h-4" />
             <span>All Orders & History</span>
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-extrabold ${
-              portfolioTab === 'history' ? 'bg-white/20 text-white' : 'bg-[#E2E8F0] text-slate-900'
+              portfolioTab === 'history' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-900 dark:bg-slate-700 dark:text-slate-100'
             }`}>
               {orders.length}
             </span>
@@ -639,7 +639,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ onSelectStock, onN
 
           <button
             onClick={onNavigateToScreener}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-[#3b4b1c] text-white text-xs font-extrabold shadow-sm transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold shadow-sm transition-all cursor-pointer"
           >
             <span>+ Trade Indian Stocks</span>
           </button>

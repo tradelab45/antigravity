@@ -698,9 +698,9 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
   ], []);
 
   return (
-    <div className="space-y-6 min-w-0 max-w-full overflow-hidden">
+    <div className="rr-surfaces space-y-6 min-w-0 max-w-full overflow-hidden">
       <div className={`flex flex-col gap-2 rounded-2xl border p-3 text-xs sm:flex-row sm:items-center sm:justify-between ${isMarketLive ? 'border-emerald-200 bg-emerald-50 text-emerald-950' : 'border-amber-200 bg-amber-50 text-amber-950'}`} role="status">
-        <div className="flex items-center gap-2"><span className={`rounded-full px-2 py-1 text-[9px] font-black ${isMarketLive ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-slate-950'}`}>{isMarketLive ? 'LATEST' : nseMarketInfo.isNSEMarketOpen ? 'DELAYED' : 'LAST CLOSE'}</span><span className="font-bold">{isMarketLive ? 'Latest available provider quote; exchange data may be delayed.' : nseMarketInfo.isNSEMarketOpen ? 'The feed may be delayed. Confirm important figures with an exchange-authorised source.' : 'Market is closed. Figures show the last available session; live-style language is disabled.'}</span></div><span className="shrink-0 font-mono text-[10px]">Updated {lastHoldingsSyncTime} IST · RupeeRookie market feed</span>
+        <div className="flex items-center gap-2"><span className={`rounded-full px-2 py-1 text-[9px] font-black ${isMarketLive ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-slate-950 dark:text-slate-950'}`}>{isMarketLive ? 'LATEST' : nseMarketInfo.isNSEMarketOpen ? 'DELAYED' : 'LAST CLOSE'}</span><span className="font-bold">{isMarketLive ? 'Latest available provider quote; exchange data may be delayed.' : nseMarketInfo.isNSEMarketOpen ? 'The feed may be delayed. Confirm important figures with an exchange-authorised source.' : 'Market is closed. Figures show the last available session; live-style language is disabled.'}</span></div><span className="shrink-0 font-mono text-[10px]">Updated {lastHoldingsSyncTime} IST · RupeeRookie market feed</span>
       </div>
       {/* 2. DEDICATED VIEW SECTIONS (SHOWN BASED ON ACTIVE TAB) */}
 
@@ -709,7 +709,7 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
         <div className="bg-gradient-to-br from-[#0F172A] via-[#1E293B] to-[#0F172A] text-white rounded-3xl p-6 sm:p-7 shadow-sm space-y-5 animate-in fade-in duration-200">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center text-xl shadow-sm font-black shrink-0">
+              <div className="w-11 h-11 rounded-2xl bg-amber-400 text-slate-950 dark:text-slate-950 flex items-center justify-center text-xl shadow-sm font-black shrink-0">
                 🎯
               </div>
               <div>
@@ -994,7 +994,7 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
           <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 min-w-0">
             {/* Sector Dropdown */}
             <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 min-w-0">
-              <span className="text-[10px] text-slate-400 font-bold uppercase">Sector:</span>
+              <span className="text-[10px] text-slate-500 font-bold uppercase">Sector:</span>
               <select
                 aria-label="Filter by sector"
                 value={selectedSector}
@@ -1009,7 +1009,7 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
 
             {/* Benchmark Index Dropdown */}
             <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 min-w-0">
-              <span className="text-[10px] text-slate-400 font-bold uppercase">Index:</span>
+              <span className="text-[10px] text-slate-500 font-bold uppercase">Index:</span>
               <select
                 aria-label="Filter by market index"
                 value={selectedBenchmark}
@@ -1245,7 +1245,7 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
             onClick={() => setStrategyPreset(strategyPreset === 'GOLDEN_CROSS' ? 'ALL' : 'GOLDEN_CROSS')}
             className={`px-2.5 py-1 rounded-xl text-[11px] font-black border transition-all shrink-0 flex items-center gap-1 ${
               strategyPreset === 'GOLDEN_CROSS'
-                ? 'bg-amber-500 text-slate-950 border-amber-500 shadow-2xs'
+                ? 'bg-amber-500 text-slate-950 dark:text-slate-950 border-amber-500 shadow-2xs'
                 : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
             }`}
             title="50 EMA crossing above 200 EMA bullish signal"
@@ -1498,7 +1498,7 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
                       {/* Market Breadth Pill */}
                       <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 text-[11px] font-mono font-bold text-slate-600 dark:text-slate-300">
                         <span className="text-emerald-600 dark:text-[#00f59b] font-black">{advances}▲</span>
-                        <span className="text-slate-300 dark:text-slate-600">·</span>
+                        <span aria-hidden="true" className="text-slate-400 dark:text-slate-500">·</span>
                         <span className="text-rose-600 dark:text-rose-400 font-black">{declines}▼</span>
                       </div>
 

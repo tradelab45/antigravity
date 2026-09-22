@@ -453,7 +453,7 @@ export const InvestorAcademy: React.FC = () => {
   });
 
   return (
-    <div className="rr-learn space-y-6">
+    <div className="rr-surfaces space-y-6">
       
       {/* Academy Top Header & Sub-Navigation */}
       <div className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 shadow-sm flex flex-col items-start gap-5">
@@ -1410,7 +1410,7 @@ export const InvestorAcademy: React.FC = () => {
                             }
                           }}
                           disabled={activeQuizIndex >= QUIZ_QUESTIONS.length - 1}
-                          className="bg-indigo-600 hover:bg-[#3d4d1d] text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                         >
                           Next Question <ArrowRight className="w-4 h-4" />
                         </button>

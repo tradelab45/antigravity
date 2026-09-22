@@ -102,7 +102,7 @@ export const TaxCentre: React.FC<TaxCentreProps> = ({ onOpenLesson }) => {
   const slabs = regime === 'NEW' ? NEW_REGIME_SLABS : OLD_REGIME_SLABS;
 
   return (
-    <div className="rr-learn space-y-5">
+    <div className="rr-surfaces space-y-5">
       {/* Accuracy disclaimer — tax rules are rewritten every Finance Act. */}
       <div className="flex items-start gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950">
         <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
