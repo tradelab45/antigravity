@@ -251,6 +251,42 @@ function SimulatorApp() {
     };
   }, []);
 
+  // Discrete Platform Owner Shortcut: Ctrl + Shift + A (or Cmd + Shift + A)
+  useEffect(() => {
+    const handleAdminShortcut = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'A' || e.key === 'a')) {
+        e.preventDefault();
+        handleSwitchToAdmin();
+      }
+    };
+    window.addEventListener('keydown', handleAdminShortcut);
+    return () => window.removeEventListener('keydown', handleAdminShortcut);
+  }, []);
+
+  // Prevent background scrolling and eliminate layout shift when modals are active
+  useEffect(() => {
+    const isModalActive = Boolean(
+      selectedStock ||
+      isWalkthroughOpen ||
+      isCompleteProfileOpen ||
+      isDailyTipOpen ||
+      isBattleOpen ||
+      isOptionsOpen
+    );
+    if (isModalActive) {
+      const prevOverflow = document.body.style.overflow;
+      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+      document.body.style.overflow = 'hidden';
+      if (scrollbarWidth > 0) {
+        document.body.style.paddingRight = `${scrollbarWidth}px`;
+      }
+      return () => {
+        document.body.style.overflow = prevOverflow;
+        document.body.style.paddingRight = '';
+      };
+    }
+  }, [selectedStock, isWalkthroughOpen, isCompleteProfileOpen, isDailyTipOpen, isBattleOpen, isOptionsOpen]);
+
   useEffect(() => {
     const handleAuthSuccess = (e: Event) => {
       const detail = (e as CustomEvent).detail;

@@ -81,8 +81,14 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
   } = useSimulator();
 
   const isAdmin = isUserAdmin(currentUser);
-
   const { theme, isDark, toggleTheme, setTheme, palette, setPalette, palettes } = useTheme();
+  const isOwnerAdmin = Boolean(
+    currentUser && (
+      (currentUser.email && currentUser.email.trim().toLowerCase() === 'aaravvjain23@gmail.com') ||
+      (currentUser.username && currentUser.username.trim().toLowerCase() === 'aarav') ||
+      (isAdmin && currentUser.email && currentUser.email.trim().toLowerCase() === 'aaravvjain23@gmail.com')
+    )
+  );
 
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showSignoutConfirm, setShowSignoutConfirm] = useState(false);
@@ -126,6 +132,9 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
         setProfileDropdownOpen(false);
         setDisplayMenuOpen(false);
         setLabsMenuOpen(false);
+        setShowResetConfirm(false);
+        setShowSignoutConfirm(false);
+        setMobileMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -638,22 +647,6 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
             <span className="sr-only">Reset</span>
           </motion.button>
 
-          {/* Admin Command Center button - strictly for platform owner */}
-          {isAdmin && onOpenAdmin && (
-            <motion.button
-              id="header-admin-badge-btn"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={onOpenAdmin}
-              className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 hover:border-amber-400 font-extrabold text-xs shadow-xs transition-all cursor-pointer"
-              title="Platform Owner: Open Admin Command Center"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />
-              <span className="text-[11px] tracking-tight font-black">Admin</span>
-              <span className="text-[9px] bg-amber-500 text-slate-950 font-black px-1 rounded">VIP</span>
-            </motion.button>
-          )}
-
           {/* User Profile Component with Integrated Exit / Sign Out Option */}
           <div className="relative" ref={profileDropdownRef}>
             <button
@@ -708,7 +701,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
                   {/* Profile Menu Actions */}
                   <div className="p-1.5 space-y-0.5">
                     {/* Admin Command Center - ONLY visible to platform owner */}
-                    {isAdmin && onOpenAdmin && (
+                    {isOwnerAdmin && onOpenAdmin && (
                       <button
                         id="profile-admin-dashboard-btn"
                         onClick={() => {

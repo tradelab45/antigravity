@@ -31,15 +31,16 @@ import { enrichStockWithTechnicalsAndDuPont } from '../utils/technicalCalculator
 import { computeMarketIndicesFromStocks } from '../utils/indexCalculator';
 import { mergeQuote } from '../utils/quoteState';
 
-export const ADMIN_EMAILS = ['aaravvjain23@gmail.com', 'xyz@gmail.com'];
-export const ADMIN_USERNAMES = ['rookie_trader', 'aarav_trader', 'aarav', 'admin'];
+export const ADMIN_EMAILS = ['aaravvjain23@gmail.com'];
+export const ADMIN_USERNAMES = ['aaravvjain23@gmail.com', 'aarav', 'aarav_trader'];
 
 export const isUserAdmin = (user: { email?: string; username?: string; isAdmin?: boolean; role?: string } | null | undefined): boolean => {
   if (!user) return false;
-  if (user.isAdmin === true || user.role === 'ADMIN') return true;
   const email = (user.email || '').trim().toLowerCase();
   const username = (user.username || '').trim().toLowerCase();
-  return ADMIN_EMAILS.includes(email) || ADMIN_USERNAMES.includes(username);
+  if (ADMIN_EMAILS.includes(email) || ADMIN_USERNAMES.includes(username)) return true;
+  if ((user.isAdmin === true || user.role === 'ADMIN') && ADMIN_EMAILS.includes(email)) return true;
+  return false;
 };
 
 const INACTIVITY_TIMEOUT_MS = 7 * 24 * 60 * 60 * 1000;

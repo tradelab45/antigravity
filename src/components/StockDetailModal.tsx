@@ -700,8 +700,18 @@ function generateRealisticChartSeries(
       })
     : null;
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/40 dark:bg-black/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 bg-slate-900/40 dark:bg-black/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 overflow-hidden">
       <div className="bg-white dark:bg-[#081219] border border-slate-200 dark:border-white/15 rounded-3xl w-full max-w-5xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden text-slate-900 dark:text-slate-100">
         
         {/* Modal Header */}
@@ -901,7 +911,7 @@ function generateRealisticChartSeries(
         </nav>
 
         {/* Modal Body - 2 Columns */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6 bg-slate-50/50 dark:bg-[#060c11]">
+        <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6 bg-slate-50/50 dark:bg-[#060c11]">
           
           {/* Left 2 Columns: Live Price, Charts, Technical Analysis, Fundamentals */}
           <div className="lg:col-span-2 space-y-6">

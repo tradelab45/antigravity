@@ -967,25 +967,25 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ onSelectStock, onN
                               </div>
                               <div className="text-[11px] text-slate-500 font-medium">{h.stock?.name || h.symbol} • {h.stock?.sector || 'Equity'}</div>
                             </td>
-                            <td className="py-3 px-3 text-right font-extrabold text-slate-900">
+                            <td className="py-3 px-3 text-right font-mono tabular-nums font-extrabold text-slate-900">
                               {h.quantity}
                             </td>
-                            <td className="py-3 px-3 text-right font-medium">
+                            <td className="py-3 px-3 text-right font-mono tabular-nums font-medium text-slate-700">
                               ₹{h.avgBuyPrice.toFixed(2)}
                             </td>
-                            <td className="py-3 px-3 text-right font-extrabold text-slate-900">
+                            <td className="py-3 px-3 text-right font-mono tabular-nums font-extrabold text-slate-900">
                               <div>₹{h.curPrice.toFixed(2)}</div>
                               <div className={`text-[10px] font-bold ${h.priceDifferenceFromBuy >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                                 {h.priceDifferenceFromBuy >= 0 ? '▲ +' : '▼ '}{h.priceDifferencePercent.toFixed(2)}%
                               </div>
                             </td>
-                            <td className="py-3 px-3 text-right font-medium text-slate-500">
+                            <td className="py-3 px-3 text-right font-mono tabular-nums font-medium text-slate-500">
                               {formatINR(h.totalInvested)}
                             </td>
-                            <td className="py-3 px-3 text-right font-extrabold text-slate-900">
+                            <td className="py-3 px-3 text-right font-mono tabular-nums font-extrabold text-slate-900">
                               {formatINR(h.curValue)}
                             </td>
-                            <td className="py-3 px-3 text-right">
+                            <td className="py-3 px-3 text-right font-mono tabular-nums">
                               <div className={`font-extrabold ${isDayGain ? 'text-emerald-600' : 'text-rose-600'}`}>
                                 {isDayGain ? '+' : ''}{formatINR(h.dayChangeAmount)}
                               </div>
@@ -993,7 +993,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ onSelectStock, onN
                                 ({formatPercent(h.dayChangePercent)})
                               </div>
                             </td>
-                            <td className="py-3 px-3 text-right">
+                            <td className="py-3 px-3 text-right font-mono tabular-nums">
                               <div className={`font-extrabold ${isGain ? 'text-emerald-600' : 'text-rose-600'}`}>
                                 {isGain ? '+' : ''}{formatINR(h.pnl)}
                               </div>
@@ -1494,13 +1494,13 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ onSelectStock, onN
                               {ord.orderType}
                             </span>
                           </td>
-                          <td className="py-3 px-3 text-right font-extrabold text-slate-900">
+                          <td className="py-3 px-3 text-right font-mono tabular-nums font-extrabold text-slate-900">
                             {ord.quantity} shares
                           </td>
-                          <td className="py-3 px-3 text-right font-extrabold text-slate-900 font-mono">
+                          <td className="py-3 px-3 text-right font-extrabold text-slate-900 font-mono tabular-nums">
                             ₹{ord.price.toFixed(2)}
                           </td>
-                          <td className="py-3 px-3 text-right font-black text-slate-900 font-mono">
+                          <td className="py-3 px-3 text-right font-black text-slate-900 font-mono tabular-nums">
                             {formatINR(ord.totalAmount)}
                           </td>
                           <td className="py-3 px-3 text-center">
@@ -1757,13 +1757,13 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ onSelectStock, onN
                               {ord.orderType}
                             </span>
                           </td>
-                          <td className="py-3 px-3 text-right font-extrabold text-slate-900">
+                          <td className="py-3 px-3 text-right font-mono tabular-nums font-extrabold text-slate-900">
                             {ord.quantity} shares
                           </td>
-                          <td className="py-3 px-3 text-right font-extrabold text-slate-900 font-mono">
+                          <td className="py-3 px-3 text-right font-extrabold text-slate-900 font-mono tabular-nums">
                             ₹{ord.price.toFixed(2)}
                           </td>
-                          <td className="py-3 px-3 text-right font-black text-slate-900 font-mono">
+                          <td className="py-3 px-3 text-right font-black text-slate-900 font-mono tabular-nums">
                             {formatINR(ord.totalAmount)}
                           </td>
                           <td className="py-3 px-3 text-center">

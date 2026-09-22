@@ -2579,15 +2579,16 @@ interface StoredUser {
 const USERS_FILE = path.join(process.cwd(), "data", "users.json");
 const DEMO_PASSWORD = "RookiePass@2026";
 
-const ADMIN_EMAILS = ["aaravvjain23@gmail.com", "xyz@gmail.com"];
-const ADMIN_USERNAMES = ["rookie_trader", "aarav_trader", "aarav", "admin"];
+const ADMIN_EMAILS = ["aaravvjain23@gmail.com"];
+const ADMIN_USERNAMES = ["aaravvjain23@gmail.com", "aarav", "aarav_trader"];
 
 function isUserAdminAccount(user: { email?: string; username?: string; isAdmin?: boolean; role?: string } | null | undefined): boolean {
   if (!user) return false;
-  if (user.isAdmin === true || user.role === "ADMIN") return true;
   const email = (user.email || "").trim().toLowerCase();
   const username = (user.username || "").trim().toLowerCase();
-  return ADMIN_EMAILS.includes(email) || ADMIN_USERNAMES.includes(username);
+  if (ADMIN_EMAILS.includes(email) || ADMIN_USERNAMES.includes(username)) return true;
+  if ((user.isAdmin === true || user.role === "ADMIN") && ADMIN_EMAILS.includes(email)) return true;
+  return false;
 }
 
 function hashPassword(password: string): string {

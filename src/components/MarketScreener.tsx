@@ -1705,38 +1705,40 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
                           ))}
                         </div>
                       </td>
-                      <td className="p-4 text-right font-black font-mono text-sm text-slate-900">
+                      <td className="p-4 text-right font-black font-mono tabular-nums text-sm text-slate-900">
                         {formatINR(stock.price)}
                       </td>
                       <td className="p-4 text-right">
-                        <span className={`inline-block font-black px-2 py-0.5 rounded-md text-[11px] ${
+                        <span className={`inline-block font-black font-mono tabular-nums px-2 py-0.5 rounded-md text-[11px] ${
                           isUp ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
                         }`}>
                           {isUp ? '+' : ''}{stock.changePercent.toFixed(2)}%
                         </span>
                       </td>
-                      <td className="p-2 w-36">
-                        <ShareBoxAreaChart
-                          symbol={stock.symbol}
-                          price={stock.price}
-                          change={stock.change}
-                          changePercent={stock.changePercent}
-                          high52={stock.high52}
-                          low52={stock.low52}
-                          dayHigh={stock.dayHigh}
-                          dayLow={stock.dayLow}
-                          open={stock.open}
-                          previousClose={stock.previousClose}
-                          volume={stock.volume}
-                          height={30}
-                          showLabels={false}
-                          showTimeframes={false}
-                        />
+                      <td className="p-2 w-36 text-center">
+                        <div className="mx-auto w-32 flex justify-center">
+                          <ShareBoxAreaChart
+                            symbol={stock.symbol}
+                            price={stock.price}
+                            change={stock.change}
+                            changePercent={stock.changePercent}
+                            high52={stock.high52}
+                            low52={stock.low52}
+                            dayHigh={stock.dayHigh}
+                            dayLow={stock.dayLow}
+                            open={stock.open}
+                            previousClose={stock.previousClose}
+                            volume={stock.volume}
+                            height={30}
+                            showLabels={false}
+                            showTimeframes={false}
+                          />
+                        </div>
                       </td>
-                      <td className="p-4 text-right font-mono font-bold text-slate-900">
+                      <td className="p-4 text-right font-mono tabular-nums font-bold text-slate-900">
                         {stock.peRatio}x
                       </td>
-                      <td className="p-4 text-right font-bold text-slate-500">
+                      <td className="p-4 text-right font-mono tabular-nums font-bold text-slate-500">
                         {formatIndianShort(stock.marketCapCr * 10000000)}
                       </td>
                       <td className="p-4">
