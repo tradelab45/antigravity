@@ -9,7 +9,7 @@ import { useAccessibility } from '../context/AccessibilityContext';
 import { useSimulator } from '../context/SimulatorContext';
 import type { AppTabType } from './Header';
 import './landing-3d.css';
-import { LiquidButton, MetalButton } from './ui/liquid-glass-button';
+import { MetalButton } from './ui/liquid-glass-button';
 import { GlowCard, SpotlightCard } from './ui/spotlight-card';
 import { MotionFooter } from './MotionFooter';
 import { SpatialCandlestickChart } from './ui/spatial-candlestick-chart';
@@ -258,9 +258,9 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
             <span>Motion {reduced ? 'off' : 'on'}</span>
           </button>
 
-          <LiquidButton size="sm" onClick={() => onEnter('LOGIN')}>
+          <MetalButton variant="graphite" onClick={() => onEnter('LOGIN')} className="h-9 px-4 text-xs">
             Sign in <ArrowUpRight size={16} />
-          </LiquidButton>
+          </MetalButton>
         </div>
       </header>
 
@@ -277,12 +277,12 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
             </p>
 
             <div className="rr-hero-actions">
-              <MetalButton variant="brand" onClick={() => onEnter('SIGNUP', 'academy')}>
+              <MetalButton variant="chrome" onClick={() => onEnter('SIGNUP', 'academy')}>
                 Start learning <ArrowUpRight size={20} />
               </MetalButton>
-              <LiquidButton asChild size="lg">
-                <a href="#rr-shares-box">Explore live shares <ArrowRight size={17} /></a>
-              </LiquidButton>
+              <MetalButton variant="graphite" onClick={() => { document.getElementById('rr-shares-box')?.scrollIntoView({ behavior: 'smooth' }); }}>
+                Explore live shares <ArrowRight size={17} />
+              </MetalButton>
             </div>
 
             <p className="rr-small-note">
@@ -382,7 +382,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                         {/* Card Header: Symbol & Sector */}
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
-                            <span className="font-mono font-bold text-lg text-white">{stock.symbol}</span>
+                            <span className="font-mono font-bold text-lg text-slate-900">{stock.symbol}</span>
                             {isSelected && (
                               <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full bg-mint/20 text-mint border border-mint/30">
                                 ACTIVE
@@ -394,19 +394,19 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                               </span>
                             )}
                           </div>
-                          <span className="text-xs font-mono text-slate-400 bg-slate-800/80 px-2 py-0.5 rounded-md">
+                          <span className="text-xs font-mono text-slate-500 bg-slate-800/80 px-2 py-0.5 rounded-md">
                             {stock.sector}
                           </span>
                         </div>
 
                         {/* Company Name */}
-                        <p className="text-xs text-slate-400 font-medium mb-4">{stock.name}</p>
+                        <p className="text-xs text-slate-500 font-medium mb-4">{stock.name}</p>
 
                         {/* Price & Change Pill */}
                         <div className="flex items-baseline justify-between pt-2 border-t border-slate-800/80">
                           <div>
                             <span className="text-[10px] font-mono text-slate-500 uppercase">Share Price</span>
-                            <div className="text-2xl font-bold font-mono text-white">
+                            <div className="text-2xl font-bold font-mono text-slate-900">
                               ₹{stock.price.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                             </div>
                           </div>
@@ -424,7 +424,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
 
                       {/* Micro Stats & Action Buttons */}
                       <div className="pt-4 border-t border-slate-800/60 flex items-center justify-between text-xs font-mono">
-                        <div className="flex items-center gap-2 text-slate-400">
+                        <div className="flex items-center gap-2 text-slate-500">
                           <span>M-Cap: {stock.marketCap}</span>
                           <span className="text-slate-500">P/E: {stock.peRatio}x</span>
                         </div>
@@ -458,7 +458,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
             <p className="rr-eyebrow">01 / THE 3D RISK SANDBOX</p>
             <h2>Stress-test your <em>shares</em>.<br />Discover your downside.</h2>
             <p>
-              Selected Share: <strong className="text-white font-mono">{selectedStock.name} ({selectedStock.symbol})</strong>.
+              Selected Share: <strong className="text-slate-900 font-mono">{selectedStock.name} ({selectedStock.symbol})</strong>.
               Move the sliders to see how concentration and volatility impact your virtual ₹10 Lakh portfolio.
             </p>
 
@@ -476,14 +476,15 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                     <Layers size={14} />
                     LIVE SHARES ALLOCATION SIMULATOR
                   </span>
-                  <p className="text-xs text-slate-400 mt-0.5">Total Practice Capital: {money(capital)}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Total Practice Capital: {money(capital)}</p>
                 </div>
-                <LiquidButton 
-                  size="sm" 
+                <MetalButton
+                  variant="chrome"
+                  className="h-8 px-3 text-xs"
                   onClick={() => { setAllocation(25); setMove(selectedStock.changePct); }}
                 >
                   <RotateCcw size={14} /> Reset
-                </LiquidButton>
+                </MetalButton>
               </div>
 
               {/* SHARES SPOTLIGHT BOX: Inside the Sandbox */}
@@ -491,15 +492,15 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                 <GlowCard glowColor={selectedStock.glow} customSize className="p-4 bg-slate-900/60 border border-slate-700/60">
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <div>
-                      <span className="text-[10px] font-mono text-slate-400 uppercase">Active Share in Focus</span>
-                      <div className="text-base font-bold text-white font-mono flex items-center gap-2">
+                      <span className="text-[10px] font-mono text-slate-500 uppercase">Active Share in Focus</span>
+                      <div className="text-base font-bold text-slate-900 font-mono flex items-center gap-2">
                         <span>{selectedStock.symbol}</span>
-                        <span className="text-xs text-slate-400 font-sans font-normal">({selectedStock.name})</span>
+                        <span className="text-xs text-slate-500 font-sans font-normal">({selectedStock.name})</span>
                       </div>
                     </div>
 
                     <div className="text-right">
-                      <span className="text-[10px] font-mono text-slate-400 uppercase">Purchasable Quantity</span>
+                      <span className="text-[10px] font-mono text-slate-500 uppercase">Purchasable Quantity</span>
                       <div className="text-base font-bold text-mint font-mono">
                         {sharesQuantity} Shares
                       </div>
@@ -509,15 +510,15 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                   <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-slate-800 text-xs font-mono">
                     <div>
                       <span className="text-slate-500 text-[10px] block">PER SHARE</span>
-                      <span className="text-white font-semibold">₹{selectedStock.price.toFixed(2)}</span>
+                      <span className="text-slate-900 font-semibold">₹{selectedStock.price.toFixed(2)}</span>
                     </div>
                     <div>
                       <span className="text-slate-500 text-[10px] block">TOTAL COST</span>
-                      <span className="text-white font-semibold">{money(exactCost)}</span>
+                      <span className="text-slate-900 font-semibold">{money(exactCost)}</span>
                     </div>
                     <div>
                       <span className="text-slate-500 text-[10px] block">CASH LEFTOVER</span>
-                      <span className="text-slate-300 font-semibold">{money(cashResidual)}</span>
+                      <span className="text-slate-600 font-semibold">{money(cashResidual)}</span>
                     </div>
                   </div>
                 </GlowCard>
@@ -525,7 +526,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
 
               {/* Quick Allocation Presets */}
               <div className="flex items-center gap-2 mb-4 flex-wrap">
-                <span className="text-xs font-semibold text-slate-400">Presets:</span>
+                <span className="text-xs font-semibold text-slate-500">Presets:</span>
                 {[10, 25, 50, 75].map((pct) => (
                   <button
                     key={pct}
@@ -534,7 +535,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                     className={`text-xs px-2.5 py-1 rounded-md border transition-all ${
                       allocation === pct 
                         ? 'bg-mint text-slate-950 border-mint font-bold shadow-md' 
-                        : 'border-slate-700 hover:bg-slate-800 text-slate-300'
+                        : 'border-slate-700 hover:bg-slate-800 text-slate-600'
                     }`}
                   >
                     {pct}% Capital
@@ -580,7 +581,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
               <div className="rr-result-grid" aria-live="polite" aria-atomic="true">
                 <div>
                   <small>SHARES PURCHASED</small>
-                  <strong className="text-white">{sharesQuantity} shares</strong>
+                  <strong className="text-slate-900">{sharesQuantity} shares</strong>
                 </div>
                 <div>
                   <small>HYPOTHETICAL {change < 0 ? 'DRAWDOWN' : 'GAIN'}</small>
@@ -611,11 +612,11 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
               </div>
 
               <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between flex-wrap gap-2">
-                <span className="text-xs text-slate-400 font-mono">
-                  Portfolio balance: <strong className="text-white">{money(capital + change)}</strong>
+                <span className="text-xs text-slate-500 font-mono">
+                  Portfolio balance: <strong className="text-slate-900">{money(capital + change)}</strong>
                 </span>
-                <MetalButton 
-                  variant={change >= 0 ? "success" : "gold"} 
+                <MetalButton
+                  variant="chrome"
                   onClick={() => onEnter('SIGNUP', 'portfolio')}
                   className="text-xs h-8 px-4"
                 >
@@ -650,21 +651,21 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
               >
                 <div>
                   <div className="flex justify-between items-center mb-6 font-mono text-xs">
-                    <span className="font-bold text-slate-400">{item.n} / STAGE</span>
+                    <span className="font-bold text-slate-500">{item.n} / STAGE</span>
                     <item.icon size={26} className="text-mint" />
                   </div>
-                  <h3 className="text-2xl font-bold tracking-tight mb-2 text-white">{item.title}</h3>
-                  <p className="text-sm text-slate-400 leading-relaxed">{item.text}</p>
+                  <h3 className="text-2xl font-bold tracking-tight mb-2 text-slate-900">{item.title}</h3>
+                  <p className="text-sm text-slate-500 leading-relaxed">{item.text}</p>
                 </div>
                 <div className="pt-4 border-t border-slate-800/80">
-                  <LiquidButton 
-                    size="sm" 
-                    className="w-full justify-between"
+                  <MetalButton
+                    variant="graphite"
+                    className="w-full justify-between h-9 px-4 text-xs"
                     onClick={() => onEnter('SIGNUP', item.view as AppTabType)}
                   >
                     <span>Explore this path</span>
                     <ArrowUpRight size={16} />
-                  </LiquidButton>
+                  </MetalButton>
                 </div>
               </GlowCard>
             ))}
@@ -678,10 +679,10 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                   <p className="rr-eyebrow flex items-center gap-1.5 text-amber-400">
                     <Zap size={14} /> 20-SECOND KNOWLEDGE CHECK
                   </p>
-                  <h3 className="text-2xl font-bold tracking-tight mt-2 mb-3 text-white">
+                  <h3 className="text-2xl font-bold tracking-tight mt-2 mb-3 text-slate-900">
                     Five stocks. All from one sector.<br />Is that a diversified portfolio?
                   </h3>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-slate-500">
                     Interactive concept check. Tap an option to explore the mental model.
                   </p>
                 </div>
@@ -695,7 +696,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                       className={`px-4 py-2.5 text-xs font-semibold rounded-lg border transition-all ${
                         answer === 0 
                           ? 'bg-mint text-slate-950 border-mint font-bold shadow-md' 
-                          : 'border-slate-700 bg-slate-900/60 hover:bg-slate-800 text-slate-300'
+                          : 'border-slate-700 bg-slate-900/60 hover:bg-slate-800 text-slate-600'
                       }`}
                     >
                       Yes, five companies is plenty
@@ -707,7 +708,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                       className={`px-4 py-2.5 text-xs font-semibold rounded-lg border transition-all ${
                         answer === 1 
                           ? 'bg-mint text-slate-950 border-mint font-bold shadow-md' 
-                          : 'border-slate-700 bg-slate-900/60 hover:bg-slate-800 text-slate-300'
+                          : 'border-slate-700 bg-slate-900/60 hover:bg-slate-800 text-slate-600'
                       }`}
                     >
                       Not necessarily
@@ -715,7 +716,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                   </div>
 
                   <div 
-                    className="mt-4 p-3.5 rounded-xl bg-slate-900/80 text-xs text-slate-300 leading-relaxed border border-slate-800" 
+                    className="mt-4 p-3.5 rounded-xl bg-slate-900/80 text-xs text-slate-600 leading-relaxed border border-slate-800" 
                     aria-live="polite"
                   >
                     {answer === null ? (
@@ -768,10 +769,10 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                   <span className="text-xs font-mono uppercase tracking-widest text-mint">
                     MODULE {selected.number} OF 03
                   </span>
-                  <h3 className="text-3xl font-bold tracking-tight mt-1 mb-3 text-white">
+                  <h3 className="text-3xl font-bold tracking-tight mt-1 mb-3 text-slate-900">
                     {selected.title}
                   </h3>
-                  <p className="text-sm text-slate-300 leading-relaxed mb-6">
+                  <p className="text-sm text-slate-600 leading-relaxed mb-6">
                     {selected.body}
                   </p>
 
@@ -782,7 +783,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                   </div>
 
                   <MetalButton 
-                    variant="success" 
+                    variant="graphite" 
                     onClick={() => onEnter('SIGNUP', selected.view)}
                   >
                     Open {selected.name} after signup <ArrowRight size={18} />
@@ -834,17 +835,17 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
         <section className="rr-final-cta">
           <span className="rr-eyebrow">YOUR JOURNEY AWAITS</span>
           <h2>Stay curious.<br /><em>Start small.</em></h2>
-          <p className="text-sm text-slate-300 max-w-lg mb-6 leading-relaxed">
+          <p className="text-sm text-slate-600 max-w-lg mb-6 leading-relaxed">
             Join thousands of curious Indian learners mastering portfolio construction and trading psychology without financial anxiety.
           </p>
 
           <div className="flex gap-4 items-center flex-wrap z-10">
-            <MetalButton variant="brand" onClick={() => onEnter('SIGNUP', 'academy')}>
+            <MetalButton variant="chrome" onClick={() => onEnter('SIGNUP', 'academy')}>
               Let’s begin <ArrowUpRight size={21} />
             </MetalButton>
-            <LiquidButton size="lg" onClick={() => onEnter('LOGIN')}>
+            <MetalButton variant="graphite" onClick={() => onEnter('LOGIN')}>
               Existing user? Sign in
-            </LiquidButton>
+            </MetalButton>
           </div>
 
         </section>

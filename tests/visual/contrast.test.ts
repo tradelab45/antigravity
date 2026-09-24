@@ -143,3 +143,43 @@ for (const palette of PALETTES.filter((option): option is Palette => option !== 
     });
   }
 }
+
+/**
+ * The landing page, which none of the sweeps above reach: they all sign a
+ * demo user in, and the landing page is what a signed-out visitor sees. It
+ * is its own light theme rather than the app's, so nothing else covers it.
+ */
+test('the landing page has readable text', { timeout: 120_000 }, async () => {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  const pageErrors: string[] = [];
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+
+  try {
+    // Deliberately unseeded: no user, so the landing page renders.
+    await page.goto(`${baseUrl}/`, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('.rr-landing', { timeout: 20000 });
+    await page.evaluate(() => document.fonts.ready);
+    await page.waitForTimeout(1500);
+    // Walk the page so every reveal has fired before measuring.
+    await page.evaluate(async () => {
+      const height = document.body.scrollHeight;
+      for (let i = 0; i < 12; i += 1) {
+        window.scrollTo(0, (height / 12) * i);
+        await new Promise((resolve) => setTimeout(resolve, 260));
+      }
+      window.scrollTo(0, 0);
+    });
+    await page.waitForTimeout(600);
+
+    const findings = await auditContrast(page);
+
+    assert.deepEqual(pageErrors, [], `The landing page raised a runtime error:\n  ${pageErrors.join('\n  ')}`);
+    assert.equal(
+      findings.length,
+      0,
+      `The landing page has ${findings.length} text node(s) below ${MINIMUM_CONTRAST}:1.\n${describeFindings(findings)}`,
+    );
+  } finally {
+    await page.close();
+  }
+});
