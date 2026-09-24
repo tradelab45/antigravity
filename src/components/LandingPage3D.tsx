@@ -38,6 +38,43 @@ const POPULAR_SHARES: PopularShare[] = [
   { symbol: 'ZOMATO', name: 'Zomato Limited', price: 326.85, change: 4.50, changePct: 1.40, sector: 'Quick Commerce & Food', glow: 'green', marketCap: '₹3.0L Cr', peRatio: '710.5' },
 ];
 
+interface MarketIndex {
+  name: string;
+  value: number;
+  change: number;
+  changePercent: number;
+}
+
+interface MarketBreadth {
+  advances: number;
+  declines: number;
+}
+
+const indexValue = (value: number) =>
+  new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+
+/** The three steps a new account actually goes through, in order. */
+const JOURNEY = [
+  {
+    step: '01',
+    title: 'Learn the idea',
+    body: 'Stage one of the Academy opens straight away. Short lessons on what a share is, how an order works and why price moves. Pass its 20-question paper and stage two unlocks.',
+    icon: BookOpen,
+  },
+  {
+    step: '02',
+    title: 'Place the trade',
+    body: 'Spend the ₹10,00,000 of practice capital on real NSE and BSE names. Orders fill against live-style prices, and the portfolio tracks every rupee of it.',
+    icon: BarChart3,
+  },
+  {
+    step: '03',
+    title: 'Read what happened',
+    body: 'The journal scores your process rather than your luck: position size, holding period, and the habits behind the trades that went wrong.',
+    icon: Activity,
+  },
+] as const;
+
 const features = [
   { 
     name: 'Academy', 
@@ -129,6 +166,61 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
         }
       })
       .catch(() => {});
+  }, []);
+
+  // The index bar under the nav. A visitor sees where the Indian market
+  // actually stands before signing up for anything.
+  const [indices, setIndices] = useState<MarketIndex[] | null>(null);
+  const [breadth, setBreadth] = useState<MarketBreadth | null>(null);
+  // 'loading' holds the bar's height so the hero does not jump when the
+  // figures land. If the feed is unreachable the bar is removed instead of
+  // sitting there saying "loading" for the rest of the visit.
+  const [indexStatus, setIndexStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = () => {
+      fetch('/api/market/summary')
+        .then((res) => (res.ok ? res.json() : Promise.reject(new Error('unavailable'))))
+        .then((data: any) => {
+          if (cancelled) return;
+          const order = ['nifty50', 'sensex', 'niftyBank', 'niftyIT'];
+          const rows: MarketIndex[] = order
+            .map((key) => data?.indices?.[key])
+            .filter((row: any) => row && typeof row.value === 'number')
+            .map((row: any) => ({
+              name: String(row.name),
+              value: Number(row.value),
+              change: Number(row.change) || 0,
+              changePercent: Number(row.changePercent) || 0,
+            }));
+          if (rows.length === 0) {
+            setIndexStatus((status) => (status === 'ready' ? status : 'unavailable'));
+            return;
+          }
+          setIndices(rows);
+          setIndexStatus('ready');
+          const counts = data?.marketBreadth;
+          if (counts && typeof counts.advances === 'number') {
+            setBreadth({ advances: counts.advances, declines: counts.declines ?? 0 });
+          }
+        })
+        .catch(() => {
+          if (cancelled) return;
+          // A later poll can still succeed; only the first failure collapses it.
+          setIndexStatus((status) => (status === 'ready' ? status : 'unavailable'));
+        });
+    };
+
+    load();
+    // Slow enough to be polite to the quote provider, quick enough that a
+    // visitor reading the hero sees the figures move.
+    const timer = window.setInterval(load, 60000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
   }, []);
 
   const capital = 1000000;
@@ -240,6 +332,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
         </a>
 
         <nav aria-label="Main navigation">
+          <a href="#rr-how">How it works</a>
           <a href="#rr-shares-box">Shares</a>
           <a href="#rr-practice">3D Sandbox</a>
           <a href="#rr-learn">Academy</a>
@@ -315,6 +408,35 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
           </a>
         </section>
 
+        {/* Live index bar */}
+        {indexStatus !== 'unavailable' && (
+          <div className="rr-index-bar" aria-label="Indian market indices">
+            {indices && (
+              <>
+                <span className="rr-index-tag">
+                  <span className="rr-live-dot" /> MARKET NOW
+                </span>
+                <ul>
+                  {indices.map((index) => (
+                    <li key={index.name}>
+                      <span className="rr-index-name">{index.name}</span>
+                      <span className="rr-index-value">{indexValue(index.value)}</span>
+                      <span className={index.change < 0 ? 'rr-index-down' : 'rr-index-up'}>
+                        {index.change < 0 ? '▼' : '▲'} {index.changePercent.toFixed(2)}%
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                {breadth && (
+                  <span className="rr-index-breadth">
+                    {breadth.advances} advancing · {breadth.declines} declining
+                  </span>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
         {/* Proof Strip */}
         <div className="rr-proof-strip">
           <span>BUILT FOR LEARNERS</span>
@@ -326,6 +448,29 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
           <i>✳</i>
           <p>Zero financial anxiety</p>
         </div>
+
+        {/* What actually happens after signing up */}
+        <motion.section {...reveal} className="rr-section rr-journey" id="rr-how">
+          <div className="rr-section-heading">
+            <p className="rr-eyebrow">HOW IT WORKS</p>
+            <h2>Three steps.<br /><em>No money down.</em></h2>
+            <p>
+              Nothing here is a demo of a product you have to buy later. The whole
+              simulator is the product, and it is free for students.
+            </p>
+          </div>
+
+          <ol className="rr-journey-steps">
+            {JOURNEY.map((stage) => (
+              <li key={stage.step}>
+                <span className="rr-journey-step" aria-hidden="true">{stage.step}</span>
+                <stage.icon size={20} className="text-mint" aria-hidden="true" />
+                <h3>{stage.title}</h3>
+                <p>{stage.body}</p>
+              </li>
+            ))}
+          </ol>
+        </motion.section>
 
         {/* THE SHARES BOX SECTION: Full Spotlight Cards on Indian Shares */}
         <motion.section {...reveal} className="rr-section rr-shares-section" id="rr-shares-box">
