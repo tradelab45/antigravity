@@ -44,6 +44,7 @@ const HelpSupportCenter = lazy(() => import('./components/HelpSupportCenter').th
 const StockBattleModal = lazy(() => import('./components/StockBattleModal').then((module) => ({ default: module.StockBattleModal })));
 const OptionsChainModal = lazy(() => import('./components/OptionsChainModal').then((module) => ({ default: module.OptionsChainModal })));
 const AdminDashboard = lazy(() => import('./components/AdminDashboard').then((module) => ({ default: module.AdminDashboard })));
+const BigQueryGraphView = lazy(() => import('./components/BigQueryGraphView').then((module) => ({ default: module.BigQueryGraphView })));
 
 const checkIsAdminPortal = (): boolean => {
   if (typeof window === 'undefined') return false;
@@ -215,7 +216,7 @@ function SimulatorApp() {
   });
   const [activeTab, setActiveTab] = useState<AppTabType>(() => {
     const requestedView = new URLSearchParams(window.location.search).get('view') as AppTabType | null;
-    const supportedViews: AppTabType[] = ['home', 'screener', 'watchlist', 'portfolio', 'replay', 'review', 'journal', 'academy', 'challenges', 'calculator', 'chanakya', 'badges', 'privacy', 'help'];
+    const supportedViews: AppTabType[] = ['home', 'screener', 'watchlist', 'portfolio', 'replay', 'review', 'journal', 'academy', 'challenges', 'calculator', 'chanakya', 'badges', 'privacy', 'help', 'graph'];
     return requestedView && supportedViews.includes(requestedView) ? requestedView : 'home';
   });
   const [selectedStock, setSelectedStock] = useState<StockDetail | null>(null);
@@ -516,6 +517,11 @@ function SimulatorApp() {
           )}
           {activeTab === 'help' && (
             <motion.div key="help" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}><HelpSupportCenter setActiveTab={setActiveTab} /></motion.div>
+          )}
+          {activeTab === 'graph' && (
+            <motion.div key="graph" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
+              <BigQueryGraphView />
+            </motion.div>
           )}
           </AnimatePresence>
         </Suspense>

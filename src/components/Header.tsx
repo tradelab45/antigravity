@@ -37,7 +37,8 @@ import {
   Volume2,
   VolumeX,
   Palette,
-  Check
+  Check,
+  Network
 } from 'lucide-react';
 import { useSimulator, isUserAdmin } from '../context/SimulatorContext';
 import { useTheme } from '../context/ThemeContext';
@@ -49,7 +50,7 @@ import { RiskCenterModal } from './RiskCenterModal';
 import { AnimatedSearchBar } from './ui/animated-search-bar';
 import { StockDetail } from '../types';
 
-export type AppTabType = 'home' | 'screener' | 'watchlist' | 'portfolio' | 'replay' | 'review' | 'journal' | 'academy' | 'challenges' | 'calculator' | 'chanakya' | 'badges' | 'privacy' | 'help';
+export type AppTabType = 'home' | 'screener' | 'watchlist' | 'portfolio' | 'replay' | 'review' | 'journal' | 'academy' | 'challenges' | 'calculator' | 'chanakya' | 'badges' | 'privacy' | 'help' | 'graph';
 
 const MOBILE_MENU_HINT_KEY = 'rupeerookie-mobile-menu-hint-seen-v1';
 
@@ -193,6 +194,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
   /** Practice tools, grouped under one heading in the main navigation. */
   const LAB_ITEMS: { id: AppTabType; label: string; icon: React.ElementType; badge?: string }[] = [
     { id: 'replay', label: 'Replay OS', icon: History, badge: 'Blind Mode' },
+    { id: 'graph', label: 'BigQuery Graph Lab', icon: Network, badge: 'GQL' },
     { id: 'calculator', label: 'Compound Calculator', icon: Calculator, badge: 'SIP' },
     { id: 'challenges', label: 'Progress & Badges', icon: Trophy },
   ];
@@ -215,6 +217,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
     { id: 'portfolio', label: 'Portfolio', icon: PieChart },
     { id: 'review', label: 'Trader DNA', icon: Dna, badge: 'Journal' },
     { id: 'replay', label: 'Replay OS', icon: History, badge: 'Blind Mode', badgeColor: 'bg-indigo-100 text-indigo-900 border-indigo-300' },
+    { id: 'graph', label: 'BigQuery Graph Lab', icon: Network, badge: 'GQL', badgeColor: 'bg-indigo-100 text-indigo-900 border-indigo-300' },
     { id: 'academy', label: 'Learn', icon: BookOpen },
     { id: 'calculator', label: 'SIP Calculator', icon: Calculator },
     { id: 'challenges', label: 'Progress & Badges', icon: Trophy },

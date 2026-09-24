@@ -17,7 +17,8 @@ import {
   HelpCircle,
   TrendingUp,
   TrendingDown,
-  ArrowRight
+  ArrowRight,
+  Network
 } from 'lucide-react';
 import type { StockDetail } from '../types';
 import type { AppTabType } from './Header';
@@ -35,6 +36,7 @@ const destinations: Array<{ tab: AppTabType; label: string; description: string;
   { tab: 'portfolio', label: 'Portfolio & Positions', description: 'Live holdings, P&L, allocation & risk analytics', icon: PieChart },
   { tab: 'chanakya', label: 'AI Coach (Chanakya)', description: 'Real-time trade guidance, guardrails & mentor feedback', icon: Zap, badge: 'AI' },
   { tab: 'replay', label: 'Replay OS', description: 'Blind bar replay & historical candle simulation', icon: History, badge: 'Blind' },
+  { tab: 'graph', label: 'BigQuery Graph Analytics', description: 'Corporate ecosystem topologies, supply chains & GQL queries', icon: Network, badge: 'GQL' },
   { tab: 'review', label: 'Trader DNA', description: 'Behavioral analytics, win rate & psychology diagnostics', icon: Dna },
   { tab: 'journal', label: 'Trading Journal', description: 'Document trade rationales, screenshots & lessons', icon: BookOpen },
   { tab: 'academy', label: 'Investor Academy', description: 'Structured lessons, valuation frameworks & quizzes', icon: Sparkles },

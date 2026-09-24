@@ -52,6 +52,7 @@ const CONTEXT_TERMS: Partial<Record<AppTabType, string[]>> = {
   badges: ['XP', 'Win Rate', 'P&L'],
   challenges: ['Drawdown', 'Win Rate', 'R-Multiple'],
   chanakya: ['P/E Ratio', 'Market Cap', 'Diversification', 'Stop-Loss'],
+  graph: ['Market Cap', 'Diversification', 'Allocation', 'Paper Trading'],
 };
 
 export const ContextualGlossary: React.FC<{ activeTab: AppTabType }> = ({ activeTab }) => {
