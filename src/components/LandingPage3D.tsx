@@ -277,10 +277,10 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
             </p>
 
             <div className="rr-hero-actions">
-              <MetalButton variant="chrome" onClick={() => onEnter('SIGNUP', 'academy')}>
+              <MetalButton variant="jade" onClick={() => onEnter('SIGNUP', 'academy')}>
                 Start learning <ArrowUpRight size={20} />
               </MetalButton>
-              <MetalButton variant="graphite" onClick={() => { document.getElementById('rr-shares-box')?.scrollIntoView({ behavior: 'smooth' }); }}>
+              <MetalButton variant="chrome" onClick={() => { document.getElementById('rr-shares-box')?.scrollIntoView({ behavior: 'smooth' }); }}>
                 Explore live shares <ArrowRight size={17} />
               </MetalButton>
             </div>
@@ -394,7 +394,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                               </span>
                             )}
                           </div>
-                          <span className="text-xs font-mono text-slate-500 bg-slate-800/80 px-2 py-0.5 rounded-md">
+                          <span className="text-xs font-mono text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
                             {stock.sector}
                           </span>
                         </div>
@@ -403,7 +403,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                         <p className="text-xs text-slate-500 font-medium mb-4">{stock.name}</p>
 
                         {/* Price & Change Pill */}
-                        <div className="flex items-baseline justify-between pt-2 border-t border-slate-800/80">
+                        <div className="flex items-baseline justify-between pt-2 border-t border-slate-200">
                           <div>
                             <span className="text-[10px] font-mono text-slate-500 uppercase">Share Price</span>
                             <div className="text-2xl font-bold font-mono text-slate-900">
@@ -423,7 +423,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                       </div>
 
                       {/* Micro Stats & Action Buttons */}
-                      <div className="pt-4 border-t border-slate-800/60 flex items-center justify-between text-xs font-mono">
+                      <div className="pt-4 border-t border-slate-200 flex items-center justify-between text-xs font-mono">
                         <div className="flex items-center gap-2 text-slate-500">
                           <span>M-Cap: {stock.marketCap}</span>
                           <span className="text-slate-500">P/E: {stock.peRatio}x</span>
@@ -489,7 +489,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
 
               {/* SHARES SPOTLIGHT BOX: Inside the Sandbox */}
               <div className="my-4">
-                <GlowCard glowColor={selectedStock.glow} customSize className="p-4 bg-slate-900/60 border border-slate-700/60">
+                <GlowCard glowColor={selectedStock.glow} customSize className="p-4 bg-white/70 border border-slate-200">
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <div>
                       <span className="text-[10px] font-mono text-slate-500 uppercase">Active Share in Focus</span>
@@ -507,7 +507,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-slate-800 text-xs font-mono">
+                  <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-slate-200 text-xs font-mono">
                     <div>
                       <span className="text-slate-500 text-[10px] block">PER SHARE</span>
                       <span className="text-slate-900 font-semibold">₹{selectedStock.price.toFixed(2)}</span>
@@ -535,7 +535,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                     className={`text-xs px-2.5 py-1 rounded-md border transition-all ${
                       allocation === pct 
                         ? 'bg-mint text-slate-950 border-mint font-bold shadow-md' 
-                        : 'border-slate-700 hover:bg-slate-800 text-slate-600'
+                        : 'border-slate-300 bg-white/70 hover:bg-slate-100 text-slate-700'
                     }`}
                   >
                     {pct}% Capital
@@ -611,7 +611,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                 </span>
               </div>
 
-              <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between flex-wrap gap-2">
+              <div className="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between flex-wrap gap-2">
                 <span className="text-xs text-slate-500 font-mono">
                   Portfolio balance: <strong className="text-slate-900">{money(capital + change)}</strong>
                 </span>
@@ -657,9 +657,9 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                   <h3 className="text-2xl font-bold tracking-tight mb-2 text-slate-900">{item.title}</h3>
                   <p className="text-sm text-slate-500 leading-relaxed">{item.text}</p>
                 </div>
-                <div className="pt-4 border-t border-slate-800/80">
+                <div className="pt-4 border-t border-slate-200">
                   <MetalButton
-                    variant="graphite"
+                    variant="jade"
                     className="w-full justify-between h-9 px-4 text-xs"
                     onClick={() => onEnter('SIGNUP', item.view as AppTabType)}
                   >
@@ -696,7 +696,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                       className={`px-4 py-2.5 text-xs font-semibold rounded-lg border transition-all ${
                         answer === 0 
                           ? 'bg-mint text-slate-950 border-mint font-bold shadow-md' 
-                          : 'border-slate-700 bg-slate-900/60 hover:bg-slate-800 text-slate-600'
+                          : 'border-slate-300 bg-white/70 hover:bg-slate-100 text-slate-700'
                       }`}
                     >
                       Yes, five companies is plenty
@@ -708,7 +708,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                       className={`px-4 py-2.5 text-xs font-semibold rounded-lg border transition-all ${
                         answer === 1 
                           ? 'bg-mint text-slate-950 border-mint font-bold shadow-md' 
-                          : 'border-slate-700 bg-slate-900/60 hover:bg-slate-800 text-slate-600'
+                          : 'border-slate-300 bg-white/70 hover:bg-slate-100 text-slate-700'
                       }`}
                     >
                       Not necessarily
@@ -716,11 +716,11 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                   </div>
 
                   <div 
-                    className="mt-4 p-3.5 rounded-xl bg-slate-900/80 text-xs text-slate-600 leading-relaxed border border-slate-800" 
+                    className="mt-4 p-3.5 rounded-xl bg-white/75 text-xs text-slate-700 leading-relaxed border border-slate-200" 
                     aria-live="polite"
                   >
                     {answer === null ? (
-                      <span className="text-slate-500 italic">Choose an answer above to reveal the insight.</span>
+                      <span className="text-slate-600 italic">Choose an answer above to reveal the insight.</span>
                     ) : answer === 1 ? (
                       <span className="flex items-start gap-2">
                         <CheckCircle2 size={16} className="text-mint shrink-0 mt-0.5" />
@@ -783,7 +783,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                   </div>
 
                   <MetalButton 
-                    variant="graphite" 
+                    variant="jade" 
                     onClick={() => onEnter('SIGNUP', selected.view)}
                   >
                     Open {selected.name} after signup <ArrowRight size={18} />
@@ -833,21 +833,37 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
 
         {/* Final Call to Action */}
         <section className="rr-final-cta">
-          <span className="rr-eyebrow">YOUR JOURNEY AWAITS</span>
-          <h2>Stay curious.<br /><em>Start small.</em></h2>
-          <p className="text-sm text-slate-600 max-w-lg mb-6 leading-relaxed">
-            Join thousands of curious Indian learners mastering portfolio construction and trading psychology without financial anxiety.
-          </p>
+          <div>
+            <span className="rr-eyebrow">YOUR JOURNEY AWAITS</span>
+            <h2>Stay curious.<br /><em>Start small.</em></h2>
+            <p className="text-sm text-slate-600 max-w-lg mb-6 leading-relaxed">
+              Join thousands of curious Indian learners mastering portfolio construction and trading psychology without financial anxiety.
+            </p>
 
-          <div className="flex gap-4 items-center flex-wrap z-10">
-            <MetalButton variant="chrome" onClick={() => onEnter('SIGNUP', 'academy')}>
-              Let’s begin <ArrowUpRight size={21} />
-            </MetalButton>
-            <MetalButton variant="graphite" onClick={() => onEnter('LOGIN')}>
-              Existing user? Sign in
-            </MetalButton>
+            <div className="flex gap-4 items-center flex-wrap z-10">
+              <MetalButton variant="jade" onClick={() => onEnter('SIGNUP', 'academy')}>
+                Let’s begin <ArrowUpRight size={21} />
+              </MetalButton>
+              <MetalButton variant="chrome" onClick={() => onEnter('LOGIN')}>
+                Existing user? Sign in
+              </MetalButton>
+            </div>
           </div>
 
+          <dl className="rr-cta-facts">
+            {[
+              { k: 'PRACTICE CAPITAL', v: '₹10,00,000', note: 'Virtual money, reset whenever you want.' },
+              { k: 'TRACKED SHARES', v: '75+', note: 'NSE and BSE names with realistic price action.' },
+              { k: 'GUIDED STAGES', v: '6', note: 'Each one unlocks after a 20-question paper.' },
+              { k: 'REAL MONEY AT RISK', v: '₹0', note: 'Nothing here can be deposited or withdrawn.' },
+            ].map((fact) => (
+              <div key={fact.k}>
+                <dt>{fact.k}</dt>
+                <dd>{fact.v}</dd>
+                <p>{fact.note}</p>
+              </div>
+            ))}
+          </dl>
         </section>
       </main>
 

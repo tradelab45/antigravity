@@ -607,8 +607,13 @@
   display: grid;
   grid-template-columns: .9fr 1.1fr;
   gap: 8%;
-  align-items: center;
+  align-items: start;
   background: var(--bg-deep);
+}
+
+.rr-playground > .rr-section-heading {
+  position: sticky;
+  top: 112px;
 }
 
 .rr-section-heading > p:not(.rr-eyebrow) {
@@ -717,12 +722,12 @@
   gap: 10px;
   font-size: 11.5px;
   min-height: 52px;
-  background: rgba(20, 25, 50, 0.72);
-  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid var(--line-strong);
   padding: 10px 12px;
   border-radius: 8px;
   line-height: 1.6;
-  color: var(--ink-muted);
+  color: var(--ink-strong);
 }
 
 .rr-experiment-insight svg {
@@ -790,13 +795,13 @@
 
 .rr-feature-body {
   display: grid;
-  grid-template-columns: .5fr 1fr;
-  gap: 45px;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 40px;
   align-items: center;
 }
 
 .rr-feature-number {
-  font-size: 160px;
+  font-size: clamp(88px, 9vw, 150px);
   letter-spacing: -12px;
   line-height: 1;
   color: rgba(0, 245, 155, 0.15);
@@ -815,8 +820,8 @@
   padding: 6px 11px;
   border-radius: 6px;
   font-size: 9.5px;
-  color: var(--ink-muted);
-  background: rgba(20, 25, 50, 0.55);
+  color: var(--ink-strong);
+  background: rgba(255, 255, 255, 0.82);
 }
 
 /* FAQ Section */
@@ -824,7 +829,13 @@
   display: grid;
   grid-template-columns: 1fr 1.25fr;
   gap: 50px;
+  align-items: start;
   background: var(--bg-surface);
+}
+
+.rr-faq > div:first-child {
+  position: sticky;
+  top: 112px;
 }
 
 .rr-faq details {
@@ -873,9 +884,57 @@
   background: linear-gradient(135deg, #ffffff 0%, #eef2fb 52%, #e3e9f6 100%);
   border: 1px solid var(--line-strong);
   padding: 85px 7%;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr);
+  gap: 60px;
+  align-items: center;
+}
+
+.rr-final-cta > div:first-child {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+}
+
+/* The closing panel: what a new account actually gets, so the last screen
+   answers "what happens if I sign up" instead of leaving half the row empty. */
+.rr-cta-facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.rr-cta-facts > div {
+  background: rgba(255, 255, 255, 0.9);
+  padding: 22px 20px;
+}
+
+.rr-cta-facts dt {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ink-subtle);
+}
+
+.rr-cta-facts dd {
+  margin: 6px 0 0;
+  font-size: 23px;
+  font-weight: 700;
+  letter-spacing: -.03em;
+  color: var(--ink);
+}
+
+.rr-cta-facts p {
+  margin: 4px 0 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--ink-muted);
 }
 
 .rr-final-cta h2 {
@@ -1015,6 +1074,22 @@
   .rr-faq {
     grid-template-columns: 1fr;
     gap: 10px;
+  }
+  /* Single column: a sticky heading would ride down over the rows below it. */
+  .rr-playground > .rr-section-heading,
+  .rr-faq > div:first-child {
+    position: static;
+  }
+  .rr-final-cta {
+    grid-template-columns: 1fr;
+    gap: 34px;
+    padding: 64px 6%;
+  }
+}
+
+@media (max-width: 460px) {
+  .rr-cta-facts {
+    grid-template-columns: 1fr;
   }
 }
 

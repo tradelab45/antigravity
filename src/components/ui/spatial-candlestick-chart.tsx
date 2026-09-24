@@ -431,7 +431,7 @@ export const SpatialCandlestickChart: React.FC<SpatialCandlestickChartProps> = (
       {/* Interactive Flip Hint */}
       {showRupee && (
         <div className="absolute bottom-0 inset-x-0 flex items-center justify-center pointer-events-none">
-          <span className="text-[10px] font-mono text-slate-500/80 tracking-wider uppercase flex items-center gap-1 bg-black/40 px-2.5 py-0.5 rounded-full border border-white/5">
+          <span className="text-[10px] font-mono text-slate-200 tracking-wider uppercase flex items-center gap-1 bg-slate-900/90 px-2.5 py-0.5 rounded-full border border-white/10">
             <Sparkles size={11} className="text-mint" />
             Click coin to flip · Hover to orbit in 3D
           </span>

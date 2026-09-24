@@ -200,11 +200,11 @@ export const ShareBoxAreaChart: React.FC<ShareBoxAreaChartProps> = ({
 
   return (
     <div 
-      className={`relative w-full overflow-hidden rounded-2xl bg-black/25 dark:bg-black/35 backdrop-blur-md p-2.5 group/chart select-none my-1.5 transition-all ${className}`}
+      className={`relative w-full overflow-hidden rounded-2xl bg-slate-900/5 dark:bg-black/35 backdrop-blur-md p-2.5 group/chart select-none my-1.5 transition-all ${className}`}
       onMouseLeave={() => setHoverIndex(null)}
     >
       {/* Specular Ambient Edge Sheen - No Box Outline */}
-      <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/15 to-transparent pointer-events-none" />
+      <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-slate-900/10 dark:via-white/15 to-transparent pointer-events-none" />
 
       {/* Header Info & Timeframe Selectors */}
       {showLabels && (
@@ -217,7 +217,7 @@ export const ShareBoxAreaChart: React.FC<ShareBoxAreaChartProps> = ({
             />
             {showTimeframes ? (
               <div 
-                className="flex items-center gap-1 bg-white/5 rounded-lg p-0.5"
+                className="flex items-center gap-1 bg-slate-900/5 dark:bg-white/5 rounded-lg p-0.5"
                 onClick={(e) => e.stopPropagation()}
               >
                 {(['1D', '5D', '1M'] as const).map((tf) => (
@@ -228,7 +228,7 @@ export const ShareBoxAreaChart: React.FC<ShareBoxAreaChartProps> = ({
                     className={`px-1.5 py-0.5 rounded-md text-[9px] font-black transition-all cursor-pointer ${
                       timeframe === tf
                         ? 'bg-mint text-slate-950 shadow-xs'
-                        : 'text-slate-400 hover:text-white hover:bg-white/10'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-900/10 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/10'
                     }`}
                   >
                     {tf}
@@ -236,7 +236,7 @@ export const ShareBoxAreaChart: React.FC<ShareBoxAreaChartProps> = ({
                 ))}
               </div>
             ) : (
-              <span className="font-semibold text-slate-300">Intraday 5D</span>
+              <span className="font-semibold text-slate-600 dark:text-slate-300">Intraday 5D</span>
             )}
           </div>
 
@@ -244,8 +244,8 @@ export const ShareBoxAreaChart: React.FC<ShareBoxAreaChartProps> = ({
           <div className="flex items-center gap-1.5 font-bold">
             {activeCoord ? (
               <div className="flex items-center gap-1">
-                <span className="text-[9px] text-slate-400 font-normal">{activeCoord.time}:</span>
-                <span className="text-white font-extrabold font-mono">₹{activeCoord.val.toFixed(2)}</span>
+                <span className="text-[9px] text-slate-600 dark:text-slate-400 font-normal">{activeCoord.time}:</span>
+                <span className="text-slate-900 dark:text-white font-extrabold font-mono">₹{activeCoord.val.toFixed(2)}</span>
               </div>
             ) : (
               <div className="flex items-center gap-1">
@@ -412,7 +412,7 @@ export const ShareBoxAreaChart: React.FC<ShareBoxAreaChartProps> = ({
       </div>
 
       {/* Min / Max Low & High Bounds Footer */}
-      <div className="flex justify-between items-center text-[9px] text-slate-500 dark:text-slate-400 font-mono pt-1">
+      <div className="flex justify-between items-center text-[9px] text-slate-600 dark:text-slate-400 font-mono pt-1">
         <span>L: ₹{minVal.toFixed(0)}</span>
         <span className="text-slate-600 dark:text-slate-300 font-semibold tracking-wider">
           {timeframe === '1D' ? 'NSE Indicative' : `${timeframe} Trend`}
