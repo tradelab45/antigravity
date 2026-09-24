@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { quoteLabel } from '../utils/quoteState';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -117,7 +117,38 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
   const [strategyPreset, setStrategyPreset] = useState<'ALL' | 'GOLDEN_CROSS' | 'HIGH_DIVIDEND' | 'HIGH_ROE' | 'RSI_DIP' | 'PSU_GIANTS' | 'MOMENTUM'>('ALL');
   const [sortBy, setSortBy] = useState<'POPULAR' | 'PRICE_HIGH' | 'PRICE_LOW' | 'GAIN_HIGH' | 'LOSS_HIGH' | 'PE_LOW' | 'MCAP_HIGH'>('POPULAR');
   const [viewMode, setViewMode] = useState<'CARDS' | 'TABLE'>('CARDS');
-  const [visibleCount, setVisibleCount] = useState(9);
+  const [visibleCount, setVisibleCount] = useState(10);
+  const [catalogOffset, setCatalogOffset] = useState(0);
+  const [hasMoreCatalog, setHasMoreCatalog] = useState(true);
+  const [loadingCatalog, setLoadingCatalog] = useState(false);
+  const [catalogError, setCatalogError] = useState('');
+  const catalogBusy = useRef(false);
+  const loadMoreMarker = useRef<HTMLDivElement>(null);
+
+  const fetchCatalogPage = useCallback(async (offset: number, limit: number) => {
+    if (catalogBusy.current) return false;
+    catalogBusy.current = true;
+    setLoadingCatalog(true);
+    setCatalogError('');
+    try {
+      const response = await fetch(`/api/stocks/catalog?offset=${offset}&limit=${limit}`);
+      if (!response.ok) throw new Error('Catalog unavailable');
+      const data = await response.json();
+      if (!data.success || !Array.isArray(data.stocks)) throw new Error('Invalid catalog');
+      window.dispatchEvent(new CustomEvent('rr_stocks_updated', { detail: { stocks: data.stocks } }));
+      setCatalogOffset(data.nextOffset);
+      setHasMoreCatalog(data.hasMore);
+      return true;
+    } catch {
+      setCatalogError('Could not load more stocks. Please retry.');
+      return false;
+    } finally {
+      catalogBusy.current = false;
+      setLoadingCatalog(false);
+    }
+  }, []);
+
+  useEffect(() => { void fetchCatalogPage(0, 100); }, [fetchCatalogPage]);
   const [activeMarketSection, setActiveMarketSection] = useState<'EQUITIES' | 'BASKETS' | 'HEATMAP' | 'MOVERS'>('EQUITIES');
 
   // Angel One Modal & Interactive State
@@ -194,134 +225,31 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
     setSearchQuery('');
   };
 
-  // Live search backend hook
+  // Keep the request stable while streaming prices change.
+  const trackedSymbols = stocks.map(stock => stock.symbol).join(',');
   useEffect(() => {
-    if (searchQuery.length > 2) {
-      setIsSearchingLive(true);
-      const timer = setTimeout(async () => {
-        try {
-          const res = await fetch(`/api/stocks/search?q=${encodeURIComponent(searchQuery)}`);
-          const data = await res.json();
-          if (data.success && data.results) {
-            const existingSymbols = new Set(stocks.map(s => s.symbol));
-            setLiveSearchResults(data.results.filter((r: any) => !existingSymbols.has(r.symbol)));
-          }
-        } catch (err) {
-          console.error(err);
-        } finally {
-          setIsSearchingLive(false);
-        }
-      }, 400);
-      // Curated Market Opportunities & Thematic Baskets for ThumbnailCarousel
-  const marketOpportunitySlides: CarouselSlideItem[] = useMemo(() => [
-    {
-      id: 'slide-nifty50',
-      title: "NIFTY 50 Bluechip Core",
-      subtitle: "India's 50 Most Liquid Market Leaders",
-      tag: "FLAGSHIP BENCHMARK",
-      badge: "50 Bluechips",
-      badgeType: "positive",
-      description: "Anchor your portfolio with India's largest conglomerates: Reliance Industries, TCS, HDFC Bank, Infosys, and Tata Motors. Low systemic volatility and steady compounding.",
-      stats: [
-        { label: "Index P/E", value: "21.8x" },
-        { label: "Avg Div Yield", value: "1.42%" },
-        { label: "Total MCap", value: "₹185L Cr" },
-        { label: "1Y Return", value: "+18.4%", isPositive: true }
-      ],
-      actionLabel: "Focus NIFTY 50",
-      onAction: () => {
-        setSelectedBenchmark('NIFTY_50');
-        setSelectedSector('ALL');
-      }
-    },
-    {
-      id: 'slide-auto-ev',
-      title: "Automotive & Electric Mobility",
-      subtitle: "Clean Tech & EV Transition Champions",
-      tag: "HIGH MOMENTUM",
-      badge: "16 Equities",
-      badgeType: "highlight",
-      description: "Capture the green mobility revolution across Tata Motors, Mahindra & Mahindra, Maruti Suzuki, TVS Motor, and Ola Electric as EV penetration accelerates across India.",
-      stats: [
-        { label: "Segment CAGR", value: "24.5%" },
-        { label: "Top Mover", value: "TATAMOTORS" },
-        { label: "Avg Gain", value: "+2.8%", isPositive: true },
-        { label: "EV Share", value: "14%+" }
-      ],
-      actionLabel: "Focus NIFTY AUTO",
-      onAction: () => {
-        setSelectedBenchmark('NIFTY_AUTO');
-        setSelectedSector('ALL');
-      }
-    },
-    {
-      id: 'slide-defence-psu',
-      title: "Defence & Strategic Maharatnas",
-      subtitle: "Vande Bharat, Tejas & Sovereign Infra",
-      tag: "SOVEREIGN ORDERBOOK",
-      badge: "25 PSU Titans",
-      badgeType: "positive",
-      description: "State-backed industrial fortresses: HAL, Bharat Electronics, RVNL, IRFC, and NTPC with multi-year government orderbooks, robust balance sheets, and high dividend payouts.",
-      stats: [
-        { label: "Orderbook", value: "₹4.8L Cr" },
-        { label: "Div Yield", value: "3.1%" },
-        { label: "Govt Share", value: "51-75%" },
-        { label: "ROE", value: "19.2%", isPositive: true }
-      ],
-      actionLabel: "Focus Defence & PSU",
-      onAction: () => {
-        setSelectedBenchmark('NIFTY_DEFENCE_PSU');
-        setSelectedSector('ALL');
-      }
-    },
-    {
-      id: 'slide-consumer-qcom',
-      title: "Quick Commerce & Retail Brands",
-      subtitle: "10-Minute Deliveries & Gen-Z Fashion",
-      tag: "CONSUMPTION BOOM",
-      badge: "23 Consumer Plays",
-      badgeType: "highlight",
-      description: "Indian urban consumption superstars: Zomato (Blinkit), Swiggy, Trent (Zudio), Titan, and Nestle (Maggi) powering modern everyday Indian consumer habits.",
-      stats: [
-        { label: "Order Velocity", value: "10-min" },
-        { label: "Retail Base", value: "1.4B" },
-        { label: "Top Gainer", value: "TRENT" },
-        { label: "Growth YoY", value: "+32%", isPositive: true }
-      ],
-      actionLabel: "Focus Consumer & Retail",
-      onAction: () => {
-        setSelectedBenchmark('NIFTY_CONSUMER');
-        setSelectedSector('ALL');
-      }
-    },
-    {
-      id: 'slide-banking',
-      title: "Banking Fortress & NBFCs",
-      subtitle: "Credit Expansion & Retail Lending Giants",
-      tag: "ECONOMIC ENGINE",
-      badge: "18 Lenders",
-      badgeType: "positive",
-      description: "The credit pulse of corporate and consumer India: HDFC Bank, ICICI Bank, State Bank of India, and Axis Bank with pristine asset quality and multi-decade ROAs.",
-      stats: [
-        { label: "Credit Growth", value: "14.2%" },
-        { label: "NIMs", value: "3.85%" },
-        { label: "Net NPA", value: "< 0.8%" },
-        { label: "Capital Adequacy", value: "16.8%", isPositive: true }
-      ],
-      actionLabel: "Focus Banking Titans",
-      onAction: () => {
-        setSelectedSector('Banking');
-        setSelectedBenchmark('ALL');
-      }
-    }
-  ], []);
-
-  return () => clearTimeout(timer);
-    } else {
+    const controller = new AbortController();
+    if (searchQuery.trim().length < 2) {
       setLiveSearchResults([]);
       setIsSearchingLive(false);
+      return;
     }
-  }, [searchQuery, stocks]);
+    setIsSearchingLive(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/stocks/search?q=${encodeURIComponent(searchQuery.trim())}`, { signal: controller.signal });
+        if (!res.ok) throw new Error('Search unavailable');
+        const data = await res.json();
+        const existing = new Set(trackedSymbols.split(','));
+        setLiveSearchResults((data.results || []).filter((stock: any) => !existing.has(stock.symbol)));
+      } catch {
+        if (!controller.signal.aborted) setLiveSearchResults([]);
+      } finally {
+        if (!controller.signal.aborted) setIsSearchingLive(false);
+      }
+    }, 400);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [searchQuery, trackedSymbols]);
 
   useEffect(() => {
     fetch('/api/market-pulse')
@@ -341,9 +269,12 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
       });
       const data = await res.json();
       if (data.success && data.stock) {
+        window.dispatchEvent(new CustomEvent('rr_stocks_updated', { detail: { stocks: [data.stock] } }));
         onSelectStock(data.stock);
         setSearchQuery('');
         setLiveSearchResults([]);
+      } else {
+        setCatalogError(data.error || 'Quote unavailable. Please retry.');
       }
     } catch (err) {
       console.error(err);
@@ -546,10 +477,30 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
   }, [stocks, searchQuery, selectedBenchmark, selectedSector, selectedFilter, strategyPreset, sortBy, watchlist]);
 
   useEffect(() => {
-    setVisibleCount(9);
+    setVisibleCount(10);
   }, [searchQuery, selectedBenchmark, selectedSector, selectedFilter, strategyPreset, sortBy, viewMode]);
 
   const displayedStocks = useMemo(() => filteredStocks.slice(0, visibleCount), [filteredStocks, visibleCount]);
+
+  const unfiltered = !searchQuery.trim() && selectedBenchmark === 'ALL' && selectedSector === 'ALL' &&
+    selectedFilter === 'ALL' && strategyPreset === 'ALL';
+  const canLoadMore = displayedStocks.length < filteredStocks.length || (unfiltered && hasMoreCatalog);
+  const loadMoreStocks = useCallback(async () => {
+    if (catalogBusy.current) return;
+    if (visibleCount + 10 > filteredStocks.length && unfiltered && hasMoreCatalog) {
+      if (!await fetchCatalogPage(catalogOffset, 10)) return;
+    }
+    setVisibleCount(count => count + 10);
+  }, [visibleCount, filteredStocks.length, unfiltered, hasMoreCatalog, fetchCatalogPage, catalogOffset]);
+
+  useEffect(() => {
+    if (!loadMoreMarker.current || !canLoadMore || loadingCatalog || catalogError) return;
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) void loadMoreStocks();
+    }, { rootMargin: '150px' });
+    observer.observe(loadMoreMarker.current);
+    return () => observer.disconnect();
+  }, [canLoadMore, loadingCatalog, catalogError, loadMoreStocks]);
 
   // Grouped Stocks under each Benchmark Subheading
   const benchmarkGroupedSections = useMemo(() => {
@@ -1780,17 +1731,19 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
       )}
 
       {filteredStocks.length > 0 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-xs">
+        <div ref={loadMoreMarker} className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-200 px-4 py-3">
           <p className="text-xs font-semibold text-slate-600">
             Showing {Math.min(displayedStocks.length, filteredStocks.length)} of {filteredStocks.length} matching companies
           </p>
-          {displayedStocks.length < filteredStocks.length && (
+          {catalogError && <p role="alert" className="text-xs text-rose-600">{catalogError}</p>}
+          {canLoadMore && (
             <button
               type="button"
-              onClick={() => setVisibleCount((count) => count + 9)}
+              onClick={() => void loadMoreStocks()}
+              disabled={loadingCatalog}
               className="w-full sm:w-auto rounded-xl bg-slate-900 px-4 py-2 text-xs font-black text-white hover:bg-slate-800"
             >
-              Load 9 more
+              {loadingCatalog ? 'Loading...' : catalogError ? 'Retry' : 'Load 10 more'}
             </button>
           )}
         </div>

@@ -5,6 +5,7 @@ import { gzipSync } from 'node:zlib';
 import { UpstoxService, mapUpstoxInstruments, parseUpstoxQuote } from '../src/server/upstoxService';
 import { mergeQuote, quoteLabel } from '../src/utils/quoteState';
 import type { StockDetail } from '../src/types';
+import { catalogPage, listedStockDetail } from '../src/server/stockCatalog';
 
 const key = 'NSE_EQ|INE002A01018';
 const rows = [{ segment: 'NSE_EQ', instrument_type: 'EQ', trading_symbol: 'RELIANCE', instrument_key: key }];
@@ -124,4 +125,78 @@ test('browser ignores older polling responses and accepts status downgrades at s
   assert.equal(mergeQuote(current, { ...current, quoteStatus: 'delayed' }).quoteStatus, 'delayed');
   assert.equal(quoteLabel(current), 'Live');
   assert.equal(quoteLabel({ ...current, quoteAsOf: '2020-01-01' }), 'Latest available');
+});
+
+test('closed-session quotes remain owned by Upstox after a minute', async (t) => {
+  const { service, streamer } = fixture();
+  let now = Date.now();
+  t.mock.method(Date, 'now', () => now);
+  try {
+    await service.start();
+    streamer.emit('message', JSON.stringify({ marketInfo: { segmentStatus: { NSE_EQ: 'NORMAL_CLOSE' } }, feeds: { [key]: feed(1250, now) } }));
+    now += 120_000;
+    assert.equal(service.getQuote('RELIANCE')?.price, 1250);
+    assert.equal(service.isLive('RELIANCE'), false);
+    streamer.emit('message', JSON.stringify({ marketInfo: { segmentStatus: { NSE_EQ: 'NORMAL_OPEN' } } }));
+    assert.equal(service.getQuote('RELIANCE'), undefined);
+  } finally { service.stop(); }
+});
+
+test('catalog pages preserve seed order and add 10 unique stocks beyond the first 100', () => {
+  const listings = Array.from({ length: 150 }, (_, index) => ({ symbol: `S${index}`, name: `Stock ${index}`, instrumentKey: `NSE_EQ|${index}` }));
+  const seeds = listings.slice(0, 77).map(stock => stock.symbol);
+  const first = catalogPage(seeds, listings, 0, 100);
+  const second = catalogPage(seeds, listings, first.nextOffset, 10);
+  assert.equal(first.items.length, 100);
+  assert.equal(second.items.length, 10);
+  assert.equal(second.nextOffset, 110);
+  assert.equal(new Set([...first.items, ...second.items].map(stock => stock.symbol)).size, 110);
+  assert.equal(catalogPage(seeds, listings, 146, 10).hasMore, false);
+  assert.equal(listedStockDetail(listings[0]).peRatio, 0);
+});
+
+test('full master resolves new stocks and REST covers stocks beyond the websocket limit', async () => {
+  const instruments = Array.from({ length: 2001 }, (_, i) => ({ ...rows[0], trading_symbol: `S${i}`, name: `Company ${i}`, instrument_key: `NSE_EQ|KEY${i}` }));
+  const streamer = new FakeStreamer();
+  let quoteRequests = 0;
+  const updates: any[] = [];
+  const service = new UpstoxService({ token: 'test', symbols: () => instruments.map(row => row.trading_symbol), aliases: {},
+    createStreamer: () => streamer, onQuote: (...args) => updates.push(args),
+    fetcher: (async (input) => {
+      if (String(input).includes('NSE.json.gz')) return new Response(gzipSync(JSON.stringify(instruments)));
+      quoteRequests++;
+      assert.ok(String(input).includes('KEY2000'));
+      return Response.json({ status: 'success', data: { last: {
+        instrument_token: 'NSE_EQ|KEY2000', last_price: 123, prev_close_price: 120,
+        last_trade_time: String(Date.now()), volume: 10, ohlc: { open: 121, high: 125, low: 120 }, year_high: 200, year_low: 100,
+      } } });
+    }) as typeof fetch,
+  });
+  try {
+    await service.start();
+    assert.equal(service.catalog().length, 2001);
+    assert.equal(streamer.subscriptions[0].length, 2000);
+    await service.refreshQuotes(['S2000']);
+    assert.equal(updates[0][0], 'S2000');
+    assert.equal(service.getQuote('S2000')?.price, 123);
+    assert.equal(service.getQuote('S2000')?.high52, 200);
+    await service.refreshQuotes(['S2000']);
+    assert.equal(quoteRequests, 1);
+  } finally { service.stop(); }
+});
+
+test('newly tracked symbols subscribe immediately without reconnecting', async () => {
+  const streamer = new FakeStreamer();
+  const symbols = ['RELIANCE'];
+  const service = new UpstoxService({ token: 'test', symbols: () => symbols, aliases: {}, onQuote() {},
+    createStreamer: () => streamer,
+    fetcher: (async () => new Response(gzipSync(JSON.stringify([...rows, { ...rows[0], trading_symbol: 'NEW', instrument_key: 'NSE_EQ|NEW' }])))) as typeof fetch,
+  });
+  try {
+    await service.start();
+    symbols.push('NEW');
+    service.syncSymbols();
+    service.syncSymbols();
+    assert.deepEqual(streamer.subscriptions, [[key], ['NSE_EQ|NEW']]);
+  } finally { service.stop(); }
 });

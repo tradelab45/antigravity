@@ -6,6 +6,7 @@ import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 import yfPackage from "yahoo-finance2";
 import { UpstoxService } from './src/server/upstoxService';
+import { catalogPage, listedStockDetail } from './src/server/stockCatalog';
 import { TOP_100_INDIAN_COMPANIES } from "./src/data/indianCompanies";
 import { 
   fetchGoogleFinanceQuote, 
@@ -695,11 +696,39 @@ const upstoxFeed = new UpstoxService({
 });
 void upstoxFeed.start();
 
+async function loadStockPage(offset: number, limit: number) {
+  await upstoxFeed.loadInstruments();
+  const page = catalogPage(TOP_100_INDIAN_COMPANIES.map(stock => stock.symbol), upstoxFeed.catalog(), offset, limit);
+  for (const item of page.items) {
+    if (!currentStocks.some(stock => stock.symbol === item.symbol)) currentStocks.push(listedStockDetail(item));
+  }
+  upstoxFeed.syncSymbols();
+  await upstoxFeed.refreshQuotes(page.items.map(item => item.symbol));
+  return { ...page, stocks: page.items.map(item => stockSnapshot(currentStocks.find(stock => stock.symbol === item.symbol)!)) };
+}
+
+const initialCatalogLoad = loadStockPage(0, 100).catch(() => null);
+
+app.get('/api/stocks/catalog', async (req, res) => {
+  const offset = Number(req.query.offset ?? 0);
+  const limit = Number(req.query.limit ?? 10);
+  if (!Number.isInteger(offset) || offset < 0 || !Number.isInteger(limit) || limit < 1 || limit > 100) {
+    return res.status(400).json({ success: false, error: 'Invalid catalog page' });
+  }
+  try {
+    const page = await loadStockPage(offset, limit);
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ success: true, stocks: page.stocks, nextOffset: page.nextOffset, hasMore: page.hasMore, total: page.total });
+  } catch {
+    res.status(503).json({ success: false, error: 'Stock catalog temporarily unavailable. Please retry.' });
+  }
+});
+
 function stockSnapshot(stock: StockDetail) {
   return {
     ...stock,
     quoteStatus: upstoxFeed.isLive(stock.symbol) && stock.quoteSource?.startsWith('Upstox')
-      ? 'live' : stock.quoteSource ? 'delayed' : 'simulated',
+      ? 'live' : stock.quoteSource ? 'delayed' : stock.price > 0 ? 'simulated' : 'unavailable',
   };
 }
 
@@ -732,7 +761,9 @@ app.get('/api/market/stream', (req, res) => {
 });
 
 async function runMarketDataSync() {
+  await initialCatalogLoad;
   upstoxFeed.syncSymbols();
+  try { await upstoxFeed.refreshQuotes(currentStocks.map(stock => stock.symbol)); } catch { /* Use fallback providers below. */ }
   const updatedSymbols = new Set<string>();
   for (const stock of currentStocks) {
     if (upstoxFeed.getQuote(stock.symbol)) updatedSymbols.add(stock.symbol);
@@ -1202,13 +1233,28 @@ app.get("/api/google-finance/status", (req, res) => {
 
 // 1.b Add a searched stock to live tracking
 app.post("/api/stocks/track", async (req, res) => {
-  const { symbol } = req.body;
-  if (!symbol) return res.status(400).json({ error: "Symbol required" });
+  const { symbol } = req.body || {};
+  if (typeof symbol !== 'string' || !symbol.trim() || symbol.length > 80) return res.status(400).json({ error: "Symbol required" });
   
   const cleanSymbol = symbol.toUpperCase().replace('.NS', '').replace('.BO', '');
   
   // Check if already tracked
   let stock = currentStocks.find(s => s.symbol === cleanSymbol);
+
+  try {
+    await upstoxFeed.loadInstruments();
+    const listed = upstoxFeed.catalog().find(item => item.symbol === cleanSymbol || item.symbol === Object.keys(NSE_QUOTE_TICKERS).find(old => NSE_QUOTE_TICKERS[old] === cleanSymbol));
+    if (listed) {
+      stock = currentStocks.find(item => item.symbol === listed.symbol);
+      if (!stock) {
+        stock = listedStockDetail(listed);
+        currentStocks.push(stock);
+      }
+      upstoxFeed.syncSymbols();
+      await upstoxFeed.refreshQuotes([stock.symbol]);
+      if (upstoxFeed.getQuote(stock.symbol)) return res.json({ success: true, stock: stockSnapshot(stock) });
+    }
+  } catch { /* Existing providers remain available if Upstox is unavailable. */ }
   
   if (!stock) {
     try {
@@ -1286,7 +1332,8 @@ app.post("/api/stocks/track", async (req, res) => {
     }
   }
   
-  res.json({ success: true, stock });
+  if (!stock || stock.price <= 0) return res.status(503).json({ success: false, error: 'Quote unavailable. Please retry.' });
+  res.json({ success: true, stock: stockSnapshot(stock) });
 });
 
 // Dedicated Real-Time Holdings Synchronization Endpoint
@@ -1311,6 +1358,17 @@ app.post("/api/stocks/sync-holdings", async (req, res) => {
   ).filter(Boolean);
 
   const updatedList: StockDetail[] = [];
+
+  try {
+    await upstoxFeed.loadInstruments();
+    const listings = new Map(upstoxFeed.catalog().map(item => [item.symbol, item]));
+    for (const symbol of uniqueSymbols) {
+      const listed = listings.get(symbol);
+      if (listed && !currentStocks.some(stock => stock.symbol === symbol)) currentStocks.push(listedStockDetail(listed));
+    }
+    upstoxFeed.syncSymbols();
+    await upstoxFeed.refreshQuotes(uniqueSymbols);
+  } catch { /* Existing providers remain available. */ }
 
   await Promise.allSettled(
     uniqueSymbols.map(async (cleanSymbol: string) => {
@@ -1655,6 +1713,20 @@ app.get("/api/stocks/search", async (req, res) => {
     });
   });
 
+  // Search the full exchange master, including stocks not loaded into the grid.
+  try {
+    await upstoxFeed.loadInstruments();
+    const matches = upstoxFeed.catalog().filter(item =>
+      item.symbol.toLowerCase().includes(query) || item.name.toLowerCase().includes(query) ||
+      (NSE_QUOTE_TICKERS[item.symbol] || '').toLowerCase().includes(query));
+    matches.sort((a, b) => Number(b.symbol.toLowerCase() === query) - Number(a.symbol.toLowerCase() === query));
+    for (const item of matches) {
+      if (seen.has(item.symbol)) continue;
+      seen.add(item.symbol);
+      results.push({ symbol: item.symbol, name: item.name, sector: 'NSE Equities', price: 0, changePercent: 0, matchReason: 'NSE listed equity' });
+    }
+  } catch { /* Fall back to external search below. */ }
+
   // 3. Fallback search on live NSE via Yahoo Finance if fewer results found
   if (results.length < 5) {
     try {
@@ -1712,6 +1784,17 @@ const chartCache: Record<string, { timestamp: number, price: number, data: any }
 app.get("/api/stocks/:symbol", async (req, res) => {
   const symbol = req.params.symbol.toUpperCase().replace('.NS', '').replace('.BO', '');
   let stock = currentStocks.find((s: StockDetail) => s.symbol === symbol);
+
+  try {
+    await upstoxFeed.loadInstruments();
+    const listed = upstoxFeed.catalog().find(item => item.symbol === symbol);
+    if (!stock && listed) {
+      stock = listedStockDetail(listed);
+      currentStocks.push(stock);
+    }
+    upstoxFeed.syncSymbols();
+    if (stock) await upstoxFeed.refreshQuotes([stock.symbol]);
+  } catch { /* Use existing quote fallbacks below. */ }
 
   // Refresh from the same primary feed as the screener so opening a detail
   // view cannot replace a verified card quote with an older snapshot.

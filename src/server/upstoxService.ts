@@ -9,6 +9,8 @@ export interface UpstoxQuote {
   dayHigh?: number;
   dayLow?: number;
   volume?: number;
+  high52?: number;
+  low52?: number;
 }
 
 const positive = (value: unknown): value is number =>
@@ -68,6 +70,8 @@ export class UpstoxService {
   private starting = false;
   private retry = 0;
   private instruments: any[] = [];
+  private instrumentLoad?: Promise<void>;
+  private snapshotLoad?: Promise<void>;
   private instrumentMap = new Map<string, string>();
   private quotes = new Map<string, UpstoxQuote>();
   private receivedAt = new Map<string, number>();
@@ -98,14 +102,94 @@ export class UpstoxService {
   getQuote(symbol: string) {
     const quote = this.quotes.get(symbol);
     // Closed-session snapshots remain useful, but a broken stream cannot own prices.
-    return this.state === 'connected' && quote &&
-      Date.now() - (this.receivedAt.get(symbol) || 0) < 60_000 ? quote : undefined;
+    return quote && (Date.now() - (this.receivedAt.get(symbol) || 0) < 60_000 ||
+      (this.state === 'connected' && !this.marketOpen)) ? quote : undefined;
   }
 
   isLive(symbol: string) {
     const quote = this.getQuote(symbol);
     const age = quote ? Date.now() - Date.parse(quote.lastUpdated) : Infinity;
-    return this.marketOpen && age >= -5000 && age < 60_000;
+    return this.state === 'connected' && this.marketOpen && age >= -5000 && age < 60_000;
+  }
+
+  async loadInstruments() {
+    if (this.instruments.length) return;
+    if (!this.instrumentLoad) {
+      this.instrumentLoad = (async () => {
+        const response = await (this.options.fetcher || fetch)(
+          'https://assets.upstox.com/market-quote/instruments/exchange/NSE.json.gz',
+          { signal: AbortSignal.timeout(20_000) },
+        );
+        if (!response.ok) throw new Error('Instrument download failed');
+        const bytes = Buffer.from(await response.arrayBuffer());
+        const json = bytes[0] === 0x1f && bytes[1] === 0x8b ? gunzipSync(bytes) : bytes;
+        const rows = JSON.parse(json.toString('utf8'));
+        if (!Array.isArray(rows)) throw new Error('Invalid instruments');
+        this.instruments = rows;
+      })().finally(() => { this.instrumentLoad = undefined; });
+    }
+    await this.instrumentLoad;
+  }
+
+  catalog() {
+    const aliases = new Map(Object.entries(this.options.aliases).map(([old, current]) => [current, old]));
+    const unique = new Map<string, { symbol: string; name: string; instrumentKey: string }>();
+    for (const row of this.instruments) {
+      if (row.segment !== 'NSE_EQ' || row.instrument_type !== 'EQ' ||
+          typeof row.trading_symbol !== 'string' || !row.instrument_key?.startsWith('NSE_EQ|')) continue;
+      const symbol = aliases.get(row.trading_symbol) || row.trading_symbol;
+      unique.set(symbol, { symbol, name: row.name || symbol, instrumentKey: row.instrument_key });
+    }
+    return [...unique.values()].sort((a, b) => a.symbol.localeCompare(b.symbol, 'en'));
+  }
+
+  async refreshQuotes(symbols: string[]) {
+    if (!this.options.token) return;
+    // Coalesce concurrent page, portfolio and polling requests before rechecking the cache.
+    if (this.snapshotLoad) await this.snapshotLoad;
+    await this.loadInstruments();
+    if (this.snapshotLoad) await this.snapshotLoad;
+    const mapping = mapUpstoxInstruments(this.instruments, symbols, this.options.aliases);
+    const pending = [...mapping].filter(([symbol]) => !this.getQuote(symbol));
+    if (!pending.length) return;
+    const run = (async () => {
+      for (let offset = 0; offset < pending.length; offset += 100) {
+        const batch = pending.slice(offset, offset + 100);
+        const url = new URL('https://api.upstox.com/v3/market-quote/quotes');
+        url.searchParams.set('instrument_key', [...new Set(batch.map(([, key]) => key))].join(','));
+        const response = await (this.options.fetcher || fetch)(url, {
+          headers: { Authorization: `Bearer ${this.options.token}`, Accept: 'application/json' },
+          signal: AbortSignal.timeout(15_000),
+        });
+        if (!response.ok) throw new Error(`Upstox quotes unavailable (${response.status})`);
+        const body = await response.json();
+        if (body.status !== 'success') throw new Error('Upstox quotes unavailable');
+        const byKey = new Map(Object.values(body.data || {}).map((raw: any) => [raw.instrument_token, raw]));
+        for (const [symbol, key] of batch) {
+          const raw: any = byKey.get(key);
+          if (!raw) continue;
+          const quote = parseUpstoxQuote({ fullFeed: { marketFF: {
+            ltpc: { ltp: raw.last_price, cp: raw.prev_close_price, ltt: raw.last_trade_time },
+            vtt: raw.volume,
+            marketOHLC: { ohlc: [{ ...raw.ohlc, interval: '1d' }] },
+          } } });
+          if (!quote) continue;
+          if (positive(raw.year_high)) quote.high52 = raw.year_high;
+          if (positive(raw.year_low)) quote.low52 = raw.year_low;
+          this.acceptQuote(symbol, quote, key);
+        }
+      }
+    })();
+    this.snapshotLoad = run;
+    try { await run; } finally { if (this.snapshotLoad === run) this.snapshotLoad = undefined; }
+  }
+
+  private acceptQuote(symbol: string, quote: UpstoxQuote, key: string) {
+    const previous = this.quotes.get(symbol);
+    if (previous && quote.lastUpdated < previous.lastUpdated) return;
+    this.quotes.set(symbol, quote);
+    this.receivedAt.set(symbol, Date.now());
+    this.options.onQuote(symbol, quote, key);
   }
 
   syncSymbols() {
@@ -122,18 +206,7 @@ export class UpstoxService {
     this.starting = true;
     this.state = 'connecting';
     try {
-      if (!this.instruments.length) {
-        const response = await (this.options.fetcher || fetch)(
-          'https://assets.upstox.com/market-quote/instruments/exchange/NSE.json.gz',
-          { signal: AbortSignal.timeout(20_000) },
-        );
-        if (!response.ok) throw new Error('Instrument download failed');
-        const bytes = Buffer.from(await response.arrayBuffer());
-        const json = bytes[0] === 0x1f && bytes[1] === 0x8b ? gunzipSync(bytes) : bytes;
-        const rows = JSON.parse(json.toString('utf8'));
-        if (!Array.isArray(rows)) throw new Error('Invalid instruments');
-        this.instruments = rows;
-      }
+      await this.loadInstruments();
       if (this.stopped) return;
       this.syncSymbols();
       if (!this.instrumentMap.size) throw new Error('No matching instruments');
@@ -158,11 +231,7 @@ export class UpstoxService {
           for (const [symbol, key] of this.instrumentMap) {
             const quote = parseUpstoxQuote(message?.feeds?.[key]);
             if (!quote) continue;
-            const previous = this.quotes.get(symbol);
-            if (previous && quote.lastUpdated < previous.lastUpdated) continue;
-            this.quotes.set(symbol, quote);
-            this.receivedAt.set(symbol, Date.now());
-            this.options.onQuote(symbol, quote, key);
+            this.acceptQuote(symbol, quote, key);
           }
         } catch {
           // A malformed provider frame must not terminate the server.
@@ -193,6 +262,7 @@ export class UpstoxService {
   private disconnect() {
     clearTimeout(this.connectTimer);
     this.marketOpen = false;
+    this.receivedAt.clear();
     const streamer = this.streamer;
     this.streamer = undefined;
     try { streamer?.disconnect(); } catch { /* Socket may not have opened yet. */ }

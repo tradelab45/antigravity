@@ -1059,10 +1059,12 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           customEvent.detail.stocks.forEach((s: StockDetail) => {
             if (s && s.symbol) apiMap.set(s.symbol, enrichStockWithTechnicalsAndDuPont(s));
           });
-          return prev.map(stock => {
+          const updated = prev.map(stock => {
             const apiItem = apiMap.get(stock.symbol);
             return apiItem ? mergeQuote(stock, apiItem) : stock;
           });
+          const existing = new Set(prev.map(stock => stock.symbol));
+          return [...updated, ...[...apiMap.values()].filter(stock => !existing.has(stock.symbol))];
         });
       }
     };
@@ -1499,6 +1501,7 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   ) => {
     const stock = stocks.find((s) => s.symbol === symbol);
     if (!stock) return { success: false, message: 'Stock not found' };
+    if (!Number.isFinite(stock.price) || stock.price <= 0) return { success: false, message: 'A market quote is not available yet.' };
     if (quantity <= 0 || !Number.isInteger(quantity)) return { success: false, message: 'Please enter a valid quantity of shares (whole number)' };
 
     const executionPrice = (orderType === 'LIMIT' || orderType === 'GTT') && limitPrice ? limitPrice : stock.price;

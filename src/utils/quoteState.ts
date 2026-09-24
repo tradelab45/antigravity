@@ -8,6 +8,7 @@ export function mergeQuote(current: StockDetail, incoming: StockDetail): StockDe
 }
 
 export function quoteLabel(stock: StockDetail) {
+  if (stock.quoteStatus === 'unavailable') return 'Quote unavailable';
   const age = Date.now() - Date.parse(stock.quoteAsOf || '');
   if (stock.quoteStatus === 'live' && age >= -5000 && age < 60_000) return 'Live';
   if (!stock.quoteSource) return 'Simulated';

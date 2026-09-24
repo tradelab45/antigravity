@@ -30,7 +30,7 @@ export interface StockDetail {
   quoteSource?: string;
   quoteAsOf?: string;
   quoteTicker?: string;
-  quoteStatus?: 'live' | 'delayed' | 'simulated';
+  quoteStatus?: 'live' | 'delayed' | 'simulated' | 'unavailable';
   isGovernmentOwned?: boolean;
   psuStatus?: 'Maharatna' | 'Navratna' | 'Miniratna' | 'PSU Bank' | 'Defence PSU' | 'Railway PSU' | 'Govt Owned';
   ministry?: string;
