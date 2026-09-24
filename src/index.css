@@ -584,6 +584,35 @@
   }
 }
 
+/* =========================================================================
+   Scrolling and figures
+   ========================================================================= */
+
+/* A horizontal strip that runs out of content chained its overscroll to the
+   page: on iOS that is the back-navigation gesture, on Android it drags the
+   whole view sideways. Containing it keeps a swipe inside the strip it
+   started in. :where() keeps this at zero specificity so any element can
+   still opt out. */
+:where(.scrollbar-none, .no-scrollbar) {
+  overscroll-behavior-x: contain;
+}
+
+/* Figures are read in columns and they tick. In a proportional font the
+   digits have different widths, so a price moving 1,226.40 -> 1,226.90
+   re-flows the row and the decimal points stop lining up between rows.
+   Tabular figures give every digit the same advance width. Monospace text is
+   already fixed-width, so this only changes the proportional cases. */
+.rr-app-canvas {
+  font-variant-numeric: tabular-nums;
+}
+
+/* The header is sticky, so the skip link and any in-page anchor would land
+   with the target tucked underneath it. */
+#main-content,
+[id]:target {
+  scroll-margin-top: 6rem;
+}
+
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
