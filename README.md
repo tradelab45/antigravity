@@ -61,6 +61,8 @@ GEMINI_API_KEY=""
 APP_URL="http://localhost:3000"
 GOOGLE_SHEETS_WEBHOOK_URL=""
 ADMIN_EXPORT_TOKEN=""
+ADMIN_PASSKEY=""
+DEMO_ACCOUNT_PASSWORD=""
 ```
 
 | Variable | Required | Purpose |
@@ -69,9 +71,21 @@ ADMIN_EXPORT_TOKEN=""
 | `APP_URL` | No locally | Public URL for hosted environments. |
 | `GOOGLE_SHEETS_WEBHOOK_URL` | No | Sends signup records to an explicitly configured webhook. |
 | `ADMIN_EXPORT_TOKEN` | Recommended for exports | Protects administrative export routes. |
+| `ADMIN_PASSKEY` | **Yes, to use the admin console** | The only credential the admin routes accept. Unset means every admin route is closed. |
+| `DEMO_ACCOUNT_PASSWORD` | No | Password for the seeded demo account. Unset means a random one per process, so the account cannot be signed into. |
 | `PORT` | No | Changes the default server port from `3000`. |
 
 Never commit a real `.env` file or API key.
+
+### Administrator access
+
+`ADMIN_PASSKEY` is the sole credential for `/api/admin/*`. There is no default
+and no fallback: if it is not set, every admin route answers 401 and the
+console cannot be opened. Send it as the `x-admin-key` header — it is
+deliberately not accepted in a query string, because that would put it in
+browser history, access logs and outbound `Referer` headers.
+
+Pick a long random value, for example `openssl rand -hex 24`.
 
 ### Upstox real-time stocks
 

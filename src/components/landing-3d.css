@@ -877,16 +877,6 @@
   color: #00f59b;
 }
 
-.rr-cta-star {
-  position: absolute;
-  right: 10%;
-  top: 40px;
-  font-size: 240px;
-  color: rgba(0, 245, 155, 0.1);
-  line-height: 1;
-  pointer-events: none;
-}
-
 /* Footer */
 .rr-footer {
   display: flex;
@@ -1012,11 +1002,6 @@
   .rr-faq {
     grid-template-columns: 1fr;
     gap: 10px;
-  }
-  .rr-cta-star {
-    font-size: 120px;
-    right: 5%;
-    top: 110px;
   }
 }
 

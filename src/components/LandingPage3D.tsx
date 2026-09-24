@@ -839,7 +839,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
           </p>
 
           <div className="flex gap-4 items-center flex-wrap z-10">
-            <MetalButton variant="success" onClick={() => onEnter('SIGNUP', 'academy')}>
+            <MetalButton variant="brand" onClick={() => onEnter('SIGNUP', 'academy')}>
               Let’s begin <ArrowUpRight size={21} />
             </MetalButton>
             <LiquidButton size="lg" onClick={() => onEnter('LOGIN')}>
@@ -847,7 +847,6 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
             </LiquidButton>
           </div>
 
-          <span className="rr-cta-star" aria-hidden="true">✳</span>
         </section>
       </main>
 
