@@ -305,11 +305,17 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
     };
   }, [reduced]);
 
-  const reveal = reduced ? {} : { 
-    initial: { opacity: 0, y: 24 }, 
-    whileInView: { opacity: 1, y: 0 }, 
-    viewport: { once: true, amount: 0.1 }, 
-    transition: { duration: 0.5 } 
+  // Opacity only, deliberately. The reveal used to lift each section 24px as
+  // it faded in, and every one of these sections is a nav anchor target: the
+  // browser worked out where to stop while the section still sat 24px low,
+  // then the animation pulled it up, leaving the heading tucked under the
+  // sticky header. A fade keeps the section's box where scroll-margin-top
+  // expects it.
+  const reveal = reduced ? {} : {
+    initial: { opacity: 0 },
+    whileInView: { opacity: 1 },
+    viewport: { once: true, amount: 0.1 },
+    transition: { duration: 0.5 },
   };
 
   return (

@@ -180,8 +180,17 @@
   display: flex;
   gap: 6px;
   align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0 8px;
+  border-radius: 10px;
   font-size: 10px !important;
   color: var(--ink-muted);
+}
+
+.rr-motion:hover:not(:disabled) {
+  background: rgba(15, 23, 42, 0.05);
 }
 
 .rr-motion:disabled {
@@ -263,11 +272,13 @@
 
 .rr-scroll-cue {
   position: absolute;
-  bottom: 31px;
+  bottom: 23px;
   left: 5.5%;
   display: flex;
   gap: 13px;
   align-items: center;
+  min-height: 32px;
+  padding: 6px 0;
   font: 9px 'JetBrains Mono', monospace;
   letter-spacing: .13em;
   color: var(--ink-subtle);
