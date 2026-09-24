@@ -87,6 +87,13 @@ export async function seedSession(page: Page, theme: Theme, palette: Palette = '
       localStorage.setItem('rupeeRookie_palette', tint);
       localStorage.setItem(`rr_profile_completed_${account.id}`, 'true');
       localStorage.setItem('rupeerookie-mobile-menu-hint-seen-v1', 'true');
+      // An unread notification so the toast overlay is on screen to be measured.
+      localStorage.setItem(
+        `rr_notifications:${account.id}`,
+        JSON.stringify([
+          { id: 'contrast-audit-toast', type: 'SUCCESS', title: 'Order executed', message: 'Bought 1 RELIANCE at the last traded price.', timestamp: Date.now(), read: false },
+        ]),
+      );
       sessionStorage.setItem(`rr_guided_session_${account.id}`, 'true');
       const day = new Intl.DateTimeFormat('en-CA', {
         timeZone: 'Asia/Kolkata',
@@ -118,8 +125,13 @@ export async function waitForStableView(page: Page): Promise<void> {
 }
 
 /**
- * Measures every text node inside <main> against the colour actually painted
- * behind it and returns the ones below `minimum`.
+ * Measures every text node inside <main>, plus the fixed overlays that sit
+ * outside it, against the colour actually painted behind it and returns the
+ * ones below `minimum`.
+ *
+ * Overlays are included because a toast rendered at the document root is
+ * never inside <main>: the order toast stayed white with slate-900 text in
+ * dark mode precisely because nothing measured it.
  *
  * Elements are skipped, rather than reported, when the backdrop cannot be
  * determined — a gradient or image with no solid colour underneath — so the
@@ -184,7 +196,18 @@ export async function auditContrast(page: Page, minimum: number = MINIMUM_CONTRA
 
     const findings: Array<{ text: string; ratio: number; color: string; background: string; selector: string }> = [];
 
-    document.querySelectorAll('main *').forEach((element) => {
+    // <main> plus anything fixed to the viewport outside it: toasts, banners,
+    // the mobile tab bar and the quick dock.
+    const roots = new Set<Element>();
+    document.querySelectorAll('main *').forEach((element) => roots.add(element));
+    document.querySelectorAll('body *').forEach((element) => {
+      if (element.closest('main')) return;
+      if (getComputedStyle(element).position !== 'fixed') return;
+      roots.add(element);
+      element.querySelectorAll('*').forEach((child) => roots.add(child));
+    });
+
+    roots.forEach((element) => {
       const ownText = Array.from(element.childNodes)
         .filter((node) => node.nodeType === Node.TEXT_NODE)
         .map((node) => node.textContent?.trim() ?? '')
