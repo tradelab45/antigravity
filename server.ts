@@ -2577,7 +2577,16 @@ interface StoredUser {
 }
 
 const USERS_FILE = path.join(process.cwd(), "data", "users.json");
-const DEMO_PASSWORD = "RookiePass@2026";
+/**
+ * Password for the seeded demo account.
+ *
+ * This was a hardcoded literal, and the seeded account uses the address in
+ * ADMIN_EMAILS — so any fresh deployment shipped with the owner account
+ * logged-in-able by anyone who read the source or the client bundle. With no
+ * DEMO_ACCOUNT_PASSWORD configured it is now random per process, which leaves
+ * the account present for display but not sign-in-able.
+ */
+const DEMO_PASSWORD = process.env.DEMO_ACCOUNT_PASSWORD || randomBytes(24).toString("hex");
 
 const ADMIN_EMAILS = ["aaravvjain23@gmail.com"];
 const ADMIN_USERNAMES = ["aaravvjain23@gmail.com", "aarav", "aarav_trader"];
@@ -3213,7 +3222,23 @@ app.get("/api/auth/export/notebookllm", requireAdminExport, (req, res) => {
 // ADMIN DASHBOARD & TRADES SYNC API ENDPOINTS (PASSKEY SECURED)
 // ==========================================
 
-let CURRENT_ADMIN_PASSKEY = process.env.ADMIN_PASSKEY || "admin2026";
+/**
+ * The administrator secret. There is deliberately no default: an unset
+ * ADMIN_PASSKEY disables every admin route rather than falling back to a
+ * value that is public knowledge, which is how requireAdminExport already
+ * treats a missing ADMIN_EXPORT_TOKEN.
+ */
+let CURRENT_ADMIN_PASSKEY = process.env.ADMIN_PASSKEY || "";
+
+/** Constant-time comparison so a wrong key cannot be recovered byte by byte. */
+const passkeyMatches = (supplied: unknown): boolean => {
+  if (!CURRENT_ADMIN_PASSKEY) return false;
+  if (typeof supplied !== "string" || supplied.length === 0) return false;
+  const a = Buffer.from(supplied);
+  const b = Buffer.from(CURRENT_ADMIN_PASSKEY);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+};
 
 interface StoredBroadcast {
   id: string;
@@ -3226,16 +3251,19 @@ interface StoredBroadcast {
 
 let CURRENT_BROADCAST: StoredBroadcast | null = null;
 
-const checkAdminAuth = (req: express.Request): boolean => {
-  const authHeader = req.headers["x-admin-key"] as string | undefined;
-  const authQuery = req.query.key as string | undefined;
-  const emailHeader = (req.headers["x-admin-email"] as string | undefined)?.toLowerCase().trim();
-  const key = authHeader || authQuery;
-  const validKeys = [CURRENT_ADMIN_PASSKEY, "admin2026", "Admin@2026", "RookiePass@2026"];
-  if (key && validKeys.includes(key)) return true;
-  if (emailHeader && ADMIN_EMAILS.includes(emailHeader)) return true;
-  return false;
-};
+/**
+ * Admin requests authenticate with the shared secret in x-admin-key, and
+ * nothing else.
+ *
+ * Previously this also accepted three hardcoded passkeys, the secret in a
+ * ?key= query parameter, and an x-admin-email header matching an address in
+ * ADMIN_EMAILS. The header carried no proof of anything — any client can set
+ * it — so it granted the full admin surface to anyone who knew an address
+ * that ships in the client bundle. The query parameter put the secret into
+ * access logs, browser history and Referer headers.
+ */
+const checkAdminAuth = (req: express.Request): boolean =>
+  passkeyMatches(req.headers["x-admin-key"]);
 
 const requireAdminAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (!checkAdminAuth(req)) {
@@ -3277,8 +3305,10 @@ app.get("/api/admin/overview", requireAdminAuth, (req, res) => {
 // Admin API: Verify passkey
 app.post("/api/admin/verify-passkey", (req, res) => {
   const { passkey } = req.body;
-  const validKeys = [CURRENT_ADMIN_PASSKEY, "admin2026", "Admin@2026", "RookiePass@2026"];
-  if (passkey && validKeys.includes(passkey)) {
+  if (!CURRENT_ADMIN_PASSKEY) {
+    return res.status(503).json({ success: false, message: "Administrator access is not configured on this server." });
+  }
+  if (passkeyMatches(passkey)) {
     return res.json({ success: true, message: "Authorized. Access granted." });
   }
   return res.status(401).json({ success: false, message: "Invalid administrator passkey. Access denied." });
@@ -3287,12 +3317,17 @@ app.post("/api/admin/verify-passkey", (req, res) => {
 // Admin API: Update passkey
 app.post("/api/admin/update-passkey", (req, res) => {
   const { currentPasskey, newPasskey } = req.body;
-  const validKeys = [CURRENT_ADMIN_PASSKEY, "admin2026", "Admin@2026", "RookiePass@2026"];
-  if (!currentPasskey || !validKeys.includes(currentPasskey)) {
+  if (!CURRENT_ADMIN_PASSKEY) {
+    return res.status(503).json({ success: false, message: "Administrator access is not configured on this server." });
+  }
+  // The hardcoded keys used to be accepted here too, so rotating the passkey
+  // could never lock an attacker out — and an attacker could rotate it to
+  // lock the owner out.
+  if (!passkeyMatches(currentPasskey)) {
     return res.status(401).json({ success: false, message: "Current passkey is incorrect." });
   }
-  if (!newPasskey || String(newPasskey).trim().length < 4) {
-    return res.status(400).json({ success: false, message: "New passkey must be at least 4 characters." });
+  if (!newPasskey || String(newPasskey).trim().length < 12) {
+    return res.status(400).json({ success: false, message: "New passkey must be at least 12 characters." });
   }
   CURRENT_ADMIN_PASSKEY = String(newPasskey).trim();
   return res.json({ success: true, message: "Administrator passkey updated successfully." });

@@ -184,9 +184,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
   });
 
   // Master Passkey & Security Authorization state
-  const [activePasskey, setActivePasskey] = useState<string>(() => {
-    return localStorage.getItem('rr_admin_custom_passkey') || 'admin2026';
-  });
+  // Held for the lifetime of the page only, so it is sent with admin requests
+  // without being written to storage. The server decides whether it is valid.
+  const [activePasskey, setActivePasskey] = useState<string>('');
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
     return (
@@ -277,9 +277,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
         body: JSON.stringify({ passkey: candidate })
       });
 
-      const isCandidateValid = candidate === activePasskey || candidate === 'admin2026' || candidate === 'Admin@2026' || candidate === 'RookiePass@2026';
-
-      if (res.ok || isCandidateValid) {
+      if (res.ok) {
         if (rememberDevice) {
           localStorage.setItem('rr_admin_auth', 'authorized');
         } else {
@@ -293,17 +291,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
         setPasskeyError(data?.message || 'Access Denied: Invalid security passkey.');
       }
     } catch {
-      // Offline fallback verification
-      if (candidate === activePasskey || candidate === 'admin2026' || candidate === 'Admin@2026') {
-        if (rememberDevice) {
-          localStorage.setItem('rr_admin_auth', 'authorized');
-        } else {
-          sessionStorage.setItem('rr_admin_auth', 'authorized');
-        }
-        setIsAdminAuthenticated(true);
-      } else {
-        setPasskeyError('Access Denied: Invalid security passkey.');
-      }
+      // Only the server can authenticate a passkey, so an unreachable server
+      // means access is refused rather than granted locally.
+      setPasskeyError('Could not reach the server to verify the passkey.');
     } finally {
       setIsVerifying(false);
     }
@@ -315,8 +305,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
     setChangeKeyError(null);
     setChangeKeySuccess(null);
 
-    if (newKeyInput.trim().length < 4) {
-      setChangeKeyError('New passkey must be at least 4 characters long.');
+    if (newKeyInput.trim().length < 12) {
+      setChangeKeyError('New passkey must be at least 12 characters long.');
       return;
     }
     if (newKeyInput !== confirmKeyInput) {
@@ -335,9 +325,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
         })
       });
 
-      if (res.ok || currentKeyInput.trim() === activePasskey || currentKeyInput.trim() === 'admin2026') {
+      if (res.ok) {
         const updated = newKeyInput.trim();
-        localStorage.setItem('rr_admin_custom_passkey', updated);
         setActivePasskey(updated);
         setChangeKeySuccess('Administrator passkey updated successfully!');
         setCurrentKeyInput('');
@@ -352,16 +341,41 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
         setChangeKeyError(data?.message || 'Current passkey is incorrect.');
       }
     } catch {
-      const updated = newKeyInput.trim();
-      localStorage.setItem('rr_admin_custom_passkey', updated);
-      setActivePasskey(updated);
-      setChangeKeySuccess('Administrator passkey saved in vault!');
-      setTimeout(() => {
-        setIsChangePasskeyModalOpen(false);
-        setChangeKeySuccess(null);
-      }, 1400);
+      // The server is the only thing that can change the passkey. Saving it
+      // locally on a failed request used to report success while the real
+      // secret was unchanged.
+      setChangeKeyError('Could not reach the server to change the passkey.');
     } finally {
       setIsUpdatingKey(false);
+    }
+  };
+
+  /**
+   * Downloads an admin export.
+   *
+   * These were plain <a href="...?key=SECRET"> links, which put the admin
+   * secret into browser history, the server's access log and the Referer sent
+   * to anything the page later loaded. The server now only reads the header,
+   * so the file is fetched and handed over as a blob.
+   */
+  const downloadExport = async (path: string, filename: string) => {
+    try {
+      const res = await fetch(path, { headers: { 'x-admin-key': activePasskey } });
+      if (!res.ok) {
+        window.alert('Export failed: the server refused the request.');
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      window.alert('Export failed: could not reach the server.');
     }
   };
 
@@ -371,7 +385,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
     setIsSyncing(true);
     try {
       const authHeaders: Record<string, string> = {
-        'x-admin-key': activePasskey || 'admin2026'
+        'x-admin-key': activePasskey
       };
 
       // 1. Fetch Users
@@ -428,8 +442,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-admin-key': activePasskey || 'admin2026',
-          'x-admin-email': 'aaravvjain23@gmail.com'
+          'x-admin-key': activePasskey
         },
         body: JSON.stringify(payload)
       });
@@ -462,8 +475,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
       await fetch('/api/admin/broadcast', {
         method: 'DELETE',
         headers: {
-          'x-admin-key': activePasskey || 'admin2026',
-          'x-admin-email': 'aaravvjain23@gmail.com'
+          'x-admin-key': activePasskey
         }
       });
       setActiveServerBroadcast(null);
@@ -488,8 +500,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-admin-key': activePasskey || 'admin2026',
-          'x-admin-email': 'aaravvjain23@gmail.com'
+          'x-admin-key': activePasskey
         },
         body: JSON.stringify({ userId, amount: 1000000 })
       });
@@ -529,8 +540,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
       const res = await fetch(`/api/admin/users/${userId}`, {
         method: 'DELETE',
         headers: {
-          'x-admin-key': activePasskey || 'admin2026',
-          'x-admin-email': 'aaravvjain23@gmail.com'
+          'x-admin-key': activePasskey
         }
       });
       if (res.ok) {
@@ -920,14 +930,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
           <div className={`mt-5 p-3 rounded-xl border text-[11px] text-center font-medium ${
             isBeige ? 'bg-[#F2ECE1] border-[#DECAB3] text-stone-600' : 'bg-slate-900/60 border-white/10 text-slate-400'
           }`}>
-            <span>Owner passkey: </span>
-            <code className={`font-mono font-bold px-1.5 py-0.5 rounded ${
-              isBeige ? 'bg-white text-blue-700' : 'bg-black text-mint'
-            }`}>
-              admin2026
-            </code>
-            <span className="block mt-1 text-[10px] opacity-70">
-              Passkey can be changed anytime from inside the console
+            <span className="block text-[10px] opacity-70">
+              The owner passkey is set on the server with the ADMIN_PASSKEY
+              environment variable, and can be changed from inside the console.
             </span>
           </div>
 
@@ -1293,33 +1298,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
                   <PlusCircle className="w-4 h-4 text-emerald-500" />
                   <span>Simulate Test Trade</span>
                 </button>
-                <a
-                  href={`/api/admin/export/trades-csv?key=${encodeURIComponent(activePasskey || 'admin2026')}`}
-                  download
+                <button
+                  type="button"
+                  onClick={() => downloadExport('/api/admin/export/trades-csv', 'rupeerookie-trades.csv')}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${styles.accentBtn}`}
                 >
                   <Download className="w-4 h-4" />
                   <span>Export Trades (.CSV)</span>
-                </a>
+                </button>
               </>
             ) : (
               <>
-                <a
-                  href={`/api/admin/export/users-csv?key=${encodeURIComponent(activePasskey || 'admin2026')}`}
-                  download
+                <button
+                  type="button"
+                  onClick={() => downloadExport('/api/admin/export/users-csv', 'rupeerookie-users.csv')}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${styles.secondaryBtn}`}
                 >
                   <Download className="w-4 h-4" />
                   <span>Export Users (.CSV)</span>
-                </a>
-                <a
-                  href={`/api/admin/export/notebookllm?key=${encodeURIComponent(activePasskey || 'admin2026')}`}
-                  download
+                </button>
+                <button
+                  type="button"
+                  onClick={() => downloadExport('/api/admin/export/notebookllm', 'rupeerookie-notebook.md')}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${styles.accentBtn}`}
                 >
                   <Sparkles className="w-4 h-4" />
                   <span>NotebookLLM Export (.MD)</span>
-                </a>
+                </button>
               </>
             )}
           </div>

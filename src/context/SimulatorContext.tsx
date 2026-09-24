@@ -370,16 +370,20 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     // Static / Offline Login Fallback:
     const cleanId = identifier.trim().toLowerCase();
+    // The owner's address is deliberately not in this list. This branch runs
+    // when the server cannot be reached, so it cannot verify anything — it
+    // used to accept any non-empty password and hand back an account flagged
+    // isAdmin, which meant typing the owner's email with any password at all
+    // produced an admin session in the UI.
     const isDemoAccount =
       cleanId === 'xyz@gmail.com' ||
-      cleanId === 'rookie_trader' ||
-      cleanId === 'aaravvjain23@gmail.com';
+      cleanId === 'rookie_trader';
 
-    if (isDemoAccount && (password === 'RookiePass@2026' || password.length > 0)) {
+    if (isDemoAccount && password.length > 0) {
       const demoAccountUser: UserAccount = {
         id: 'usr_rookie_demo',
         fullName: 'Aarav Jain',
-        email: cleanId === 'xyz@gmail.com' ? 'xyz@gmail.com' : 'aaravvjain23@gmail.com',
+        email: 'xyz@gmail.com',
         username: 'rookie_trader',
         phone: '+91 98765 43210',
         ageGroup: '16-18 (High School Teen)',
@@ -389,14 +393,14 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         lastLoginAt: new Date().toISOString(),
         portfolioValue: 1022789,
         totalTrades: 14,
-        isAdmin: true,
-        role: 'ADMIN',
+        isAdmin: false,
+        role: 'USER',
       };
       localStorage.setItem('rr_current_user', JSON.stringify(demoAccountUser));
       localStorage.setItem(getLastActivityKey(demoAccountUser.id), Date.now().toString());
       localStorage.setItem('rr_auth_entry', JSON.stringify({ kind: 'returning', userId: demoAccountUser.id, at: Date.now() }));
       setCurrentUser(demoAccountUser);
-      return { success: true, message: 'Welcome back, Aarav Jain!', user: demoAccountUser };
+      return { success: true, message: 'Signed in to the offline demo account.', user: demoAccountUser };
     }
 
     // Check local registry

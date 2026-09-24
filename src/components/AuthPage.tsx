@@ -213,7 +213,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
   const handleQuickDemoLogin = async () => {
     setErrorMsg('');
     setLoading(true);
-    const res = await loginUser('xyz@gmail.com', 'RookiePass@2026');
+    const res = await loginUser('xyz@gmail.com', 'demo');
     if (res.success && res.user) {
       window.dispatchEvent(new CustomEvent('rr_auth_success', { detail: { kind: 'returning' } }));
       setLaunchState({ user: res.user, kind: 'returning' });

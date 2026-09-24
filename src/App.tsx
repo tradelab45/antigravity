@@ -88,7 +88,11 @@ function AdminAccessDenied({ onSwitchToApp, onUnlock }: { onSwitchToApp: () => v
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ passkey: passkey.trim() })
       });
-      if (res.ok || passkey.trim() === 'admin2026' || passkey.trim() === 'Admin@2026') {
+      // The server is the only judge of the passkey. This used to also accept
+      // two hardcoded values, and to grant access on those same values when
+      // the request failed — which shipped the passkeys in the bundle and
+      // opened the console without the server ever agreeing.
+      if (res.ok) {
         localStorage.setItem('rr_admin_auth', 'authorized');
         sessionStorage.setItem('rr_admin_auth', 'authorized');
         onUnlock();
@@ -97,13 +101,7 @@ function AdminAccessDenied({ onSwitchToApp, onUnlock }: { onSwitchToApp: () => v
         setError(d?.message || 'Access Denied: Invalid security passkey.');
       }
     } catch {
-      if (passkey.trim() === 'admin2026' || passkey.trim() === 'Admin@2026') {
-        localStorage.setItem('rr_admin_auth', 'authorized');
-        sessionStorage.setItem('rr_admin_auth', 'authorized');
-        onUnlock();
-      } else {
-        setError('Access Denied: Invalid security passkey.');
-      }
+      setError('Could not reach the server to verify the passkey.');
     } finally {
       setLoading(false);
     }
