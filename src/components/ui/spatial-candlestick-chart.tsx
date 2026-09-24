@@ -340,17 +340,17 @@ export const SpatialCandlestickChart: React.FC<SpatialCandlestickChartProps> = (
 
                 {/* 3D Rupee Symbol */}
                 <span
-                  className="text-4xl sm:text-5xl font-black text-white font-mono leading-none select-none"
+                  className="text-4xl sm:text-5xl font-black text-slate-900 font-mono leading-none select-none"
                   style={{
                     textShadow: "0 2px 0 #064e3b, 0 4px 12px rgba(0, 0, 0, 0.8), 0 0 16px rgba(255, 255, 255, 0.7)",
                   }}
                 >
                   ₹
                 </span>
-                <span className="text-[8px] sm:text-[9px] font-mono tracking-widest text-emerald-200 font-bold mt-1 uppercase">
+                <span className="text-[8px] sm:text-[9px] font-mono tracking-widest text-emerald-950 font-bold mt-1 uppercase">
                   Dalal Street
                 </span>
-                <span className="text-[7px] font-mono text-emerald-200/70 tracking-tighter">
+                <span className="text-[7px] font-mono text-emerald-950/80 tracking-tighter">
                   EST. 2026
                 </span>
               </div>
@@ -366,17 +366,17 @@ export const SpatialCandlestickChart: React.FC<SpatialCandlestickChartProps> = (
                 }}
               >
                 <span
-                  className="text-4xl sm:text-5xl font-black text-white font-mono leading-none select-none"
+                  className="text-4xl sm:text-5xl font-black text-slate-900 font-mono leading-none select-none"
                   style={{
                     textShadow: "0 2px 0 #0369a1, 0 4px 12px rgba(0, 0, 0, 0.8)",
                   }}
                 >
                   ₹
                 </span>
-                <span className="text-[8px] sm:text-[9px] font-mono tracking-widest text-sky-200 font-bold mt-1 uppercase">
+                <span className="text-[8px] sm:text-[9px] font-mono tracking-widest text-sky-950 font-bold mt-1 uppercase">
                   Gyan • Dhan
                 </span>
-                <span className="text-[7px] font-mono text-sky-200/70 tracking-tighter">
+                <span className="text-[7px] font-mono text-sky-950/80 tracking-tighter">
                   Rupee Rookie Labs
                 </span>
               </div>

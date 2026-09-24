@@ -184,6 +184,8 @@ type ColorVariant =
   | "primary"
   | "success"
   | "brand"
+  | "chrome"
+  | "graphite"
   | "error"
   | "gold"
   | "bronze";
@@ -216,6 +218,26 @@ const colorVariants: Record<
     button: "bg-gradient-to-b from-primary to-primary/40",
     textColor: "text-white",
     textShadow: "[text-shadow:_0_-1px_0_rgb(30_58_138_/_100%)]",
+  },
+  /* Polished chrome. The face runs bright -> steel -> bright, which is what
+     reads as liquid metal: a hard specular band across the middle rather than
+     a flat tint. Dark text, because the face is light. */
+  chrome: {
+    outer: "bg-gradient-to-b from-[#6b7484] to-[#e8ecf2]",
+    inner: "bg-gradient-to-b from-[#ffffff] via-[#7c8696] to-[#fbfcfe]",
+    button:
+      "bg-[linear-gradient(180deg,#ffffff_0%,#e4e9f1_16%,#b6bfcd_44%,#8d97a8_50%,#bac2d0_57%,#eef1f6_80%,#ffffff_100%)]",
+    textColor: "text-slate-900",
+    textShadow: "[text-shadow:_0_1px_0_rgb(255_255_255_/_85%)]",
+  },
+  /* The same treatment in dark steel, for the secondary action beside it. */
+  graphite: {
+    outer: "bg-gradient-to-b from-[#0b1220] to-[#7c8696]",
+    inner: "bg-gradient-to-b from-[#aeb8c7] via-[#161d2b] to-[#9aa5b5]",
+    button:
+      "bg-[linear-gradient(180deg,#5a6472_0%,#39414f_16%,#232a36_46%,#1a202b_52%,#2b323f_60%,#454e5c_82%,#5f6977_100%)]",
+    textColor: "text-white",
+    textShadow: "[text-shadow:_0_-1px_0_rgb(10_14_22_/_90%)]",
   },
   /* Violet primary action, so the main call to action carries more weight than
      the muted sage of `success`. */

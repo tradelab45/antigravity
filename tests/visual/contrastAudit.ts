@@ -180,16 +180,51 @@ export async function auditContrast(page: Page, minimum: number = MINIMUM_CONTRA
     };
 
     /** Nearest ancestor colour actually painted behind the element. */
-    const backdrop = (element: Element): Rgba | null => {
+    /**
+     * Pulls the colour stops out of a gradient so text sitting on one can be
+     * measured against its worst stop rather than skipped.
+     *
+     * Skipping gradients let a real bug through: a metal button rendered
+     * dark-green text on a dark steel ramp and the audit said nothing,
+     * because the ramp is a background-image.
+     */
+    const gradientStops = (backgroundImage: string): Rgba[] => {
+      if (!backgroundImage.includes('gradient')) return [];
+      const stops: Rgba[] = [];
+      // A linear ramp crosses the whole box, so text can sit anywhere along it
+      // and every stop counts. A radial one puts its first stop in the middle,
+      // which is where centred content sits — judging such text against the
+      // rim colour it never touches would invent failures.
+      const radial = /radial-gradient|conic-gradient/.test(backgroundImage);
+      // Only explicit rgb()/hex stops. A bare keyword would parse to black and
+      // invent failures on any gradient that uses `transparent`.
+      const pattern = /(rgba?\([^)]*\)|#[0-9a-fA-F]{6,8}\b)/g;
+      for (const token of backgroundImage.match(pattern) ?? []) {
+        const colour = parse(token);
+        if (colour && colour.a > 0.85) stops.push(colour);
+      }
+      return radial ? stops.slice(0, 1) : stops;
+    };
+
+    /**
+     * The colour actually painted behind an element. A gradient returns its
+     * stops so the caller can test the least favourable one; `null` means
+     * genuinely unmeasurable (an image, or a gradient of no solid stops).
+     */
+    const backdrop = (element: Element): Rgba | Rgba[] | null => {
       let node: Element | null = element;
+      let depth = 0;
       while (node && node !== document.documentElement) {
         const styles = getComputedStyle(node);
         const colour = parse(styles.backgroundColor);
         if (styles.backgroundImage && styles.backgroundImage !== 'none') {
+          const stops = depth <= 1 ? gradientStops(styles.backgroundImage) : [];
+          if (stops.length > 0) return stops;
           return colour && colour.a > 0.85 ? colour : null;
         }
         if (colour && colour.a > 0.85) return colour;
         node = node.parentElement;
+        depth += 1;
       }
       return { r: 255, g: 255, b: 255, a: 1 };
     };
@@ -200,6 +235,8 @@ export async function auditContrast(page: Page, minimum: number = MINIMUM_CONTRA
     // the mobile tab bar and the quick dock.
     const roots = new Set<Element>();
     document.querySelectorAll('main *').forEach((element) => roots.add(element));
+    // The signed-out landing page renders its own root rather than <main>.
+    document.querySelectorAll('.rr-landing *').forEach((element) => roots.add(element));
     document.querySelectorAll('body *').forEach((element) => {
       if (element.closest('main')) return;
       if (getComputedStyle(element).position !== 'fixed') return;
@@ -228,14 +265,25 @@ export async function auditContrast(page: Page, minimum: number = MINIMUM_CONTRA
       const background = backdrop(element);
       if (!background) return; // unmeasurable backdrop
 
-      const measured = ratio(foreground, background);
+      // A gradient is judged on its least favourable stop: text has to stay
+      // readable across the whole ramp, not just where it happens to be light.
+      const candidates = Array.isArray(background) ? background : [background];
+      let worst = candidates[0];
+      let measured = ratio(foreground, worst);
+      for (const candidate of candidates.slice(1)) {
+        const value = ratio(foreground, candidate);
+        if (value < measured) {
+          measured = value;
+          worst = candidate;
+        }
+      }
       if (measured >= threshold) return;
 
       findings.push({
         text: ownText.slice(0, 60),
         ratio: Number(measured.toFixed(2)),
         color: styles.color,
-        background: `rgb(${background.r}, ${background.g}, ${background.b})`,
+        background: `rgb(${worst.r}, ${worst.g}, ${worst.b})`,
         selector: typeof element.className === 'string' ? element.className.slice(0, 120) : element.tagName,
       });
     });

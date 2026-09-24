@@ -3,7 +3,10 @@
 @supports(backdrop-filter:url("#glass")){.rr-liquid-backdrop{backdrop-filter:var(--rr-glass-filter) blur(3px)}}
 .rr-liquid-button:disabled{opacity:.45;cursor:not-allowed}.rr-metal-button[data-disabled=true]{opacity:.45}
 .rr-landing .rr-liquid-button{color:#122019;min-height:48px;padding-left:25px;padding-right:25px}
-.rr-landing .rr-metal-button button{min-height:52px;color:#14271a;text-shadow:0 1px 0 #d2efbe;font-size:13px;font-weight:750;letter-spacing:-.02em}
+/* Sizing only. This used to also pin color and text-shadow to the original
+   green theme, which overrode every variant's own text colour — so a dark
+   steel button rendered dark-green text on dark steel. */
+.rr-landing .rr-metal-button button{min-height:52px;font-size:13px;font-weight:750;letter-spacing:-.02em}
 .rr-landing .rr-nav .rr-liquid-button{min-height:38px;padding-left:17px;padding-right:17px;font-size:11px}
 :root[data-rr-motion=reduced] :is(.rr-liquid-button,.rr-metal-button,.rr-metal-button *){transform:none!important;transition:none!important}
 .rr-landing[data-motion=off] :is(.rr-liquid-button,.rr-metal-button,.rr-metal-button *){transform:none!important;transition:none!important}
