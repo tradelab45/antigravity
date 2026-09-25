@@ -17,6 +17,7 @@ import yfPackage from "yahoo-finance2";
 import { UpstoxService } from "../../modules/market-data/server/upstoxService";
 import { catalogPage, listedStockDetail } from "../../modules/market-data/server/stockCatalog";
 import { TOP_100_INDIAN_COMPANIES } from "../../modules/market-data/data/indianCompanies";
+import { asyncRoute } from "../asyncRoute";
 import {
   fetchGoogleFinanceQuote,
   fetchGoogleFinanceIndices,
@@ -682,7 +683,7 @@ export function createMarketDataRouter() {
 
   const initialCatalogLoad = loadStockPage(0, 100).catch(() => null);
 
-  router.get('/api/stocks/catalog', async (req, res) => {
+  router.get('/api/stocks/catalog', asyncRoute(async (req, res) => {
     const offset = Number(req.query.offset ?? 0);
     const limit = Number(req.query.limit ?? 23);
     if (!Number.isInteger(offset) || offset < 0 || !Number.isInteger(limit) || limit < 1 || limit > 100) {
@@ -695,7 +696,7 @@ export function createMarketDataRouter() {
     } catch {
       res.status(503).json({ success: false, error: 'Stock catalog temporarily unavailable. Please retry.' });
     }
-  });
+  }));
 
   function stockSnapshot(stock: StockDetail) {
     return {
@@ -935,7 +936,7 @@ export function createMarketDataRouter() {
   });
 
   // 2. Single Stock info endpoint (/stock/:symbol?res=num|val)
-  router.get("/api/indian-stock-api/stock/:symbol", async (req, res) => {
+  router.get("/api/indian-stock-api/stock/:symbol", asyncRoute(async (req, res) => {
     const rawSymbol = req.params.symbol.toUpperCase().trim();
     const resFormat = String(req.query.res || 'num').toLowerCase(); // 'num' or 'val'
   
@@ -994,10 +995,10 @@ export function createMarketDataRouter() {
       message: `Symbol '${rawSymbol}' not found on NSE or BSE via Indian Stock Market API.`,
       githubRepo: "https://github.com/0xramm/Indian-Stock-Market-API.git"
     });
-  });
+  }));
 
   // 3. Batch Multiple Stocks endpoint (/list?symbols=RELIANCE,TCS,INFY&res=num|val)
-  router.get("/api/indian-stock-api/list", async (req, res) => {
+  router.get("/api/indian-stock-api/list", asyncRoute(async (req, res) => {
     const symbolsParam = req.query.symbols || req.query.s || '';
     const resFormat = String(req.query.res || 'num').toLowerCase();
 
@@ -1047,10 +1048,10 @@ export function createMarketDataRouter() {
       githubRepo: "https://github.com/0xramm/Indian-Stock-Market-API.git",
       stocks: results
     });
-  });
+  }));
 
   // 4. Smart Search endpoint (/search?q=:query)
-  router.get("/api/indian-stock-api/search", async (req, res) => {
+  router.get("/api/indian-stock-api/search", asyncRoute(async (req, res) => {
     const query = req.query.q || req.query.query;
     if (!query) {
       return res.json({
@@ -1094,10 +1095,10 @@ export function createMarketDataRouter() {
         error: err.message
       });
     }
-  });
+  }));
 
   // 5. Market Indices endpoint
-  router.get("/api/indian-stock-api/indices", async (req, res) => {
+  router.get("/api/indian-stock-api/indices", asyncRoute(async (req, res) => {
     try {
       const gfIndices = await fetchGoogleFinanceIndices();
       res.json({
@@ -1121,14 +1122,14 @@ export function createMarketDataRouter() {
         ]
       });
     }
-  });
+  }));
 
   // ==========================================
   // Dedicated Google Finance Real-Time API Endpoints
   // ==========================================
 
   // G.1 Single stock real-time quote from Google Finance
-  router.get("/api/google-finance/quote/:symbol", async (req, res) => {
+  router.get("/api/google-finance/quote/:symbol", asyncRoute(async (req, res) => {
     const symbol = req.params.symbol.toUpperCase().replace('.NS', '').replace('.BO', '');
     const exchange = req.query.exchange === 'BOM' ? 'BOM' : 'NSE';
     try {
@@ -1145,10 +1146,10 @@ export function createMarketDataRouter() {
     } catch (err: any) {
       return res.status(500).json({ success: false, error: err.message });
     }
-  });
+  }));
 
   // G.2 Live Indian Market Indices from Google Finance
-  router.get("/api/google-finance/indices", async (req, res) => {
+  router.get("/api/google-finance/indices", asyncRoute(async (req, res) => {
     try {
       const indices = await fetchGoogleFinanceIndices();
       res.json({
@@ -1160,10 +1161,10 @@ export function createMarketDataRouter() {
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }
-  });
+  }));
 
   // G.3 Multi-stock batch quotes from Google Finance
-  router.get("/api/google-finance/list", async (req, res) => {
+  router.get("/api/google-finance/list", asyncRoute(async (req, res) => {
     const symbolsParam = req.query.symbols || req.query.s || '';
     if (!symbolsParam) {
       return res.status(400).json({ success: false, error: "Missing 'symbols' query parameter" });
@@ -1189,7 +1190,7 @@ export function createMarketDataRouter() {
       quotes,
       source: "Google Finance (Real-Time)"
     });
-  });
+  }));
 
   // G.4 Google Finance Integration Status
   router.get("/api/google-finance/status", (req, res) => {
@@ -1205,7 +1206,7 @@ export function createMarketDataRouter() {
   });
 
   // 1.b Add a searched stock to live tracking
-  router.post("/api/stocks/track", async (req, res) => {
+  router.post("/api/stocks/track", asyncRoute(async (req, res) => {
     const { symbol } = req.body || {};
     if (typeof symbol !== 'string' || !symbol.trim() || symbol.length > 80) return res.status(400).json({ error: "Symbol required" });
   
@@ -1307,11 +1308,11 @@ export function createMarketDataRouter() {
   
     if (!stock || stock.price <= 0) return res.status(503).json({ success: false, error: 'Quote unavailable. Please retry.' });
     res.json({ success: true, stock: stockSnapshot(stock) });
-  });
+  }));
 
   // Dedicated Real-Time Holdings Synchronization Endpoint
   // Accepts a list of symbols held by the user and fetches live real-time quotes from Google Finance & Yahoo Finance
-  router.post("/api/stocks/sync-holdings", async (req, res) => {
+  router.post("/api/stocks/sync-holdings", asyncRoute(async (req, res) => {
     const { symbols } = req.body || {};
     if (!symbols || !Array.isArray(symbols) || symbols.length === 0) {
       return res.json({ success: true, updatedStocks: [], count: 0, timestamp: new Date().toISOString() });
@@ -1470,10 +1471,10 @@ export function createMarketDataRouter() {
       updatedStocks: updatedList.map(stockSnapshot),
       lastSyncedAt: new Date().toISOString()
     });
-  });
+  }));
 
   // Search stocks by symbol, name, keywords, brands, or colloquial tags
-  router.get("/api/stocks/search", async (req, res) => {
+  router.get("/api/stocks/search", asyncRoute(async (req, res) => {
     const query = String(req.query.q || "").trim().toLowerCase();
     if (!query) {
       return res.json({ success: true, results: [] });
@@ -1727,10 +1728,10 @@ export function createMarketDataRouter() {
     }
 
     res.json({ success: true, count: results.length, results: results.slice(0, 25) });
-  });
+  }));
 
   // 1. Get all currently tracked stocks
-  router.get("/api/stocks", async (req, res) => {
+  router.get("/api/stocks", asyncRoute(async (req, res) => {
     if (!lastMarketSyncAt && !currentStocks.some(stock => upstoxFeed.getQuote(stock.symbol))) {
       await Promise.race([updateStocksWithRealData(), new Promise(resolve => setTimeout(resolve, 3000))]);
     }
@@ -1748,13 +1749,13 @@ export function createMarketDataRouter() {
       currency: "INR",
       stocks: snapshots,
     });
-  });
+  }));
 
   // Chart Data Cache
   const chartCache: Record<string, { timestamp: number, price: number, data: any }> = {};
 
   // 2. Get specific stock details with generated intraday and historical charts
-  router.get("/api/stocks/:symbol", async (req, res) => {
+  router.get("/api/stocks/:symbol", asyncRoute(async (req, res) => {
     const symbol = req.params.symbol.toUpperCase().replace('.NS', '').replace('.BO', '');
     let stock = currentStocks.find((s: StockDetail) => s.symbol === symbol);
 
@@ -1980,10 +1981,10 @@ export function createMarketDataRouter() {
       stock: stockSnapshot(stock),
       ...generatedData
     });
-  });
+  }));
 
   // 3. Market Summary & Breaking Dalal Street News
-  router.get("/api/market/summary", async (req, res) => {
+  router.get("/api/market/summary", asyncRoute(async (req, res) => {
     const advances = currentStocks.filter((s: StockDetail) => s.change >= 0).length;
     const declines = currentStocks.length - advances;
 
@@ -2058,7 +2059,7 @@ export function createMarketDataRouter() {
       marketBreadth: { advances, declines, total: currentStocks.length },
       news: newsHeadlines,
     });
-  });
+  }));
 
   return {
     router,
