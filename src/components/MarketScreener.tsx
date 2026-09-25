@@ -49,7 +49,7 @@ import { AnimatedSearchBar } from './ui/animated-search-bar';
 import { ExpandableTabs } from './ui/expandable-tabs';
 import { FilterTokenBar, FilterToken } from './ui/filter-token-bar';
 import { ThumbnailCarousel, CarouselSlideItem } from './ui/thumbnail-carousel';
-import { ShareBoxAreaChart } from './ui/area-charts-2';
+import { ShareBoxAreaChart } from './ui/share-box-area-chart';
 
 const getBenchmarkGradient = (id: string) => {
   switch (id) {
