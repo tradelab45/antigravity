@@ -2,6 +2,8 @@ import React, { useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { CheckCircle2, XCircle, Lock, Award, RotateCcw, ArrowRight, History } from 'lucide-react';
 import { buildExamAttempt, EXAM_LENGTH, EXAM_PASS_MARK, type ExamAttempt, type ExamQuestion, type StageExam as StageExamData } from '../data/stageExams';
+import { StageCertificate } from './StageCertificate';
+import { useSimulator } from '../context/SimulatorContext';
 
 const attemptDate = (at: number) =>
   new Intl.DateTimeFormat('en-IN', {
@@ -43,6 +45,7 @@ export const StageExam: React.FC<StageExamProps> = ({
   onPass,
   onRecordAttempt,
 }) => {
+  const { currentUser } = useSimulator();
   const [attemptSeed, setAttemptSeed] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [submittedScore, setSubmittedScore] = useState<number | null>(null);
@@ -113,6 +116,26 @@ export const StageExam: React.FC<StageExamProps> = ({
           )}
         </div>
       </div>
+
+      {/* Only once the stage is genuinely cleared, and built from the attempt
+          history rather than from anything assumed. */}
+      {passed && bestScore !== null && (() => {
+        const cleared = attempts.filter((attempt) => attempt.score >= EXAM_PASS_MARK);
+        // The history is newest first, so the earliest pass is the last one.
+        const firstPass = cleared.length > 0 ? cleared[cleared.length - 1] : null;
+        if (!firstPass) return null;
+        return (
+          <StageCertificate
+            learnerName={currentUser?.fullName || 'RupeeRookie learner'}
+            stageName={stageName}
+            stageNumber={stageNumber}
+            score={bestScore}
+            total={EXAM_LENGTH}
+            passedAt={firstPass.at}
+            attempts={attempts.length}
+          />
+        );
+      })()}
 
       {attempts.length > 0 && (
         <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
