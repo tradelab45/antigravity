@@ -257,7 +257,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
               type="button"
               onClick={() => playNseBellSound()}
               title="Click to ring the Dalal Street exchange gong bell"
-              className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black border cursor-pointer hover:scale-105 active:scale-95 transition-transform ${
+              className={`flex min-h-6 items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black border cursor-pointer hover:scale-105 active:scale-95 transition-transform ${
                 nseMarketInfo.isNSEMarketOpen
                   ? 'bg-emerald-500/20 border-emerald-400/40 text-emerald-300'
                   : 'bg-rose-500/20 border-rose-400/40 text-rose-300'
@@ -299,7 +299,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
               type="button"
               onClick={() => playNseBellSound()}
               title="Click to ring the Dalal Street exchange gong bell"
-              className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black border cursor-pointer hover:scale-105 active:scale-95 transition-transform ${
+              className={`flex min-h-6 items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black border cursor-pointer hover:scale-105 active:scale-95 transition-transform ${
                 nseMarketInfo.isNSEMarketOpen
                   ? 'bg-emerald-500/20 border-emerald-400/40 text-emerald-300'
                   : 'bg-rose-500/20 border-rose-400/40 text-rose-300'

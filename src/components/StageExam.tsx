@@ -1,7 +1,15 @@
 import React, { useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { CheckCircle2, XCircle, Lock, Award, RotateCcw, ArrowRight } from 'lucide-react';
-import { buildExamAttempt, EXAM_LENGTH, EXAM_PASS_MARK, type ExamQuestion, type StageExam as StageExamData } from '../data/stageExams';
+import { CheckCircle2, XCircle, Lock, Award, RotateCcw, ArrowRight, History } from 'lucide-react';
+import { buildExamAttempt, EXAM_LENGTH, EXAM_PASS_MARK, type ExamAttempt, type ExamQuestion, type StageExam as StageExamData } from '../data/stageExams';
+
+const attemptDate = (at: number) =>
+  new Intl.DateTimeFormat('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(at));
 
 interface StageExamProps {
   exam: StageExamData;
@@ -12,6 +20,8 @@ interface StageExamProps {
   modulesRemaining: number;
   passed: boolean;
   bestScore: number | null;
+  /** Every recorded attempt for this stage, newest first. */
+  attempts: ExamAttempt[];
   onPass: (score: number) => void;
   onRecordAttempt: (score: number) => void;
 }
@@ -29,6 +39,7 @@ export const StageExam: React.FC<StageExamProps> = ({
   modulesRemaining,
   passed,
   bestScore,
+  attempts,
   onPass,
   onRecordAttempt,
 }) => {
@@ -102,6 +113,59 @@ export const StageExam: React.FC<StageExamProps> = ({
           )}
         </div>
       </div>
+
+      {attempts.length > 0 && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h4 className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">
+              <History className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" /> Your attempts
+            </h4>
+            <p className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+              {attempts.length} attempt{attempts.length === 1 ? '' : 's'} · best {Math.max(...attempts.map((a) => a.score))}/{EXAM_LENGTH}
+            </p>
+          </div>
+
+          {/* Newest first, so the most recent attempt is the one you read. */}
+          <ol className="mt-3 space-y-1.5">
+            {attempts.map((attempt) => {
+              const cleared = attempt.score >= EXAM_PASS_MARK;
+              return (
+                <li
+                  key={attempt.at}
+                  className="flex items-center gap-3 rounded-xl border border-slate-200 px-3 py-2 dark:border-slate-700"
+                >
+                  <span
+                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
+                      cleared
+                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300'
+                        : 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300'
+                    }`}
+                    aria-hidden="true"
+                  >
+                    {cleared ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
+                  </span>
+
+                  <span className="w-20 shrink-0 font-mono text-xs font-black tabular-nums text-slate-900 dark:text-white">
+                    {attempt.score}/{EXAM_LENGTH}
+                  </span>
+
+                  {/* A bar rather than another number: the trend is the point. */}
+                  <span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                    <span
+                      className={`block h-full rounded-full ${cleared ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                      style={{ width: `${(attempt.score / EXAM_LENGTH) * 100}%` }}
+                    />
+                  </span>
+
+                  <span className="shrink-0 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                    {attemptDate(attempt.at)}
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      )}
 
       {isSubmitted && (
         <motion.div

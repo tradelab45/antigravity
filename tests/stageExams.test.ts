@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { STAGE_EXAMS, EXAM_LENGTH, EXAM_PASS_MARK, getStageExam, buildExamAttempt } from '../src/data/stageExams';
+import { STAGE_EXAMS, EXAM_LENGTH, EXAM_PASS_MARK, EXAM_ATTEMPT_HISTORY, getStageExam, buildExamAttempt, type ExamAttempt } from '../src/data/stageExams';
 
 test('every stage has an exam of exactly the advertised length', () => {
   assert.equal(STAGE_EXAMS.length, 6);
@@ -86,4 +86,39 @@ test('exams are addressable by the learning path stage ids', () => {
     assert.ok(getStageExam(id), `no exam for stage ${id}`);
   }
   assert.equal(getStageExam('nope'), undefined);
+});
+
+/**
+ * The academy keeps a rolling window of attempts per stage. The reducer below
+ * mirrors what recordExamScore does, so the cap and the ordering are covered
+ * without standing up the component.
+ */
+const recordAttempt = (history: ExamAttempt[], attempt: ExamAttempt): ExamAttempt[] =>
+  [attempt, ...history].slice(0, EXAM_ATTEMPT_HISTORY);
+
+test('the attempt history keeps the newest attempts and caps its length', () => {
+  let history: ExamAttempt[] = [];
+  for (let i = 0; i < EXAM_ATTEMPT_HISTORY + 5; i += 1) {
+    history = recordAttempt(history, { score: i % (EXAM_LENGTH + 1), at: 1_700_000_000_000 + i });
+  }
+
+  assert.equal(history.length, EXAM_ATTEMPT_HISTORY, 'the window should not grow past its cap');
+  assert.equal(
+    history[0].at,
+    1_700_000_000_000 + EXAM_ATTEMPT_HISTORY + 4,
+    'the most recent attempt belongs at the front',
+  );
+  const descending = history.every((entry, i) => i === 0 || history[i - 1].at > entry.at);
+  assert.ok(descending, 'attempts should read newest first');
+});
+
+test('a pass is decided by the best attempt, not the last one', () => {
+  const history: ExamAttempt[] = [
+    { score: 9, at: 3 },
+    { score: EXAM_PASS_MARK + 2, at: 2 },
+    { score: 4, at: 1 },
+  ];
+  const best = Math.max(...history.map((entry) => entry.score));
+  assert.ok(best >= EXAM_PASS_MARK, 'a cleared stage stays cleared after a worse retake');
+  assert.ok(history[0].score < EXAM_PASS_MARK, 'the latest attempt here is a fail, deliberately');
 });

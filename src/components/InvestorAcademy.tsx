@@ -34,7 +34,7 @@ import { TaxCentre } from './TaxCentre';
 import { startPracticeTask } from './PracticeTaskBanner';
 import { getPracticeAction } from '../data/practiceActions';
 import { StageExam } from './StageExam';
-import { getStageExam, EXAM_LENGTH, EXAM_PASS_MARK } from '../data/stageExams';
+import { getStageExam, EXAM_LENGTH, EXAM_PASS_MARK, EXAM_ATTEMPT_HISTORY, type ExamAttempt } from '../data/stageExams';
 import type { AppTabType } from './Header';
 import { useAccessibility } from '../context/AccessibilityContext';
 
@@ -393,11 +393,31 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
     localStorage.setItem(`${academyKey}:exams`, JSON.stringify(examScores));
   }, [academyKey, examScores]);
 
+  // Every attempt, not only the best one. The best score gates the next stage;
+  // the history is what tells a learner whether they are improving, and which
+  // stage is costing them retakes.
+  const [examAttempts, setExamAttempts] = useState<Record<string, ExamAttempt[]>>(() => {
+    try { return JSON.parse(localStorage.getItem(`${academyKey}:examAttempts`) || '{}'); } catch { return {}; }
+  });
+
+  useEffect(() => {
+    localStorage.setItem(`${academyKey}:examAttempts`, JSON.stringify(examAttempts));
+  }, [academyKey, examAttempts]);
+
   const recordExamScore = (stageId: string, score: number) => {
     setExamScores((previous) => ({
       ...previous,
       [stageId]: Math.max(previous[stageId] ?? 0, score),
     }));
+    setExamAttempts((previous) => {
+      const history = previous[stageId] ?? [];
+      return {
+        ...previous,
+        // Newest first, and capped so a learner who retakes a paper twenty
+        // times does not grow the record without limit.
+        [stageId]: [{ score, at: Date.now() }, ...history].slice(0, EXAM_ATTEMPT_HISTORY),
+      };
+    });
   };
 
   const hasPassedExam = (stageId: string) => (examScores[stageId] ?? 0) >= EXAM_PASS_MARK;
@@ -960,6 +980,7 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
             modulesRemaining={progress.total - progress.done}
             passed={hasPassedExam(activeStageId)}
             bestScore={examScores[activeStageId] ?? null}
+            attempts={examAttempts[activeStageId] ?? []}
             onRecordAttempt={(score) => recordExamScore(activeStageId, score)}
             onPass={(score) => {
               recordExamScore(activeStageId, score);

@@ -189,8 +189,14 @@ export const ShareBoxAreaChart: React.FC<ShareBoxAreaChartProps> = ({
   }, [coords, svgWidth, svgHeight, padBottom]);
 
   const cleanSym = symbol.replace(/[^a-zA-Z0-9]/g, '');
-  const gradientId = `area-grad-${cleanSym}-${timeframe}-${isUp ? 'up' : 'dn'}`;
-  const filterId = `glow-${cleanSym}-${timeframe}`;
+  // The ids were built from the symbol and timeframe alone, so two charts of
+  // the same stock on one page — the home deck and the spotlight panel both
+  // show RELIANCE — emitted the same <linearGradient id>. url(#id) resolves to
+  // whichever the document declares first, so the second chart was painted
+  // with the first one's fill and filter. useId keeps them apart.
+  const instanceId = React.useId().replace(/[^a-zA-Z0-9]/g, '');
+  const gradientId = `area-grad-${cleanSym}-${timeframe}-${isUp ? 'up' : 'dn'}-${instanceId}`;
+  const filterId = `glow-${cleanSym}-${timeframe}-${instanceId}`;
 
   const strokeColor = isUp ? '#00f59b' : '#f43f5e';
   const fillColor = isUp ? '#00f59b' : '#f43f5e';

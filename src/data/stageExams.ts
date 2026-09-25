@@ -25,6 +25,16 @@ export interface StageExam {
 }
 
 /** Questions a learner must get right to pass, out of twenty. */
+/** One submitted paper: the score and when it was submitted. */
+export interface ExamAttempt {
+  score: number;
+  /** Epoch milliseconds. */
+  at: number;
+}
+
+/** How many attempts are kept per stage, newest first. */
+export const EXAM_ATTEMPT_HISTORY = 12;
+
 export const EXAM_PASS_MARK = 14;
 
 /** How many questions each stage exam asks. */

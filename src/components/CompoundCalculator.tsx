@@ -534,7 +534,8 @@ export const CompoundCalculator: React.FC = () => {
                 <button
                   key={p.label}
                   onClick={() => setAnnualReturn(p.rate)}
-                  className={`text-[10px] px-2 py-0.5 rounded-lg font-bold transition-all cursor-pointer ${
+                  aria-pressed={annualReturn === p.rate}
+                  className={`text-[10px] min-h-6 px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
                     annualReturn === p.rate
                       ? 'bg-slate-900 text-white'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
