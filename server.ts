@@ -3535,7 +3535,7 @@ app.get("/api/admin/trades", requireAdminAuth, (req, res) => {
 // Trade recording / live sync from the simulator; see
 // src/server/routes/trading-simulator.ts. The trade and user stores stay here
 // because the admin console reads them too.
-app.use(createTradesRouter({ loadTrades, saveTrades, loadUsers, saveUsers }));
+app.use(createTradesRouter({ loadTrades, saveTrades, loadUsers, saveUsers, sessionUserId: academyService.sessionUserId }));
 
 // Direct Export Trades to CSV
 app.get("/api/admin/export/trades-csv", requireAdminAuth, (req, res) => {
