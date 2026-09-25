@@ -51,6 +51,23 @@ import { calculateDuPontAnalysis } from '../utils/technicalCalculator';
 import { formatINR, formatPercent, formatIndianShort, formatNumberIndian } from '../utils/formatters';
 import { playOrderFilledSound, playStopLossTriggeredSound } from '../utils/soundEffects';
 import { useModalDialog } from '../hooks/useModalDialog';
+import { estimateTradeCharges } from '../utils/tradeCharges';
+
+/**
+ * Rounds a price to the NSE tick of five paise.
+ *
+ * The stop-loss field is `step="0.05"`, which is the real tick size, but it
+ * was seeded with `price * 0.95` — ₹1226.40 becomes ₹1165.08, which that same
+ * step rejects. The browser then refused to submit the whole ticket with
+ * "the two nearest valid values are 1165.05 and 1165.1", and the order could
+ * not be placed until the field was edited by hand.
+ */
+const TICK_SIZE = 0.05;
+export const snapToTick = (value: number): number => {
+  if (!Number.isFinite(value) || value <= 0) return 0;
+  return Number((Math.round(value / TICK_SIZE) * TICK_SIZE).toFixed(2));
+};
+
 
 interface StockDetailModalProps {
   stock: StockDetail | null;
@@ -109,7 +126,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
   const [orderBook, setOrderBook] = useState<{ bids: any[]; asks: any[]; totalBuyQty: number; totalSellQty: number } | null>(null);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [loadingAi, setLoadingAi] = useState<boolean>(false);
-  const [invalidationLevel, setInvalidationLevel] = useState<number>(stock ? Number((stock.price * 0.95).toFixed(2)) : 0);
+  const [invalidationLevel, setInvalidationLevel] = useState<number>(stock ? snapToTick(stock.price * 0.95) : 0);
   const [maximumAllocationPct, setMaximumAllocationPct] = useState<number>(10);
   const [expectedCatalyst, setExpectedCatalyst] = useState<string>('');
   const [draftMessage, setDraftMessage] = useState('');
@@ -170,11 +187,11 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
       try {
         const saved = JSON.parse(localStorage.getItem(`rr_trade_plan_${currentUser?.id || 'guest'}_${stock.symbol}`) || 'null');
         if (saved) {
-          if (Number.isFinite(saved.invalidationLevel)) setInvalidationLevel(saved.invalidationLevel);
+          if (Number.isFinite(saved.invalidationLevel)) setInvalidationLevel(snapToTick(saved.invalidationLevel));
           if (Number.isFinite(saved.maximumAllocationPct)) setMaximumAllocationPct(saved.maximumAllocationPct);
           if (typeof saved.expectedCatalyst === 'string') setExpectedCatalyst(saved.expectedCatalyst);
         } else {
-          setInvalidationLevel(Number((stock.price * 0.95).toFixed(2)));
+          setInvalidationLevel(snapToTick(stock.price * 0.95));
           setMaximumAllocationPct(10);
           setExpectedCatalyst('');
         }
@@ -700,6 +717,13 @@ function generateRealisticChartSeries(
         minute: '2-digit',
       })
     : null;
+
+  // Recomputed as the ticket changes, so the preview always matches what the
+  // confirm button is about to do.
+  const chargeEstimate = useMemo(
+    () => estimateTradeCharges(executionPrice, quantity, orderAction, productType === 'MIS' ? 'MIS' : 'CNC'),
+    [executionPrice, quantity, orderAction, productType],
+  );
 
   const { ref: dialogRef, dialogProps } = useModalDialog({
     onClose,
@@ -2964,7 +2988,7 @@ function generateRealisticChartSeries(
                     <legend className="px-1 text-xs font-black text-indigo-950">Your trade plan · required</legend>
                     <p className="mb-3 text-[10px] leading-relaxed text-indigo-800">Define the risk before the order. These notes stay on this device and feed your journal reflection.</p>
                     <div className="grid gap-3 sm:grid-cols-2">
-                      <label className="text-[11px] font-bold text-slate-700">Stop-loss / invalidation level (₹)<input type="number" min="0.05" step="0.05" value={invalidationLevel} onChange={(event) => setInvalidationLevel(Number(event.target.value))} className="mt-1 w-full rounded-xl border border-indigo-200 bg-white px-3 py-2 font-mono text-sm font-black outline-none focus:border-indigo-600" /></label>
+                      <label className="text-[11px] font-bold text-slate-700">Stop-loss / invalidation level (₹)<input type="number" min="0.05" step="0.05" value={invalidationLevel} onChange={(event) => setInvalidationLevel(Number(event.target.value))} onBlur={(event) => setInvalidationLevel(snapToTick(Number(event.target.value)))} className="mt-1 w-full rounded-xl border border-indigo-200 bg-white px-3 py-2 font-mono text-sm font-black outline-none focus:border-indigo-600" /></label>
                       <label className="text-[11px] font-bold text-slate-700">Maximum portfolio allocation<select value={maximumAllocationPct} onChange={(event) => setMaximumAllocationPct(Number(event.target.value))} className="mt-1 w-full rounded-xl border border-indigo-200 bg-white px-3 py-2 text-sm font-black outline-none focus:border-indigo-600"><option value={5}>5% · cautious</option><option value={10}>10% · standard cap</option><option value={15}>15% · elevated</option><option value={20}>20% · concentrated</option></select></label>
                     </div>
                     <label className="mt-3 block text-[11px] font-bold text-slate-700">Expected catalyst<textarea value={expectedCatalyst} onChange={(event) => setExpectedCatalyst(event.target.value)} maxLength={180} placeholder="Example: quarterly margin improvement, product launch, or debt reduction" className="mt-1 min-h-20 w-full resize-none rounded-xl border border-indigo-200 bg-white p-3 text-xs outline-none focus:border-indigo-600" /></label>
@@ -2987,9 +3011,17 @@ function generateRealisticChartSeries(
                       <span>80% Margin Funded (₹{formatINR(totalTradeAmount * 0.8)})</span>
                     </div>
                   )}
+                  {/* The ticket used to claim "₹0.00 (Zero Fee)" here. The
+                      simulator charges nothing, which is true, but a learner
+                      reading that takes away that trading is free. Say both. */}
                   <div className="flex justify-between text-slate-500">
-                    <span>Brokerage & Statutory Charges:</span>
-                    <span className="text-emerald-700 font-bold">₹0.00 (Zero Fee)</span>
+                    <span>Brokerage &amp; statutory charges:</span>
+                    <span className="text-right font-bold text-slate-900">
+                      {formatINR(chargeEstimate.totalCharges)}
+                      <span className="block text-[10px] font-medium text-slate-500">
+                        at a real broker · not charged here
+                      </span>
+                    </span>
                   </div>
                   <div className="border-t border-slate-200 pt-2 flex justify-between items-center font-bold">
                     <span className="text-slate-900 font-black">
@@ -3292,21 +3324,63 @@ function generateRealisticChartSeries(
               {orderAction === 'BUY' && <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-3 text-[11px]"><p className="font-black text-indigo-950">Plan check</p><div className="mt-1 grid grid-cols-2 gap-2"><span>Invalid below <strong>₹{invalidationLevel.toFixed(2)}</strong></span><span>Max allocation <strong>{maximumAllocationPct}%</strong></span></div><p className="mt-2 leading-relaxed"><strong>Catalyst:</strong> {expectedCatalyst}</p></div>}
             </div>
 
-            {/* Balance Impact / Post-Trade Projection */}
-            <div className="bg-slate-50/80 rounded-2xl p-3.5 border border-slate-200 text-xs space-y-1.5 font-medium">
-              <div className="flex justify-between text-slate-500">
-                <span>Current Cash Balance:</span>
-                <span className="font-bold text-slate-900 font-mono">{formatINR(cashBalance)}</span>
-              </div>
-              <div className="flex justify-between text-slate-500">
-                <span>{orderAction === 'BUY' ? 'Cash Balance After Trade:' : 'Cash Balance After Sale Proceeds:'}</span>
-                <span className="font-extrabold text-slate-900 font-mono">
-                  {formatINR(orderAction === 'BUY' ? cashBalance - totalTradeAmount : cashBalance + totalTradeAmount)}
+            {/* What this order would cost at a real broker.
+                The old copy here read "Simulated Brokerage & STT: ₹0.00 (Zero
+                Fee)", which taught the opposite of the truth: delivery carries
+                no brokerage but does carry STT, stamp duty and GST, and a
+                learner who never sees them is surprised by their first real
+                contract note. */}
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3.5 text-xs font-medium">
+              <div className="flex items-baseline justify-between gap-2">
+                <h4 className="text-[11px] font-black uppercase tracking-wider text-slate-700">
+                  What this would cost for real
+                </h4>
+                <span className="text-[10px] font-bold text-slate-500">
+                  {productType === 'CNC' ? 'Delivery' : 'Intraday'} · {chargeEstimate.ratesAsOf}
                 </span>
               </div>
-              <div className="flex justify-between text-slate-500">
-                <span>Simulated Brokerage & STT:</span>
-                <span className="text-emerald-700 font-bold">₹0.00 (Zero Fee)</span>
+
+              <dl className="mt-2.5 space-y-1">
+                {chargeEstimate.lines.map((line) => (
+                  <div key={line.label} className="flex items-baseline justify-between gap-3">
+                    <dt className="text-slate-500" title={line.note}>{line.label}</dt>
+                    <dd className="font-mono font-bold text-slate-900 tabular-nums">
+                      {formatINR(line.amount)}
+                    </dd>
+                  </div>
+                ))}
+                <div className="flex items-baseline justify-between gap-3 border-t border-slate-200 pt-1.5">
+                  <dt className="font-black text-slate-900">Total charges</dt>
+                  <dd className="font-mono font-black text-slate-900 tabular-nums">
+                    {formatINR(chargeEstimate.totalCharges)}
+                  </dd>
+                </div>
+                <div className="flex items-baseline justify-between gap-3">
+                  <dt className="font-black text-slate-900">
+                    {orderAction === 'BUY' ? 'You would pay' : 'You would receive'}
+                  </dt>
+                  <dd className="font-mono text-sm font-black text-slate-900 tabular-nums">
+                    {formatINR(chargeEstimate.netAmount)}
+                  </dd>
+                </div>
+              </dl>
+
+              <p className="mt-2 border-t border-slate-200 pt-2 text-[10px] leading-relaxed text-slate-500">
+                Indicative only. The simulator does not charge these — your practice
+                cash moves by the {formatINR(totalTradeAmount)} turnover alone.
+              </p>
+
+              <div className="mt-2.5 space-y-1 border-t border-slate-200 pt-2">
+                <div className="flex justify-between text-slate-500">
+                  <span>Practice cash now</span>
+                  <span className="font-mono font-bold text-slate-900 tabular-nums">{formatINR(cashBalance)}</span>
+                </div>
+                <div className="flex justify-between text-slate-500">
+                  <span>{orderAction === 'BUY' ? 'After this order' : 'After these proceeds'}</span>
+                  <span className="font-mono font-extrabold text-slate-900 tabular-nums">
+                    {formatINR(orderAction === 'BUY' ? cashBalance - totalTradeAmount : cashBalance + totalTradeAmount)}
+                  </span>
+                </div>
               </div>
             </div>
 
