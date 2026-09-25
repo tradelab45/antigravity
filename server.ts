@@ -7,6 +7,8 @@ import dotenv from "dotenv";
 import yfPackage from "yahoo-finance2";
 import { UpstoxService } from './src/server/upstoxService';
 import { catalogPage, listedStockDetail } from './src/server/stockCatalog';
+import { createAuthLimiter } from './src/server/authRateLimit';
+import { createAcademyService } from './src/server/academyService';
 import { TOP_100_INDIAN_COMPANIES } from "./src/data/indianCompanies";
 import { 
   fetchGoogleFinanceQuote, 
@@ -36,6 +38,12 @@ app.get("/livez", (req, res) => {
 });
 
 app.use(express.json());
+const proxyHops = Number(process.env.TRUST_PROXY_HOPS || 0);
+if (Number.isInteger(proxyHops) && proxyHops > 0 && proxyHops <= 5) app.set('trust proxy', proxyHops);
+const academyService = createAcademyService(path.join(process.cwd(), 'data', 'academy.json'));
+app.use('/api/academy', academyService.router);
+app.use('/api/auth', (_req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
+app.post('/api/auth/logout', academyService.logout);
 
 // Lazy-safe Yahoo Finance client
 let yahooFinanceInstance: any = null;
@@ -711,7 +719,7 @@ const initialCatalogLoad = loadStockPage(0, 100).catch(() => null);
 
 app.get('/api/stocks/catalog', async (req, res) => {
   const offset = Number(req.query.offset ?? 0);
-  const limit = Number(req.query.limit ?? 10);
+  const limit = Number(req.query.limit ?? 23);
   if (!Number.isInteger(offset) || offset < 0 || !Number.isInteger(limit) || limit < 1 || limit > 100) {
     return res.status(400).json({ success: false, error: 'Invalid catalog page' });
   }
@@ -2934,7 +2942,7 @@ function saveTrades(trades: StoredTrade[]): void {
 }
 
 // User Signup
-app.post("/api/auth/signup", async (req, res) => {
+app.post("/api/auth/signup", createAuthLimiter(5, 60 * 60 * 1000), async (req, res) => {
   try {
     const { fullName, email, username, password, phone, ageGroup, experienceLevel } = req.body;
     if (!fullName || !email || !username || !password) {
@@ -3032,6 +3040,7 @@ app.post("/api/auth/signup", async (req, res) => {
       }
     }
 
+    academyService.issueSession(req, res, newUser.id);
     res.json({ success: true, user: toSafeUser(newUser), message: "Account created successfully!" });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message || "Failed to register user" });
@@ -3039,10 +3048,10 @@ app.post("/api/auth/signup", async (req, res) => {
 });
 
 // User Login
-app.post("/api/auth/login", (req, res) => {
+app.post("/api/auth/login", createAuthLimiter(10), (req, res) => {
   try {
     const { identifier, password } = req.body;
-    if (!identifier || !password) {
+    if (typeof identifier !== 'string' || identifier.length > 120 || typeof password !== 'string' || password.length > 128 || !identifier || !password) {
       return res.status(400).json({ success: false, message: "Email or username and password are required." });
     }
 
@@ -3065,6 +3074,7 @@ app.post("/api/auth/login", (req, res) => {
     user.lastLoginAt = new Date().toISOString();
     saveUsers(users);
 
+    academyService.issueSession(req, res, user.id);
     res.json({ success: true, user: toSafeUser(user), message: `Welcome back, ${user.fullName}!` });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message || "Login failed" });
@@ -3130,7 +3140,7 @@ function uniqueUsernameFromEmail(email: string, users: StoredUser[]): string {
 
 // Google Sign-In / Sign-Up: logs in an existing account (linking it by verified
 // email on first use) or creates a new one.
-app.post("/api/auth/google", async (req, res) => {
+app.post("/api/auth/google", createAuthLimiter(20), async (req, res) => {
   try {
     const clientId = getGoogleClientId();
     if (!clientId) {
@@ -3173,6 +3183,7 @@ app.post("/api/auth/google", async (req, res) => {
     }
     saveUsers(users);
 
+    academyService.issueSession(req, res, user.id);
     res.json({
       success: true,
       isNew,

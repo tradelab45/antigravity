@@ -2,6 +2,7 @@ node_modules/
 build/
 dist/
 coverage/
+test-results/
 .DS_Store
 *.log
 .env*
@@ -10,6 +11,8 @@ data/users.json
 data/users.json.tmp
 data/trades.json
 data/trades.json.tmp
+data/academy.json
+data/academy.json.tmp
 # Local agent state stays out, but skills are shared instructions for anyone
 # working in this repo, so they are tracked. Git will not descend into an
 # excluded directory, so the contents are excluded rather than the directory.

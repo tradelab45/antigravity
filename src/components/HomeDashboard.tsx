@@ -25,16 +25,13 @@ import { INITIAL_LESSONS } from '../data/lessonsData';
 import { formatINR, formatPercent } from '../utils/formatters';
 import type { AppTabType } from './Header';
 import { useAccessibility } from '../context/AccessibilityContext';
+import { ResumeLearning } from './ResumeLearning';
+import { PwaInstall } from './PwaInstall';
 import { SpatialCandlestickChart } from './ui/spatial-candlestick-chart';
 import { SpotlightCard } from './ui/spotlight-card';
 import { ThumbnailCarousel, CarouselSlide } from './ui/thumbnail-carousel';
 import { StackSpread, StackCardItem } from './ui/stack-spread';
 import { InteractiveListPreview, ListPreviewItem } from './ui/interactive-list-preview';
-
-interface BeforeInstallPromptEvent extends Event {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
-}
 
 interface MissionState {
   checked: boolean[];
@@ -174,8 +171,6 @@ export const HomeDashboard: React.FC<{ setActiveTab: (tab: AppTabType) => void }
   // Mobile defaults to a simple view. The 3D market showcase is rich but heavy
   // on a phone, so it is opt-in there and always shown on large screens.
   const [showcaseOpen, setShowcaseOpen] = useState<boolean>(() => localStorage.getItem('rr_home_showcase') === 'open');
-  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [offlineReady, setOfflineReady] = useState(false);
   const [missionDifficulty, setMissionDifficulty] = useState<MissionDifficulty>(() => (localStorage.getItem(`rr_mission_difficulty:${currentUser?.id || 'guest'}`) as MissionDifficulty) || 'AUTO');
   const [feedback, setFeedback] = useState<'HELPFUL' | 'NOT_YET' | null>(() => localStorage.getItem(`rr_home_feedback:${currentUser?.id || 'guest'}:${getIstDateKey()}`) as 'HELPFUL' | 'NOT_YET' | null);
 
@@ -185,18 +180,6 @@ export const HomeDashboard: React.FC<{ setActiveTab: (tab: AppTabType) => void }
   useEffect(() => {
     localStorage.setItem(missionKey, JSON.stringify(mission));
   }, [mission, missionKey]);
-
-  useEffect(() => {
-    const onInstallPrompt = (event: Event) => {
-      event.preventDefault();
-      setInstallPrompt(event as BeforeInstallPromptEvent);
-    };
-    window.addEventListener('beforeinstallprompt', onInstallPrompt);
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.ready.then(() => setOfflineReady(true)).catch(() => setOfflineReady(false));
-    }
-    return () => window.removeEventListener('beforeinstallprompt', onInstallPrompt);
-  }, []);
 
   // completeLesson() is shared with the daily quiz, so the raw id list can hold
   // quiz ids as well; only real Academy modules are counted here.
@@ -254,13 +237,6 @@ export const HomeDashboard: React.FC<{ setActiveTab: (tab: AppTabType) => void }
       if (completed) earnXP(25, `Completed daily learning mission ${getIstDateKey()}`);
       return { ...previous, checked, completed };
     });
-  };
-
-  const installApp = async () => {
-    if (!installPrompt) return;
-    await installPrompt.prompt();
-    const choice = await installPrompt.userChoice;
-    if (choice.outcome === 'accepted') setInstallPrompt(null);
   };
 
   const resolvedDifficulty = missionDifficulty === 'AUTO'
@@ -340,6 +316,8 @@ export const HomeDashboard: React.FC<{ setActiveTab: (tab: AppTabType) => void }
           </div>
         </div>
       </section>
+
+      <ResumeLearning userId={currentUser?.id} onResume={() => setActiveTab('academy')} />
 
       {/* Mobile keeps a simple view by default: the 3D market showcase below is
           opt-in on small screens and always visible from lg upwards. */}
@@ -530,18 +508,7 @@ export const HomeDashboard: React.FC<{ setActiveTab: (tab: AppTabType) => void }
             <button type="button" onClick={() => setActiveTab('portfolio')} className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-black text-white dark:bg-indigo-600">Open risk heatmap <ArrowRight className="h-3.5 w-3.5" /></button>
           </section>
 
-          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex items-center gap-2"><Download className="h-5 w-5 text-indigo-600" /><h2 className="text-sm font-black">RupeeRookie on mobile</h2></div>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Install the app and keep Academy lessons available after they are prepared for offline use.</p>
-            {installPrompt ? (
-              <button type="button" onClick={installApp} className="mt-3 w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-black text-white">Install mobile app</button>
-            ) : (
-              <div className="mt-3 flex items-center gap-2 rounded-xl bg-slate-50 p-3 text-xs font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                {offlineReady ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <Sparkles className="h-4 w-4 text-amber-500" />}
-                {offlineReady ? 'Offline Academy support is ready on this device.' : 'Open in a supported mobile browser to install.'}
-              </div>
-            )}
-          </section>
+          <PwaInstall />
         </div>
       </div>
 

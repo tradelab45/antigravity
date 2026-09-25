@@ -38,84 +38,13 @@ import { getStageExam, EXAM_LENGTH, EXAM_PASS_MARK } from '../data/stageExams';
 import type { AppTabType } from './Header';
 import { useAccessibility } from '../context/AccessibilityContext';
 
-const HINDI_LESSON_SUMMARIES: Record<string, string> = {
-  'lesson-1': 'शेयर किसी कंपनी में स्वामित्व का छोटा हिस्सा होता है। कीमत प्रतिदिन बदल सकती है, लेकिन मुख्य उद्देश्य व्यवसाय की गुणवत्ता और दीर्घकालीन मूल्य समझना है।',
-  'lesson-2': 'P/E और EPS बताते हैं कि कंपनी कितना कमा रही है और बाज़ार उस कमाई के लिए कितना मूल्य दे रहा है। कम P/E अपने-आप सस्ता निवेश नहीं बनाता।',
-  'lesson-3': '52-week high या low केवल संदर्भ है—यह अपने-आप खरीदने या बेचने का संकेत नहीं है। रुझान के साथ व्यवसाय और मूल्यांकन भी जाँचें।',
-  'lesson-4': 'Compounding में पुराने returns भी आगे return कमाते हैं। छोटी राशि और अधिक समय मिलकर बड़ा प्रभाव बना सकते हैं।',
-  'lesson-5': 'Allocation तय करता है कि एक गलत विचार पोर्टफोलियो को कितना नुकसान पहुँचा सकता है। Diversification का अर्थ केवल अधिक स्टॉक नहीं, बल्कि अलग आर्थिक कारण भी हैं।',
-  'lesson-6': 'Candlestick खरीदारों और विक्रेताओं की छोटी कहानी दिखाता है। Pattern को गारंटी नहीं, संभावना और जोखिम योजना की तरह उपयोग करें।',
-  'lesson-7': 'Market, limit और stop orders के अलग लाभ और सीमाएँ हैं। तेज़ execution और बिल्कुल तय price हमेशा एक साथ नहीं मिलते।',
-  'lesson-8': 'Inflation पैसे की वास्तविक क्रय शक्ति कम करती है। Nominal return के साथ inflation-adjusted real return देखना आवश्यक है।',
-  'lesson-9': 'P&L लाभ दिखाता है, balance sheet वित्तीय मजबूती और cash-flow statement वास्तविक नकदी की गति। तीनों को साथ पढ़ें।',
-  'lesson-10': 'Budget का लक्ष्य हर रुपये को उद्देश्य देना है। बचत और निवेश से पहले आपातकालीन आवश्यकता और नियमित खर्च की योजना बनाएँ।',
-  'lesson-11': 'FOMO, नुकसान का डर और अति-आत्मविश्वास निर्णय बिगाड़ सकते हैं। लिखित योजना और journal भावनाओं को स्पष्ट बनाते हैं।',
-  'lesson-12': 'ESG और carbon credits कंपनी की लागत और अवसरों को प्रभावित कर सकते हैं, लेकिन प्रमाण के बिना green label पर भरोसा न करें।',
-};
+import { localizeLesson } from '../data/hindiLessons';
+import { readResume } from '../utils/academyProgress';
+import { useExamHistory } from '../hooks/useExamHistory';
+import { ExamHistory } from './ExamHistory';
+import { CohortLeaderboard } from './CohortLeaderboard';
 
-/**
- * The curriculum is grouped into stages. A learner picks the stage they are on
- * and only that stage's modules are listed, instead of one long scroll of every
- * lesson in the Academy.
- *
- * Stages are a recommended order, not a gate: every stage can be opened at any
- * time so nothing in the Academy is unreachable.
- */
-const LEARNING_PATH = [
-  {
-    id: 'beginner',
-    name: 'Beginner',
-    icon: '🌱',
-    outcome: 'Shares, indices and basic risk',
-    blurb: 'Start here if the market is new to you.',
-    lessonIds: ['lesson-1', 'lesson-2'],
-  },
-  {
-    id: 'explorer',
-    name: 'Explorer',
-    icon: '🧭',
-    outcome: 'Valuation, trends and compounding',
-    blurb: 'Learn what makes a price cheap or expensive.',
-    lessonIds: ['lesson-3', 'lesson-4'],
-  },
-  {
-    id: 'builder',
-    name: 'Builder',
-    icon: '🧱',
-    outcome: 'Allocation, diversification and orders',
-    blurb: 'Build a portfolio and place orders with intent.',
-    lessonIds: ['lesson-5', 'lesson-6', 'lesson-7'],
-  },
-  {
-    id: 'analyst',
-    name: 'Analyst',
-    icon: '🔍',
-    outcome: 'Inflation, statements and planning',
-    blurb: 'Read the numbers behind a business.',
-    lessonIds: ['lesson-8', 'lesson-9', 'lesson-10'],
-  },
-  {
-    id: 'responsible',
-    name: 'Responsible Simulator',
-    icon: '🧠',
-    outcome: 'Behaviour, evidence and discipline',
-    blurb: 'Manage the investor, not just the portfolio.',
-    lessonIds: ['lesson-11', 'lesson-12'],
-  },
-  {
-    id: 'taxation',
-    name: 'Tax Smart',
-    icon: '🧾',
-    outcome: 'Slabs, capital gains, harvesting and filing',
-    blurb: 'Keep more of what you earn, legally.',
-    lessonIds: ['lesson-tax-1', 'lesson-tax-2', 'lesson-tax-3', 'lesson-tax-4', 'lesson-tax-5'],
-  },
-] as const;
-
-type LearningStageId = typeof LEARNING_PATH[number]['id'];
-
-const getStageForLesson = (lessonId: string): LearningStageId =>
-  LEARNING_PATH.find((stage) => (stage.lessonIds as readonly string[]).includes(lessonId))?.id ?? LEARNING_PATH[0].id;
+import { LEARNING_PATH, getStageForLesson, type LearningStageId } from '../data/learningPath';
 
 type AcademyTabId =
   | 'LESSONS'
@@ -126,10 +55,16 @@ type AcademyTabId =
   | 'HISTORICAL_EVENTS'
   | 'DAILY_QUIZ'
   | 'BATTLE'
-  | 'JARGON_BUSTER';
+  | 'JARGON_BUSTER'
+  | 'HISTORY'
+  | 'LEADERBOARD';
+
+const ACADEMY_TAB_HINDI: Record<AcademyTabId, string> = { LESSONS: 'पाठ', STAGE_EXAM: 'चरण परीक्षा', CASE_STUDIES: 'उदाहरण अध्ययन', TAX_CENTRE: 'कर केंद्र', PORTFOLIO_MODELS: 'पोर्टफोलियो मॉडल', HISTORICAL_EVENTS: 'बाज़ार इतिहास', DAILY_QUIZ: 'दैनिक प्रश्न', BATTLE: '1v1 मुकाबला', JARGON_BUSTER: 'शब्दावली', HISTORY: 'परीक्षा इतिहास', LEADERBOARD: 'स्कूल / कॉलेज रैंकिंग' };
 
 const ACADEMY_TABS: Array<{ id: AcademyTabId; icon: string; label: string; count?: number }> = [
   { id: 'LESSONS', icon: '📚', label: 'Lessons', count: INITIAL_LESSONS.length },
+  { id: 'HISTORY', icon: '', label: 'Exam History' },
+  { id: 'LEADERBOARD', icon: '', label: 'School / College' },
   { id: 'STAGE_EXAM', icon: '📝', label: 'Stage Exam', count: EXAM_LENGTH },
   { id: 'CASE_STUDIES', icon: '📊', label: 'Case Studies', count: CASE_STUDIES_DATA.length },
   { id: 'TAX_CENTRE', icon: '🧾', label: 'Tax Centre' },
@@ -260,22 +195,22 @@ interface InvestorAcademyProps {
 
 export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }) => {
   const { completedLessonIds, completeLesson, currentUser } = useSimulator();
-  const { settings } = useAccessibility();
+  const { settings, updateSetting } = useAccessibility();
+  const hindi = settings.learningLanguage === 'HINDI';
+  const { attempts, recordAttempt, notice, sync } = useExamHistory(currentUser?.id);
+  const localizedLessons = useMemo(() => INITIAL_LESSONS.map(lesson => localizeLesson(lesson, settings.learningLanguage)), [settings.learningLanguage]);
+  const resume = readResume(currentUser?.id, new URLSearchParams(window.location.search).get('lesson'));
 
   const academyKey = `rr_academy_workspace:${currentUser?.id || 'guest'}`;
   const recommendedLessonIndex = currentUser?.experienceLevel === 'ADVANCED' ? 8 : currentUser?.experienceLevel === 'INTERMEDIATE' ? 4 : 0;
   const recommendedLesson = INITIAL_LESSONS[Math.min(recommendedLessonIndex, INITIAL_LESSONS.length - 1)];
-  const [activeLessonId, setActiveLessonId] = useState<string>(() => localStorage.getItem(`${academyKey}:last`) || recommendedLesson.id);
+  const [activeLessonId, setActiveLessonId] = useState<string>(() => resume?.lessonId || INITIAL_LESSONS[0].id);
   const [selectedQuizOption, setSelectedQuizOption] = useState<LessonQuizOption | null>(null);
   const [isQuizSubmitted, setIsQuizSubmitted] = useState<boolean>(false);
   const [activeSubTab, setActiveSubTab] = useState<AcademyTabId>('LESSONS');
   // Which learning stage the person is currently working through. Only this
   // stage's modules are listed, which keeps the lesson list short and readable.
-  const [activeStageId, setActiveStageId] = useState<LearningStageId>(() => {
-    const saved = localStorage.getItem(`${academyKey}:stage`);
-    if (saved && LEARNING_PATH.some((stage) => stage.id === saved)) return saved as LearningStageId;
-    return getStageForLesson(localStorage.getItem(`${academyKey}:last`) || recommendedLesson.id);
-  });
+  const [activeStageId, setActiveStageId] = useState<LearningStageId>(() => resume?.stage.id || LEARNING_PATH[0].id);
   
   // Case Studies State
   const [activeCaseStudyId, setActiveCaseStudyId] = useState<string>(CASE_STUDIES_DATA[0].id);
@@ -298,10 +233,7 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
       setIsReadingAloud(false);
       return;
     }
-    const hindiSummary = HINDI_LESSON_SUMMARIES[activeLessonId];
-    const text = settings.learningLanguage === 'HINDI' && hindiSummary
-      ? `${activeLesson.title}. ${hindiSummary}`
-      : `${activeLesson.title}. ${activeLesson.summary}. ${activeLesson.keyTakeaways.join('. ')}`;
+    const text = `${activeLesson.title}. ${activeLesson.summary}. ${activeLesson.sections.map(section => section.content).join('. ')}. ${activeLesson.keyTakeaways.join('. ')}`;
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = settings.learningLanguage === 'HINDI' ? 'hi-IN' : 'en-IN';
     utterance.rate = 0.92;
@@ -352,8 +284,8 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
 
 
   const activeLesson = useMemo(() => {
-    return INITIAL_LESSONS.find((l) => l.id === activeLessonId) || INITIAL_LESSONS[0];
-  }, [activeLessonId]);
+    return localizedLessons.find((l) => l.id === activeLessonId) || localizedLessons[0];
+  }, [activeLessonId, localizedLessons]);
 
   const activeStage = useMemo(
     () => LEARNING_PATH.find((stage) => stage.id === activeStageId) || LEARNING_PATH[0],
@@ -364,7 +296,7 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
   const lessonsForStage = (stageId: LearningStageId): Lesson[] => {
     const stage = LEARNING_PATH.find((item) => item.id === stageId) || LEARNING_PATH[0];
     return (stage.lessonIds as readonly string[])
-      .map((id) => INITIAL_LESSONS.find((lesson) => lesson.id === id))
+      .map((id) => localizedLessons.find((lesson) => lesson.id === id))
       .filter((lesson): lesson is Lesson => Boolean(lesson));
   };
 
@@ -373,8 +305,8 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
   const filteredLessons = useMemo(() => {
     const query = lessonQuery.trim().toLowerCase();
     if (!query) return lessonsForStage(activeStageId);
-    return INITIAL_LESSONS.filter((lesson) => `${lesson.title} ${lesson.summary} ${lesson.category}`.toLowerCase().includes(query));
-  }, [activeStageId, lessonQuery]);
+    return localizedLessons.filter((lesson) => `${lesson.title} ${lesson.summary} ${lesson.category} ${INITIAL_LESSONS.find(item => item.id === lesson.id)?.title}`.toLowerCase().includes(query));
+  }, [activeStageId, lessonQuery, localizedLessons]);
 
   // completeLesson() is also used by the daily quiz, so completedLessonIds can
   // contain quiz ids. Progress counters must only count real Academy modules.
@@ -393,7 +325,16 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
     localStorage.setItem(`${academyKey}:exams`, JSON.stringify(examScores));
   }, [academyKey, examScores]);
 
-  const recordExamScore = (stageId: string, score: number) => {
+  useEffect(() => {
+    setExamScores(previous => {
+      const next = { ...previous };
+      for (const attempt of attempts) next[attempt.stageId] = Math.max(next[attempt.stageId] || 0, attempt.score);
+      return next;
+    });
+  }, [attempts]);
+
+  const recordExamScore = (stageId: string, score: number, answers: Record<string, string>) => {
+    recordAttempt(stageId, score, answers);
     setExamScores((previous) => ({
       ...previous,
       [stageId]: Math.max(previous[stageId] ?? 0, score),
@@ -421,7 +362,7 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
     [stageProgress],
   );
 
-  const continueLesson = INITIAL_LESSONS.find((lesson) => !completedLessonIds.includes(lesson.id)) || INITIAL_LESSONS[INITIAL_LESSONS.length - 1];
+  const continueLesson = localizedLessons.find((lesson) => !completedLessonIds.includes(lesson.id) && isStageUnlocked(getStageForLesson(lesson.id))) || activeLesson;
 
   useEffect(() => { localStorage.setItem(`${academyKey}:last`, activeLessonId); }, [academyKey, activeLessonId]);
   useEffect(() => { localStorage.setItem(`${academyKey}:stage`, activeStageId); }, [academyKey, activeStageId]);
@@ -431,7 +372,9 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
   useEffect(() => {
     if (isStageUnlocked(activeStageId)) return;
     const highestOpen = [...LEARNING_PATH].reverse().find((stage) => isStageUnlocked(stage.id));
-    setActiveStageId(highestOpen?.id ?? LEARNING_PATH[0].id);
+    const fallback = highestOpen || LEARNING_PATH[0];
+    setActiveStageId(fallback.id);
+    setActiveLessonId(fallback.lessonIds[0]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeStageId, examScores]);
   useEffect(() => { localStorage.setItem(`${academyKey}:bookmarks`, JSON.stringify(bookmarkedLessonIds)); }, [academyKey, bookmarkedLessonIds]);
@@ -457,6 +400,7 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
   };
 
   const handleSelectLesson = (lesson: Lesson) => {
+    if (!isStageUnlocked(getStageForLesson(lesson.id))) return;
     setActiveLessonId(lesson.id);
     // Keep the stage selector in sync when a lesson is opened from a search
     // result, the "continue learning" button or another stage.
@@ -510,26 +454,29 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
       {/* Academy Top Header & Sub-Navigation */}
       <div className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 shadow-sm flex flex-col items-start gap-5">
         <div className="min-w-0 w-full">
+          <div role="group" aria-label="Lesson language" className="mb-4 inline-flex rounded border border-slate-300 p-1 dark:border-slate-600">
+            {([["ENGLISH", "English"], ["HINDI", "हिंदी"]] as const).map(([value, label]) => <button key={value} type="button" lang={value === "HINDI" ? "hi" : "en"} aria-pressed={settings.learningLanguage === value} onClick={() => { window.speechSynthesis?.cancel(); setIsReadingAloud(false); updateSetting("learningLanguage", value); }} className={`rounded px-4 py-2 text-sm font-bold ${settings.learningLanguage === value ? "bg-emerald-700 text-white" : "text-slate-700 dark:text-slate-200"}`}>{label}</button>)}
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-2">
               <BookOpen className="w-6 h-6 text-slate-900 " />
-              Investor Academy for Teens
+              {hindi ? 'किशोर निवेशक अकादमी' : 'Investor Academy for Teens'}
             </h2>
             <span className="bg-emerald-100 text-emerald-800 text-xs font-black px-2.5 py-0.5 rounded-full">
-              {completedModuleCount} / {INITIAL_LESSONS.length} Completed
+              {completedModuleCount} / {INITIAL_LESSONS.length} {hindi ? 'पूरे' : 'Completed'}
             </span>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">
             {settings.learningLanguage === 'HINDI' ? 'छोटे और सरल पाठों से valuation, compounding और बाज़ार जोखिम को चरण-दर-चरण समझें।' : 'Master stock valuation, compounding superpowers, and market risk through bite-sized interactive modules.'}
           </p>
-          <p className="mt-2 text-[11px] font-bold text-indigo-700">First lesson for your {currentUser?.experienceLevel.toLowerCase()} level: {recommendedLesson.title.split(':')[0]}</p>
+          <p className="mt-2 text-[11px] font-bold text-indigo-700">{hindi ? `सुझाया गया पाठ: ${localizeLesson(recommendedLesson, 'HINDI').title}` : `First lesson for your ${currentUser?.experienceLevel?.toLowerCase() || 'beginner'} level: ${recommendedLesson.title.split(':')[0]}`}</p>
           <button
             type="button"
             onClick={() => { setActiveSubTab('LESSONS'); setLessonQuery(''); handleSelectLesson(continueLesson); }}
             className="mt-3 flex w-full items-center justify-between gap-3 rounded-xl bg-indigo-600 px-4 py-2.5 text-left text-xs font-black text-white hover:bg-indigo-700 sm:w-auto sm:min-w-[320px]"
           >
             <span className="min-w-0">
-              <span className="block">Continue learning</span>
+              <span className="block">{hindi ? "सीखना जारी रखें" : "Continue learning"}</span>
               <span className="mt-0.5 block truncate font-bold text-indigo-100">{continueLesson.title.split(':')[0]}</span>
             </span>
             <ArrowRight className="h-4 w-4 shrink-0" />
@@ -539,11 +486,11 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
           <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/60">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h3 className="text-xs font-black text-slate-900 dark:text-white">Pick the stage you are on</h3>
-                <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Only that stage's modules are shown, so the list stays short.</p>
+                <h3 className="text-xs font-black text-slate-900 dark:text-white">{hindi ? 'अपना चरण चुनें' : 'Pick the stage you are on'}</h3>
+                <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">{hindi ? 'अगले चरण के लिए पिछले चरण की परीक्षा पास करें।' : 'Only that stage\'s modules are shown, so the list stays short.'}</p>
               </div>
               <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-black text-indigo-700 dark:bg-slate-900 dark:text-indigo-300">
-                {completedModuleCount}/{INITIAL_LESSONS.length} modules
+                {completedModuleCount}/{INITIAL_LESSONS.length} {hindi ? 'पाठ' : 'modules'}
               </span>
             </div>
 
@@ -583,7 +530,7 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className={`text-[10px] font-black uppercase tracking-wide ${selected ? 'text-indigo-200' : 'text-slate-500 dark:text-slate-400'}`}>
-                          Stage {index + 1}
+                          {hindi ? 'चरण' : 'Stage'} {index + 1}
                         </span>
                         {!unlocked
                           ? <Lock className="h-4 w-4 text-slate-400" />
@@ -636,7 +583,7 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white/60 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white'
               }`}
             >
-              {tab.icon} {tab.label}
+              {tab.icon} {hindi ? ACADEMY_TAB_HINDI[tab.id] : tab.label}
               {tab.count !== undefined && ` (${tab.count})`}
             </button>
           ))}
@@ -659,7 +606,7 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
             </div>
             <label className="relative block">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input type="search" value={lessonQuery} onChange={(event) => setLessonQuery(event.target.value)} placeholder="Search all lessons and topics" className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-xs font-bold text-slate-800 outline-none focus:border-indigo-400" />
+              <input type="search" value={lessonQuery} onChange={(event) => setLessonQuery(event.target.value)} aria-label={hindi ? 'पाठ खोजें' : 'Search lessons'} placeholder={hindi ? 'सभी पाठ और विषय खोजें' : 'Search all lessons and topics'} className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-xs font-bold text-slate-800 outline-none focus:border-indigo-400" />
             </label>
             
             <div className="space-y-2.5">
@@ -763,7 +710,7 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
                 <span className="text-xs font-extrabold text-slate-900 bg-slate-50 border border-slate-200 px-3 py-1 rounded-full">
                   {activeLesson.category}
                 </span>
-                <div className="flex flex-wrap items-center justify-end gap-2"><span className="text-xs text-slate-500 font-medium">{activeLesson.readTime} • +{activeLesson.xpReward} XP</span><button type="button" onClick={toggleReadAloud} className={`min-h-10 rounded-xl border px-3 text-xs font-black ${isReadingAloud ? 'border-emerald-400 bg-emerald-100 text-emerald-900' : 'border-slate-200 text-slate-600'}`} aria-pressed={isReadingAloud}>{isReadingAloud ? <VolumeX className="inline h-4 w-4" /> : <Volume2 className="inline h-4 w-4" />} <span className="ml-1">{isReadingAloud ? 'Stop' : 'Listen'}</span></button><button type="button" onClick={() => toggleLessonBookmark(activeLesson.id)} className={`min-h-10 rounded-xl border p-2.5 ${bookmarkedLessonIds.includes(activeLesson.id) ? 'border-amber-300 bg-amber-100 text-amber-700' : 'border-slate-200 text-slate-500'}`} aria-label="Toggle lesson bookmark"><Bookmark className={`h-4 w-4 ${bookmarkedLessonIds.includes(activeLesson.id) ? 'fill-current' : ''}`} /></button></div>
+                <div className="flex flex-wrap items-center justify-end gap-2"><span className="text-xs text-slate-500 font-medium">{activeLesson.readTime} • +{activeLesson.xpReward} XP</span><button type="button" onClick={toggleReadAloud} className={`min-h-10 rounded-xl border px-3 text-xs font-black ${isReadingAloud ? 'border-emerald-400 bg-emerald-100 text-emerald-900' : 'border-slate-200 text-slate-600'}`} aria-pressed={isReadingAloud}>{isReadingAloud ? <VolumeX className="inline h-4 w-4" /> : <Volume2 className="inline h-4 w-4" />} <span className="ml-1">{isReadingAloud ? (hindi ? 'रोकें' : 'Stop') : (hindi ? 'सुनें' : 'Listen')}</span></button><button type="button" onClick={() => toggleLessonBookmark(activeLesson.id)} className={`min-h-10 rounded-xl border p-2.5 ${bookmarkedLessonIds.includes(activeLesson.id) ? 'border-amber-300 bg-amber-100 text-amber-700' : 'border-slate-200 text-slate-500'}`} aria-label="Toggle lesson bookmark"><Bookmark className={`h-4 w-4 ${bookmarkedLessonIds.includes(activeLesson.id) ? 'fill-current' : ''}`} /></button></div>
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-slate-900 mt-3">
                 {activeLesson.title}
@@ -772,14 +719,6 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
                 &ldquo;{activeLesson.tagline}&rdquo;
               </p>
             </div>
-
-            {settings.learningLanguage === 'HINDI' && (
-              <div className="academy-reading rounded-2xl border border-indigo-200 bg-indigo-50 p-4 text-indigo-950" role="status">
-                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-indigo-700">सरल हिन्दी सारांश</p>
-                <p className="mt-2 text-sm font-semibold leading-7">{HINDI_LESSON_SUMMARIES[activeLesson.id] || 'इस पाठ को धीरे-धीरे पढ़ें, मुख्य विचार अपने शब्दों में लिखें और quiz से अपनी समझ जाँचें।'}</p>
-                <p className="mt-2 text-[11px] text-indigo-700">शेयर बाज़ार के मानक शब्द, संख्याएँ, प्रतिशत और सूत्र अपनी मूल शैली में रहेंगे ताकि उनका अर्थ सटीक बना रहे।</p>
-              </div>
-            )}
 
             {/* Lesson Content Sections */}
             <div className="space-y-7 text-slate-700 dark:text-slate-200 text-base leading-7">
@@ -813,7 +752,7 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
             <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2">
               <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
                 <ShieldCheck className="w-4 h-4 text-emerald-600 " />
-                Key Rookie Rules to Remember
+                {hindi ? 'याद रखने योग्य बातें' : 'Key Rookie Rules to Remember'}
               </h4>
               <ul className="text-xs text-slate-500 space-y-1.5 font-medium">
                 {activeLesson.keyTakeaways.map((point, kIdx) => (
@@ -831,12 +770,12 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
                 <div className="flex items-center gap-2">
                   <HelpCircle className="w-5 h-5 text-slate-900 " />
                   <h4 className="text-sm font-black text-slate-900 ">
-                    Knowledge Checkpoint (+{activeLesson.xpReward} XP)
+                    {hindi ? 'अपनी समझ जाँचें' : 'Knowledge Checkpoint'} (+{activeLesson.xpReward} XP)
                   </h4>
                 </div>
                 {isCurrentCompleted && (
                   <span className="text-xs font-black text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Module Mastered
+                    <CheckCircle2 className="w-3.5 h-3.5" /> {hindi ? "पाठ पूरा" : "Module Mastered"}
                   </span>
                 )}
               </div>
@@ -870,7 +809,7 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
                       <div className="flex items-center justify-between">
                         <span>{opt.text}</span>
                         {isQuizSubmitted && opt.isCorrect && (
-                          <span className="text-emerald-700 font-black text-[11px]">Correct Answer ✓</span>
+                          <span className="text-emerald-700 font-black text-[11px]">{hindi ? 'सही उत्तर' : 'Correct Answer'} ✓</span>
                         )}
                       </div>
 
@@ -892,7 +831,7 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
                     disabled={!selectedQuizOption}
                     className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-indigo-700 disabled:opacity-50 text-white font-extrabold text-xs shadow-md shadow-indigo-600/20 transition-all"
                   >
-                    Submit Answer & Earn XP
+                    {hindi ? 'उत्तर जमा करें और XP पाएँ' : 'Submit Answer & Earn XP'}
                   </button>
                 ) : (
                   <button
@@ -902,7 +841,7 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
                     }}
                     className="px-4 py-2 rounded-xl bg-white border border-slate-200 text-zinc-700 text-xs font-bold hover:bg-slate-50 flex items-center gap-1.5"
                   >
-                    <RotateCcw className="w-3.5 h-3.5" /> Try Quiz Again
+                    <RotateCcw className="w-3.5 h-3.5" /> {hindi ? "दोबारा प्रयास करें" : "Try Quiz Again"}
                   </button>
                 )}
               </div>
@@ -945,6 +884,9 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
         </div>
       )}
 
+      {activeSubTab === 'HISTORY' && <ExamHistory attempts={attempts} name={currentUser?.fullName || 'Learner'} notice={notice} onSync={() => void sync()} />}
+      {activeSubTab === 'LEADERBOARD' && <CohortLeaderboard userId={currentUser?.id} onBattle={() => window.dispatchEvent(new CustomEvent('open-stock-battle'))} />}
+
       {/* VIEW: CASE STUDIES & COMPANY-VS-COMPANY COMPARISONS */}
       {/* VIEW: STAGE GATE EXAM */}
       {activeSubTab === 'STAGE_EXAM' && (() => {
@@ -960,9 +902,9 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
             modulesRemaining={progress.total - progress.done}
             passed={hasPassedExam(activeStageId)}
             bestScore={examScores[activeStageId] ?? null}
-            onRecordAttempt={(score) => recordExamScore(activeStageId, score)}
+            key={activeStageId}
+            onRecordAttempt={(score, answers) => recordExamScore(activeStageId, score, answers)}
             onPass={(score) => {
-              recordExamScore(activeStageId, score);
               // The exam is worth XP in its own right, tracked like a lesson so
               // it survives a reload with the rest of the learner's progress.
               completeLesson(`exam-${activeStageId}`, 250);

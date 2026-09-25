@@ -13,7 +13,7 @@ interface StageExamProps {
   passed: boolean;
   bestScore: number | null;
   onPass: (score: number) => void;
-  onRecordAttempt: (score: number) => void;
+  onRecordAttempt: (score: number, answers: Record<string, string>) => void;
 }
 
 /**
@@ -54,13 +54,13 @@ export const StageExam: React.FC<StageExamProps> = ({
   };
 
   const submit = () => {
-    if (answeredCount < questions.length) return;
+    if (isSubmitted || answeredCount < questions.length) return;
     const score = questions.reduce(
       (total, question) => total + (answers[question.id] === question.correctIndex ? 1 : 0),
       0,
     );
     setSubmittedScore(score);
-    onRecordAttempt(score);
+    onRecordAttempt(score, Object.fromEntries(questions.map(question => [question.id, question.options[answers[question.id]]])));
     if (score >= EXAM_PASS_MARK) onPass(score);
   };
 

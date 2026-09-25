@@ -95,6 +95,8 @@ The server uses the official `upstox-js-sdk` V3 full market feed and resolves NS
 
 `/api/upstox/status` exposes connection state, subscription count and unmapped symbols, without credentials. Connection and authorization failures trigger capped reconnect backoff. Yahoo/Google remain available as fallbacks. Only recent Upstox trades in an exchange-reported open session are marked Live; stale, disconnected and closed-session quotes are labelled Latest available. Startup without a token keeps the original providers enabled.
 
+The grid begins with 100 catalog entries and reveals 23 at a time. Further pages come from the complete available NSE equity instrument master, and search can find stocks outside the loaded grid. REST quote batches cover newly requested symbols and symbols outside the websocket subscription ceiling. Missing company fundamentals remain unavailable rather than being invented. The chart's Screener.in and Google Finance shortcut buttons have been removed.
+
 Run the Express server (`npm run dev` or `npm start`) for streaming. Static-only hosting cannot serve the broker connection. Proxies must allow long-lived SSE responses and disable response buffering. Restart daily to refresh the instrument master along with your token.
 
 Reference: [Upstox V3 market feed](https://upstox.com/developer/api-documentation/v3/get-market-data-feed/) and [instrument master](https://upstox.com/developer/api-documentation/instruments/).
@@ -151,11 +153,29 @@ Do not enter brokerage credentials or confidential financial information.
 
 ## Accessibility
 
-The Accessibility panel includes text sizing, English/Hindi summaries, high contrast, reduced motion, dyslexia-friendly Academy reading and larger touch controls. The app also provides keyboard-friendly dialogs, status announcements, responsive touch targets and a skip link.
+The Accessibility panel includes text sizing, English/Hindi lessons, high contrast, reduced motion, dyslexia-friendly Academy reading and larger touch controls. Academy also has an English/Hindi switch that persists across visits. All 17 modules have concise Hindi learning editions, including their knowledge checks and read-aloud text. The stage-exam question bank, case studies and specialist labs remain English. The app also provides keyboard-friendly dialogs, status announcements, responsive touch targets and a skip link.
 
 ## Offline and PWA use
 
 Install the app using a supported browser's Install App option. Prepared Academy material and locally stored learning records can remain available offline. Fresh quotes, AI requests and server actions require a connection. A banner explains disconnections and confirms recovery.
+
+Home now retains install prompts captured on other views and confirms offline readiness only after the service worker acknowledges caching the Academy, Home and shared assets. The install panel offers browser-specific instructions when an install prompt is unavailable. Both signed-out sandbox variants carry a "No signup needed" badge.
+
+### Academy progress and groups
+
+- Home resumes the exact last module and its stage. Invalid or locked deep links fall back to an unlocked stage.
+- Exam history retains dated scores, a trend of the latest 20 attempts and downloadable/shareable PNG stage certificates. Earlier best scores are preserved without inventing historical dates. Certificates are learner-generated, unproctored completion records, not accredited qualifications.
+- Up to 500 attempts and pending submissions are retained per local profile. Offline submissions retry on reconnection, on opening Academy, or using Sync scores. Local browser storage is device-specific; clearing it removes unsynced progress.
+- Signed-in learners can opt into a school/college group using an institution name, private group code and nickname. Only group members see its rankings. Scores are graded on the server from submitted answers, never accepted from client XP or claimed scores. Best scores across the six stages total up to 120; ties share rank. Groups are self-organised, not institution-verified, and exams are not proctored.
+- New Academy endpoints use a seven-day HttpOnly, SameSite cookie issued after successful server login. Existing local sessions must sign in again for sync/rankings. Guest/local practice remains separate. Signing out revokes this server session.
+
+### Auth and deployment
+
+Login is limited to 10 attempts per IP per 15 minutes, Google sign-in to 20, and signup to 5 per hour. Responses include HTTP 429 and Retry-After; the browser does not fall through to offline login after rejected API responses. Auth and Academy responses are never cached by the PWA. Academy requests are limited per authenticated learner, so classmates do not share that allowance.
+
+`TRUST_PROXY_HOPS` defaults to 0. Set an exact hop count only for a deployment where every incoming route passes through that many trusted proxies; do not trust arbitrary forwarded client headers. HTTPS is required outside localhost.
+
+This deployment uses a single Node process: Academy records live in the ignored `data/academy.json` file (alongside the existing file-backed accounts). Keep that directory on durable storage and back it up. Session and rate-limit stores are in-memory: a server restart requires signing in again for shared features. Before scaling to multiple instances, replace these stores with a shared database/session/rate-limit store; stateless or ephemeral hosting does not preserve shared rankings.
 
 ## Project structure
 

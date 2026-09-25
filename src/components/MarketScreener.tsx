@@ -117,7 +117,7 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
   const [strategyPreset, setStrategyPreset] = useState<'ALL' | 'GOLDEN_CROSS' | 'HIGH_DIVIDEND' | 'HIGH_ROE' | 'RSI_DIP' | 'PSU_GIANTS' | 'MOMENTUM'>('ALL');
   const [sortBy, setSortBy] = useState<'POPULAR' | 'PRICE_HIGH' | 'PRICE_LOW' | 'GAIN_HIGH' | 'LOSS_HIGH' | 'PE_LOW' | 'MCAP_HIGH'>('POPULAR');
   const [viewMode, setViewMode] = useState<'CARDS' | 'TABLE'>('CARDS');
-  const [visibleCount, setVisibleCount] = useState(10);
+  const [visibleCount, setVisibleCount] = useState(23);
   const [catalogOffset, setCatalogOffset] = useState(0);
   const [hasMoreCatalog, setHasMoreCatalog] = useState(true);
   const [loadingCatalog, setLoadingCatalog] = useState(false);
@@ -477,7 +477,7 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
   }, [stocks, searchQuery, selectedBenchmark, selectedSector, selectedFilter, strategyPreset, sortBy, watchlist]);
 
   useEffect(() => {
-    setVisibleCount(10);
+    setVisibleCount(23);
   }, [searchQuery, selectedBenchmark, selectedSector, selectedFilter, strategyPreset, sortBy, viewMode]);
 
   const displayedStocks = useMemo(() => filteredStocks.slice(0, visibleCount), [filteredStocks, visibleCount]);
@@ -487,10 +487,10 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
   const canLoadMore = displayedStocks.length < filteredStocks.length || (unfiltered && hasMoreCatalog);
   const loadMoreStocks = useCallback(async () => {
     if (catalogBusy.current) return;
-    if (visibleCount + 10 > filteredStocks.length && unfiltered && hasMoreCatalog) {
-      if (!await fetchCatalogPage(catalogOffset, 10)) return;
+    if (visibleCount + 23 > filteredStocks.length && unfiltered && hasMoreCatalog) {
+      if (!await fetchCatalogPage(catalogOffset, 23)) return;
     }
-    setVisibleCount(count => count + 10);
+    setVisibleCount(count => count + 23);
   }, [visibleCount, filteredStocks.length, unfiltered, hasMoreCatalog, fetchCatalogPage, catalogOffset]);
 
   useEffect(() => {
@@ -1743,7 +1743,7 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
               disabled={loadingCatalog}
               className="w-full sm:w-auto rounded-xl bg-slate-900 px-4 py-2 text-xs font-black text-white hover:bg-slate-800"
             >
-              {loadingCatalog ? 'Loading...' : catalogError ? 'Retry' : 'Load 10 more'}
+              {loadingCatalog ? 'Loading...' : catalogError ? 'Retry' : 'Load 23 more'}
             </button>
           )}
         </div>
