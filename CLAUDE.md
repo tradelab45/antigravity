@@ -24,6 +24,7 @@ Playwright needs a Chromium. Set `CHROMIUM_PATH` to use one you already have.
   `AccessibilityContext` (text scale, contrast, motion, language, touch targets).
 - `src/data/` — lesson content and the stage exam banks.
 - `src/hooks/` — shared behaviour. `useModalDialog` is the one most new code needs.
+- `src/i18n/` — the shell copy in English and Hindi, plus `useTranslation`.
 - `server.ts` — Express API, bundled to `dist/server.cjs`.
 - `tests/visual/` — the contrast audit and the dialog checks.
 
@@ -84,6 +85,28 @@ close, a Tab trap, a body scroll lock and Escape to close.
 `tests/visual/dialogs.test.ts` reads the source of every `*Modal.tsx` and
 fails if one neither declares `role="dialog"` nor uses the hook.
 
+## Sign-in
+
+The server owns the decision. Both client sign-in paths keep an offline branch
+for a build hosted with no backend, and the Google one reads the ID token
+**without verifying its signature**, because checking a Google signature needs
+a server. So the rule is: any answer from the server is final, and the offline
+branch runs only on a real network failure. Loosening that turns every refusal
+— a wrong password, a rate limit, a demand for a verification code — into a
+second chance at signing in unverified.
+
+`REQUIRE_LOGIN_OTP` puts a six-digit emailed code between the first factor and
+the account. Codes are stored as salted scrypt hashes, generated with
+`crypto.randomInt`, expire in ten minutes, allow five wrong guesses and are
+consumed on first use. Delivery is a webhook the operator configures; with
+codes required and no delivery set up, sign-in **fails closed** rather than
+skipping the step. `OTP_DEV_ECHO` returns the code to the browser for local
+work and is refused outright under `NODE_ENV=production`.
+
+`src/server/rateLimit.ts` throttles the auth routes on the caller's address and
+on the identifier being tried. `trust proxy` is deliberately off, so `req.ip`
+is the socket address and `X-Forwarded-For` cannot mint a fresh identity.
+
 ## Numbers must be measured, not plausible
 
 The README has the full rule and it is the most important convention here: a
@@ -91,6 +114,17 @@ figure presented as evidence about the learner — a Sharpe ratio, an execution
 score, an R-multiple — must come from their actual trades or not be shown. An
 unavailable number is omitted, or replaced with what is missing
 (`0/8 closed trades needed`). Never a stand-in.
+
+Two places this shapes the design rather than just the copy:
+
+- **Order costs.** `src/utils/tradeCharges.ts` models what an order would cost
+  at a real broker. The ticket shows it and says plainly that the simulator
+  charges none of it. It replaced a line reading "₹0.00 (Zero Fee)", which was
+  true of the simulator and false about investing.
+- **The class board.** Trades execute on the device; the server never sees an
+  order. So its fields are named `reported`, the response carries
+  `verified: false`, and the panel tells the reader the figures are not
+  checked. Do not quietly start ranking on them as though they were measured.
 
 ## Accessibility is gated, not aspirational
 
@@ -105,6 +139,13 @@ unavailable number is omitted, or replaced with what is missing
   only under `(pointer: coarse)`. A narrow desktop viewport does not match
   that media query, so measuring targets in a resized desktop browser tells
   you nothing about phones — emulate a touch device.
+
+## Density
+
+`data-rr-density` on `<html>` scales card padding, stacked-block rhythm and
+table rows from `src/index.css`. It deliberately leaves type size and controls
+alone: the first version let the padding rules reach buttons and put thirty
+controls on the screener under the 24px floor.
 
 ## SVG ids must be unique per instance
 

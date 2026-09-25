@@ -475,7 +475,7 @@ export const HomeDashboard: React.FC<{ setActiveTab: (tab: AppTabType) => void }
             <span className="text-slate-400 font-medium">{stackCards.length} core holdings</span>
             <button
               onClick={() => setActiveTab('screener')}
-              className="text-emerald-600 dark:text-emerald-400 font-bold hover:underline flex items-center gap-1 cursor-pointer"
+              className="inline-flex min-h-6 items-center gap-1 rounded-lg px-1 font-bold text-emerald-600 hover:underline dark:text-emerald-400 cursor-pointer"
             >
               <span>Explore full 75+ screener</span>
               <ArrowRight className="w-3.5 h-3.5" />

@@ -758,7 +758,7 @@ export const CompoundCalculator: React.FC = () => {
 
           <button
             onClick={() => setShowFullSchedule(!showFullSchedule)}
-            className="text-xs font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer"
+            className="inline-flex min-h-6 items-center rounded-lg px-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer"
           >
             {showFullSchedule ? 'Show First 5 Years' : `View All ${years} Years →`}
           </button>
