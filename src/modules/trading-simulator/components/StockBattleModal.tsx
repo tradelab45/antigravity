@@ -17,10 +17,10 @@ import {
   ChevronDown
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { useSimulator } from '../context/SimulatorContext';
-import { formatINR, formatPercent } from '../utils/formatters';
-import { playOrderFilledSound, playSuccessChime } from '../utils/soundEffects';
-import type { StockDetail } from '../types';
+import { useSimulator } from '../../../context/SimulatorContext';
+import { formatINR, formatPercent } from '../../../utils/formatters';
+import { playOrderFilledSound, playSuccessChime } from '../../../utils/soundEffects';
+import type { StockDetail } from '../../../types';
 
 interface StockBattleModalProps {
   isOpen: boolean;

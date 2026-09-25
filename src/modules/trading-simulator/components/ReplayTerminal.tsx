@@ -21,8 +21,8 @@ import {
   HelpCircle
 } from 'lucide-react';
 import { REPLAY_SCENARIOS } from '../data/replayData';
-import { ReplayScenario, ReplayCandle } from '../types';
-import { useSimulator } from '../context/SimulatorContext';
+import { ReplayScenario, ReplayCandle } from '../../../types';
+import { useSimulator } from '../../../context/SimulatorContext';
 
 export function ReplayTerminal() {
   const { userXP, completeLesson, notifyUser } = useSimulator();

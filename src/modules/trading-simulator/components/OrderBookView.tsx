@@ -18,8 +18,8 @@ import {
   ChevronRight,
   AlertCircle
 } from 'lucide-react';
-import { useSimulator } from '../context/SimulatorContext';
-import { Order, ProductType, Holding } from '../types';
+import { useSimulator } from '../../../context/SimulatorContext';
+import { Order, ProductType, Holding } from '../../../types';
 
 export const OrderBookView: React.FC<{ onSelectStock?: (symbol: string) => void }> = ({ onSelectStock }) => {
   const { orders, cancelPendingOrder, holdings, nseMarketInfo, cashBalance } = useSimulator();

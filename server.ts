@@ -9,6 +9,7 @@ import { UpstoxService } from './src/server/upstoxService';
 import { catalogPage, listedStockDetail } from './src/server/stockCatalog';
 import { createAuthLimiter } from './src/server/authRateLimit';
 import { createAcademyService } from './src/server/academyService';
+import { createTradesRouter } from './src/server/routes/trading-simulator';
 import { TOP_100_INDIAN_COMPANIES } from "./src/data/indianCompanies";
 import { 
   fetchGoogleFinanceQuote, 
@@ -3531,70 +3532,10 @@ app.get("/api/admin/trades", requireAdminAuth, (req, res) => {
   }
 });
 
-// Record / Live Sync Trade from Trading App
-app.post("/api/trades", (req, res) => {
-  try {
-    const { 
-      orderId, 
-      userId, 
-      userName, 
-      userEmail, 
-      symbol, 
-      stockName, 
-      type, 
-      orderType, 
-      productType, 
-      quantity, 
-      price, 
-      totalAmount, 
-      status, 
-      realizedPnL 
-    } = req.body;
-
-    if (!symbol || !quantity || !price) {
-      return res.status(400).json({ success: false, message: "Symbol, quantity, and price are required." });
-    }
-
-    const trades = loadTrades();
-    const newTrade: StoredTrade = {
-      id: `TRD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      orderId: orderId || `ORD-${Date.now()}`,
-      userId: userId || "usr_rookie_demo",
-      userName: userName || "Aarav Jain",
-      userEmail: userEmail || "aaravvjain23@gmail.com",
-      symbol: String(symbol).toUpperCase(),
-      stockName: stockName || symbol,
-      type: type === "SELL" ? "SELL" : "BUY",
-      orderType: orderType || "MARKET",
-      productType: productType === "MIS" ? "MIS" : "CNC",
-      quantity: Number(quantity),
-      price: Number(price),
-      totalAmount: Number(totalAmount || (Number(price) * Number(quantity)).toFixed(2)),
-      timestamp: new Date().toISOString(),
-      status: status || "EXECUTED",
-      realizedPnL: realizedPnL !== undefined ? Number(realizedPnL) : 0
-    };
-
-    trades.unshift(newTrade);
-    // Keep last 1000 trades
-    const trimmed = trades.slice(0, 1000);
-    saveTrades(trimmed);
-
-    // Update user's trade count if matching user found
-    if (userId) {
-      const users = loadUsers();
-      const user = users.find(u => u.id === userId);
-      if (user) {
-        user.totalTrades = (user.totalTrades || 0) + 1;
-        saveUsers(users);
-      }
-    }
-
-    res.json({ success: true, trade: newTrade, message: "Trade recorded successfully" });
-  } catch (err: any) {
-    res.status(500).json({ success: false, message: err.message || "Failed to record trade" });
-  }
-});
+// Trade recording / live sync from the simulator; see
+// src/server/routes/trading-simulator.ts. The trade and user stores stay here
+// because the admin console reads them too.
+app.use(createTradesRouter({ loadTrades, saveTrades, loadUsers, saveUsers }));
 
 // Direct Export Trades to CSV
 app.get("/api/admin/export/trades-csv", requireAdminAuth, (req, res) => {

@@ -13,8 +13,8 @@ import {
   Clock,
   Eye
 } from 'lucide-react';
-import { useSimulator } from '../context/SimulatorContext';
-import { ChallengeItem } from '../types';
+import { useSimulator } from '../../../context/SimulatorContext';
+import { ChallengeItem } from '../../../types';
 
 export function TradingChallengesView() {
   const { notifyUser, currentUser, userXP, orders, totalPnLPercent, completedLessonIds } = useSimulator();

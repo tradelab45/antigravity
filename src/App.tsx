@@ -32,8 +32,8 @@ const MarketScreener = lazy(() => import('./components/MarketScreener').then((mo
 const InvestorAcademy = lazy(() => import('./components/InvestorAcademy').then((module) => ({ default: module.InvestorAcademy })));
 const ChanakyaMentor = lazy(() => import('./components/ChanakyaMentor').then((module) => ({ default: module.ChanakyaMentor })));
 const StockDetailModal = lazy(() => import('./components/StockDetailModal').then((module) => ({ default: module.StockDetailModal })));
-const ReplayTerminal = lazy(() => import('./components/ReplayTerminal').then((module) => ({ default: module.ReplayTerminal })));
-const TradeReviewHub = lazy(() => import('./components/TradeReviewHub').then((module) => ({ default: module.TradeReviewHub })));
+const ReplayTerminal = lazy(() => import('./modules/trading-simulator/components/ReplayTerminal').then((module) => ({ default: module.ReplayTerminal })));
+const TradeReviewHub = lazy(() => import('./modules/trading-simulator/components/TradeReviewHub').then((module) => ({ default: module.TradeReviewHub })));
 const ProgressHub = lazy(() => import('./components/ProgressHub').then((module) => ({ default: module.ProgressHub })));
 const CompoundCalculator = lazy(() => import('./components/CompoundCalculator').then((module) => ({ default: module.CompoundCalculator })));
 const AppWalkthroughOverlay = lazy(() => import('./components/AppWalkthroughOverlay').then((module) => ({ default: module.AppWalkthroughOverlay })));
@@ -41,7 +41,7 @@ const CompleteProfileModal = lazy(() => import('./components/CompleteProfileModa
 const HomeDashboard = lazy(() => import('./components/HomeDashboard').then((module) => ({ default: module.HomeDashboard })));
 const DataPrivacyCenter = lazy(() => import('./components/DataPrivacyCenter').then((module) => ({ default: module.DataPrivacyCenter })));
 const HelpSupportCenter = lazy(() => import('./components/HelpSupportCenter').then((module) => ({ default: module.HelpSupportCenter })));
-const StockBattleModal = lazy(() => import('./components/StockBattleModal').then((module) => ({ default: module.StockBattleModal })));
+const StockBattleModal = lazy(() => import('./modules/trading-simulator/components/StockBattleModal').then((module) => ({ default: module.StockBattleModal })));
 const OptionsChainModal = lazy(() => import('./components/OptionsChainModal').then((module) => ({ default: module.OptionsChainModal })));
 const AdminDashboard = lazy(() => import('./components/AdminDashboard').then((module) => ({ default: module.AdminDashboard })));
 const BigQueryGraphView = lazy(() => import('./components/BigQueryGraphView').then((module) => ({ default: module.BigQueryGraphView })));

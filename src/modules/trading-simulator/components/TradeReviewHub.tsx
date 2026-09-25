@@ -38,9 +38,9 @@ import {
   Save,
   NotebookTabs
 } from 'lucide-react';
-import { useSimulator } from '../context/SimulatorContext';
-import { formatINR } from '../utils/formatters';
-import { TraderDNA, SkillScoreBreakdown, TradeJournalEntry, ProductType, Order } from '../types';
+import { useSimulator } from '../../../context/SimulatorContext';
+import { formatINR } from '../../../utils/formatters';
+import { TraderDNA, SkillScoreBreakdown, TradeJournalEntry, ProductType, Order } from '../../../types';
 
 export interface TradeHistoryTransaction {
   id: string;
