@@ -109,7 +109,7 @@ Reference: [Upstox V3 market feed](https://upstox.com/developer/api-documentatio
 | `npm run build` | Builds the optimized frontend and production server. |
 | `npm start` | Runs the previously built production server. |
 | `npm run preview` | Previews the Vite frontend build. |
-| `npm run test:contrast` | Drives the built app in Chromium and fails if any view has unreadable text. Requires `npm run build` first. |
+| `npm run test:visual` | Drives the built app in Chromium: fails if any view has unreadable text, or if a modal is not exposed as a dialog that traps focus. Requires `npm run build` first. |
 | `npm run test:all` | Runs the lint, unit test, build and contrast steps in the order CI uses. |
 
 ### Production
@@ -227,9 +227,14 @@ The rule exists because the fourth category is the one that gets faked. A Sharpe
 
 When a number is not available, the honest options are to omit it or to show what is missing — `0/8 closed trades needed` — never a stand-in. A figure that would be shared or screenshotted deserves the most scrutiny, since it travels away from its caveats.
 
-### Contrast audit
+### Visual and accessibility checks
 
-`npm run test:contrast` loads every routed view in both light and dark mode, measures each text node against the colour actually painted behind it, and fails when anything falls below 3:1. It exists because the app themes several views by remapping utility classes rather than by writing a `dark:` variant on each element, which makes it easy to add markup that is invisible in one mode. A failure names the view, the text, the measured ratio and both colours:
+`npm run test:visual` covers two things: contrast across every view, and modal
+behaviour.
+
+#### Contrast audit
+
+`npm run test:visual` loads every routed view in both light and dark mode, measures each text node against the colour actually painted behind it, and fails when anything falls below 3:1. It exists because the app themes several views by remapping utility classes rather than by writing a `dark:` variant on each element, which makes it easy to add markup that is invisible in one mode. A failure names the view, the text, the measured ratio and both colours:
 
 ```
 watchlist (dark) has 2 text node(s) below 3:1.
@@ -241,6 +246,25 @@ watchlist (dark) has 2 text node(s) below 3:1.
 Usually the fix is a `dark:` variant on that element, or moving it off a shade that collides with its surface. Elements whose backdrop cannot be measured — a gradient with no solid colour under it — are skipped rather than reported, so the check never fails on a value it could not read.
 
 Add new routed views to `VIEWS` in `tests/visual/contrastAudit.ts` so they are covered too.
+
+Translucent layers are composited onto whatever shows through them, because
+that is what the browser paints. Reading straight through a semi-transparent
+surface is how a 72% black slab over a white section once measured as white.
+
+#### Dialogs
+
+`tests/visual/dialogs.test.ts` opens the command palette and the stock detail
+modal and checks that each one is announced as a dialog with a name, takes
+focus, keeps Tab inside itself, locks the page behind it and closes on Escape.
+A third test reads the source of every `*Modal.tsx` component and fails if one
+neither declares `role="dialog"` nor uses the `useModalDialog` hook, so a new
+overlay cannot quietly ship without them.
+
+New overlays should use `useModalDialog` from `src/hooks/useModalDialog.ts`:
+spread its `dialogProps` on the overlay element and give it the `ref`. Pass
+`open` for a modal that stays mounted and returns `null` while closed,
+`closeOnEscape: false` if the component already binds Escape, and
+`autoFocus: false` if it focuses a particular field itself.
 
 Locally, Playwright needs a matching Chromium (`npx playwright install chromium`). To point it at a browser you already have, set `CHROMIUM_PATH`.
 

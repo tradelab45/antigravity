@@ -50,6 +50,7 @@ import { getStockWithTechnicals } from '../data/indianCompanies';
 import { calculateDuPontAnalysis } from '../utils/technicalCalculator';
 import { formatINR, formatPercent, formatIndianShort, formatNumberIndian } from '../utils/formatters';
 import { playOrderFilledSound, playStopLossTriggeredSound } from '../utils/soundEffects';
+import { useModalDialog } from '../hooks/useModalDialog';
 
 interface StockDetailModalProps {
   stock: StockDetail | null;
@@ -700,18 +701,17 @@ function generateRealisticChartSeries(
       })
     : null;
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  const { ref: dialogRef, dialogProps } = useModalDialog({
+    onClose,
+    label: stock ? `${stock.symbol} details` : 'Stock details',
+  });
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/40 dark:bg-black/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 overflow-hidden">
+    <div
+      ref={dialogRef}
+      {...dialogProps}
+      className="fixed inset-0 z-50 bg-slate-900/40 dark:bg-black/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 overflow-hidden"
+    >
       <div className="bg-white dark:bg-[#081219] border border-slate-200 dark:border-white/15 rounded-3xl w-full max-w-5xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden text-slate-900 dark:text-slate-100">
         
         {/* Modal Header */}
