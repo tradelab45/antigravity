@@ -8,6 +8,7 @@
  */
 import express from "express";
 import { getScreenerData } from "../../modules/screener/server/screenerService";
+import { asyncRoute } from "../asyncRoute";
 
 /** The fields of a live stock record this route passes to the screener. */
 export interface ScreenerStockRef {
@@ -29,7 +30,7 @@ export function createScreenerRouter(deps: ScreenerRouterDeps): express.Router {
   const router = express.Router();
 
   // 2b. Direct Screener.in Company & Historical Dataset Endpoint
-  router.get("/api/screener/:symbol", async (req, res) => {
+  router.get("/api/screener/:symbol", asyncRoute(async (req, res) => {
     const symbol = req.params.symbol.toUpperCase().replace('.NS', '').replace('.BO', '');
     const stock = getStocks().find((s) => s.symbol === symbol);
     try {
@@ -52,7 +53,7 @@ export function createScreenerRouter(deps: ScreenerRouterDeps): express.Router {
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message || "Failed to fetch from Screener.in" });
     }
-  });
+  }));
 
   return router;
 }
