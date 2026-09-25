@@ -1725,6 +1725,103 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, [currentUser]);
 
   // Execute Buy Order (Supports CNC / MIS Intraday 5x leverage / Bracket / GTT)
+  /**
+   * The server's ledger, adopted wholesale.
+   *
+   * Trades are still applied locally first so the ticket answers instantly,
+   * but the server executes the same order independently — pricing it from its
+   * own quote and checking its own copy of the cash — and whatever it returns
+   * wins. That is what makes a portfolio something the server can vouch for
+   * rather than a number this browser asserts.
+   */
+  const adoptServerLedger = (ledger: {
+    cashBalance: number;
+    holdings: Record<string, Holding>;
+    orders: Order[];
+  }) => {
+    if (!ledger || typeof ledger.cashBalance !== 'number') return;
+    setCashBalance(ledger.cashBalance);
+    setHoldings(ledger.holdings || {});
+    setOrders((previous) => {
+      const fromServer = Array.isArray(ledger.orders) ? ledger.orders : [];
+      // Anything the server does not execute — GTT, bracket legs, options —
+      // still lives only here, so those are kept alongside its record.
+      const localOnly = previous.filter((order) => order.status !== 'EXECUTED');
+      return [...fromServer, ...localOnly];
+    });
+  };
+
+  /** Pulls the server's ledger once a session is confirmed. */
+  useEffect(() => {
+    if (sessionVerified !== true) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch('/api/portfolio');
+        const contentType = res.headers.get('content-type') || '';
+        if (!res.ok || !contentType.includes('application/json')) return;
+        const data = await res.json();
+        if (!cancelled && data.success && data.ledger) adoptServerLedger(data.ledger);
+      } catch {
+        // Nothing to adopt; the local copy stands.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionVerified]);
+
+  /**
+   * Sends a market order for the server to execute in its own ledger.
+   *
+   * Only the symbol, quantity, side and product go over the wire. The price is
+   * the server's, so a client cannot buy at a price it made up.
+   */
+  const syncTradeToServer = (
+    symbol: string,
+    quantity: number,
+    side: 'BUY' | 'SELL',
+    productType: ProductType,
+  ) => {
+    if (sessionVerified !== true) return; // no server to be authoritative
+
+    fetch('/api/portfolio/execute', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ symbol, quantity, side, product: productType === 'MIS' ? 'MIS' : 'CNC' }),
+    })
+      .then(async (res) => {
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) return;
+        const data = await res.json();
+
+        if (data.ledger) {
+          adoptServerLedger(data.ledger);
+          return;
+        }
+        if (!res.ok) {
+          // The server refused an order this browser had already applied, so
+          // the local copy is wrong. Take the server's view and say so.
+          notifyUser(
+            'Order not accepted',
+            data.message || 'The server did not accept that order. Your portfolio has been refreshed.',
+            'WARNING',
+          );
+          const refreshed = await fetch('/api/portfolio').catch(() => null);
+          if (refreshed?.ok) {
+            const fresh = await refreshed.json().catch(() => null);
+            if (fresh?.ledger) adoptServerLedger(fresh.ledger);
+          }
+        }
+      })
+      .catch(() => {
+        // Offline: the local ledger stands and stays unverified.
+      });
+  };
+
   const executeBuyOrder = (
     symbol: string, 
     quantity: number, 
@@ -1825,6 +1922,10 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         status: 'EXECUTED',
         realizedPnL: 0
       });
+
+      // The server executes the same order in its own ledger, prices it from
+      // its own quote, and whatever it returns replaces this local copy.
+      syncTradeToServer(symbol, quantity, 'BUY', productType);
 
       awardXP(`order:${newOrder.id}`, 50, 'Executed a stock purchase');
       unlockBadge('badge-first-trade');
@@ -2016,6 +2117,9 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         status: 'EXECUTED',
         realizedPnL: Number(realizedPnL.toFixed(2))
       });
+
+      // Same order, executed independently by the server.
+      syncTradeToServer(symbol, quantity, 'SELL', productType);
 
       awardXP(`order:${newOrder.id}`, 50, 'Executed a stock sale');
       if (realizedPnL > 0) {
@@ -2258,6 +2362,12 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // Nothing was lost on an already-empty account, so there is nothing worth
     // offering to undo.
     setResetUndoExpiresAt(hadSomethingToLose ? Date.now() + RESET_UNDO_WINDOW_MS : null);
+
+    // Without this the server keeps the old ledger and the next sync puts it
+    // straight back.
+    if (sessionVerified === true) {
+      fetch('/api/portfolio/reset', { method: 'POST' }).catch(() => {});
+    }
   };
 
   const undoLastReset = (): boolean => {
@@ -2272,6 +2382,19 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     resetSnapshot.current = null;
     setResetUndoExpiresAt(null);
+
+    // The server wiped its ledger too, so undoing only here would be put back
+    // by the next sync.
+    if (sessionVerified === true) {
+      fetch('/api/portfolio/reset/undo', { method: 'POST' })
+        .then(async (res) => {
+          if (!res.ok) return;
+          const data = await res.json().catch(() => null);
+          if (data?.ledger) adoptServerLedger(data.ledger);
+        })
+        .catch(() => {});
+    }
+
     return true;
   };
 

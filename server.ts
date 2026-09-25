@@ -30,6 +30,14 @@ import {
 } from './src/server/otp';
 import { deliverCode, deliveryMode, otpRequired } from './src/server/otpDelivery';
 import {
+  INITIAL_CAPITAL as INITIAL_LEDGER_CAPITAL,
+  emptyLedger,
+  executeOrder,
+  portfolioValue as computePortfolioValue,
+  sanitiseLedger,
+  type Ledger,
+} from './src/server/ledger';
+import {
   SESSION_COOKIE,
   SESSION_TTL_MS,
   issueSession,
@@ -3450,23 +3458,45 @@ app.get("/api/class/:code/board", (req, res) => {
   const code = normaliseClassCode(req.params.code);
   if (!code) return res.status(400).json({ success: false, message: "That is not a class code." });
 
+  // The server now holds the ledger, so a member who has traded through it has
+  // a figure this server computed rather than one their browser claimed. A
+  // member with no ledger — an older account, or one used only on a static
+  // build — still falls back to what they reported, and each row says which
+  // of the two it is.
+  const ledgers = loadLedgers();
+  const quotes = quoteMap();
+
   const members = loadUsers()
     .filter(u => u.classCode === code)
     // No email, no username, no id: a code is not a key to a directory.
-    .map(u => ({
-      name: boardDisplayName(u.fullName),
-      reportedPortfolioValue: u.reportedPortfolioValue ?? null,
-      reportedTrades: u.reportedTrades ?? null,
-      reportedAt: u.reportedAt ?? null,
-    }))
-    .sort((a, b) => (b.reportedPortfolioValue ?? -1) - (a.reportedPortfolioValue ?? -1));
+    .map(u => {
+      const ledger = ledgers[u.id];
+      if (ledger) {
+        return {
+          name: boardDisplayName(u.fullName),
+          portfolioValue: computePortfolioValue(ledger, quotes),
+          trades: ledger.orders.length,
+          updatedAt: ledger.updatedAt,
+          verified: true,
+        };
+      }
+      return {
+        name: boardDisplayName(u.fullName),
+        portfolioValue: u.reportedPortfolioValue ?? null,
+        trades: u.reportedTrades ?? null,
+        updatedAt: u.reportedAt ?? null,
+        verified: false,
+      };
+    })
+    .sort((a, b) => (b.portfolioValue ?? -1) - (a.portfolioValue ?? -1));
 
   res.json({
     success: true,
     classCode: code,
     members,
-    verified: false,
-    note: "Figures are reported by each learner's own browser and are not verified.",
+    // True only when every row came from a ledger this server executed.
+    verified: members.length > 0 && members.every(member => member.verified),
+    note: "Rows marked unverified were reported by a learner's own browser rather than executed here.",
   });
 });
 
@@ -3573,6 +3603,184 @@ app.delete("/api/account", (req, res) => {
     success: true,
     message: "Your account and everything the server held for it has been deleted.",
   });
+});
+
+/* =========================================================================
+   The trading ledger
+   Trades used to execute in the browser and live in localStorage, so the
+   server never knew what anyone held. It does now: it prices each order from
+   its own quote, checks the cash and the holding, and keeps the record.
+   ========================================================================= */
+const LEDGERS_FILE = path.join(process.cwd(), "data", "ledgers.json");
+
+function loadLedgers(): Record<string, Ledger> {
+  try {
+    if (!fs.existsSync(LEDGERS_FILE)) return {};
+    const parsed = JSON.parse(fs.readFileSync(LEDGERS_FILE, "utf-8"));
+    const out: Record<string, Ledger> = {};
+    for (const [userId, ledger] of Object.entries(parsed || {})) {
+      out[userId] = sanitiseLedger(ledger);
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+function saveLedgers(ledgers: Record<string, Ledger>): void {
+  try {
+    fs.mkdirSync(path.dirname(LEDGERS_FILE), { recursive: true });
+    fs.writeFileSync(LEDGERS_FILE, JSON.stringify(ledgers, null, 2));
+  } catch (err) {
+    console.error("[ledger] could not be written:", err);
+  }
+}
+
+function ledgerFor(userId: string): Ledger {
+  return loadLedgers()[userId] || emptyLedger();
+}
+
+/** The server's own quotes, which is what an order is priced from. */
+function quoteMap(): Record<string, number> {
+  const quotes: Record<string, number> = {};
+  for (const stock of currentStocks) {
+    if (Number.isFinite(stock.price) && stock.price > 0) quotes[stock.symbol] = stock.price;
+  }
+  return quotes;
+}
+
+app.get("/api/portfolio", (req, res) => {
+  const user = sessionUser(req);
+  if (!user) return res.status(401).json({ success: false, message: "Sign in first." });
+
+  const ledger = ledgerFor(user.id);
+  res.json({
+    success: true,
+    ledger,
+    portfolioValue: computePortfolioValue(ledger, quoteMap()),
+    verified: true,
+  });
+});
+
+/**
+ * Executes one market order.
+ *
+ * The price comes from `currentStocks`, never from the request: a client that
+ * could name its own price could buy at ₹1 and sell at ₹10,000. The user comes
+ * from the session cookie, never from the body, so one account cannot trade in
+ * another's ledger.
+ */
+app.post("/api/portfolio/execute", (req, res) => {
+  const caller = clientKey(req.ip);
+  if (rateLimited(res, `trade:${caller}`, { limit: 240, windowMs: 60 * 60_000 },
+    "Too many orders. Try again shortly.")) return;
+
+  const user = sessionUser(req);
+  if (!user) return res.status(401).json({ success: false, message: "Sign in first." });
+
+  const { symbol, quantity, side, product } = req.body || {};
+  const cleanSymbol = String(symbol || "").trim().toUpperCase();
+  const stock = currentStocks.find(s => s.symbol === cleanSymbol);
+  if (!stock) {
+    return res.status(404).json({ success: false, message: "That share is not in the simulator." });
+  }
+
+  const ledgers = loadLedgers();
+  const ledger = ledgers[user.id] || emptyLedger();
+
+  const result = executeOrder(ledger, {
+    symbol: cleanSymbol,
+    stockName: stock.name || cleanSymbol,
+    quantity: Number(quantity),
+    side: side === "SELL" ? "SELL" : "BUY",
+    product: product === "MIS" ? "MIS" : "CNC",
+    price: stock.price,
+  });
+
+  if (!result.ok || !result.ledger) {
+    return res.status(400).json({ success: false, message: result.message });
+  }
+
+  ledgers[user.id] = result.ledger;
+  saveLedgers(ledgers);
+
+  // Keep the account row in step, so anything reading it sees a measured
+  // figure rather than the signup constant it used to hold forever.
+  const users = loadUsers();
+  const account = users.find(u => u.id === user.id);
+  if (account) {
+    account.portfolioValue = computePortfolioValue(result.ledger, quoteMap());
+    account.totalTrades = result.ledger.orders.length;
+    saveUsers(users);
+  }
+
+  res.json({
+    success: true,
+    message: result.message,
+    order: result.order,
+    ledger: result.ledger,
+    portfolioValue: computePortfolioValue(result.ledger, quoteMap()),
+  });
+});
+
+/**
+ * What a reset displaced, kept briefly so the undo in the header can put it
+ * back. Without this the client would restore its own copy while the server
+ * kept the empty one, and the next sync would wipe it again — an undo that
+ * only appeared to work.
+ */
+const RESET_UNDO_WINDOW_MS = 60_000;
+const resetSnapshots = new Map<string, { ledger: Ledger; at: number }>();
+
+/** Puts the ledger back to the starting capital. */
+app.post("/api/portfolio/reset", (req, res) => {
+  const user = sessionUser(req);
+  if (!user) return res.status(401).json({ success: false, message: "Sign in first." });
+
+  const ledgers = loadLedgers();
+  const previous = ledgers[user.id];
+  if (previous) resetSnapshots.set(user.id, { ledger: previous, at: Date.now() });
+
+  ledgers[user.id] = emptyLedger();
+  saveLedgers(ledgers);
+
+  const users = loadUsers();
+  const account = users.find(u => u.id === user.id);
+  if (account) {
+    account.portfolioValue = INITIAL_LEDGER_CAPITAL;
+    account.totalTrades = 0;
+    saveUsers(users);
+  }
+
+  res.json({ success: true, ledger: ledgers[user.id], portfolioValue: INITIAL_LEDGER_CAPITAL });
+});
+
+/** Restores what the last reset displaced, while the window is still open. */
+app.post("/api/portfolio/reset/undo", (req, res) => {
+  const user = sessionUser(req);
+  if (!user) return res.status(401).json({ success: false, message: "Sign in first." });
+
+  const snapshot = resetSnapshots.get(user.id);
+  if (!snapshot || Date.now() - snapshot.at > RESET_UNDO_WINDOW_MS) {
+    resetSnapshots.delete(user.id);
+    return res.status(410).json({ success: false, message: "That reset can no longer be undone." });
+  }
+
+  const ledgers = loadLedgers();
+  ledgers[user.id] = snapshot.ledger;
+  saveLedgers(ledgers);
+  resetSnapshots.delete(user.id);
+
+  const value = computePortfolioValue(snapshot.ledger, quoteMap());
+  const users = loadUsers();
+  const account = users.find(u => u.id === user.id);
+  if (account) {
+    account.portfolioValue = value;
+    account.totalTrades = snapshot.ledger.orders.length;
+    saveUsers(users);
+  }
+
+  res.json({ success: true, ledger: snapshot.ledger, portfolioValue: value });
 });
 
 /** Lets the sign-in screen say up front that a code will be needed. */

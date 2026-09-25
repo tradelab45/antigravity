@@ -136,10 +136,10 @@ Two places this shapes the design rather than just the copy:
   at a real broker. The ticket shows it and says plainly that the simulator
   charges none of it. It replaced a line reading "₹0.00 (Zero Fee)", which was
   true of the simulator and false about investing.
-- **The class board.** Trades execute on the device; the server never sees an
-  order. So its fields are named `reported`, the response carries
-  `verified: false`, and the panel tells the reader the figures are not
-  checked. Do not quietly start ranking on them as though they were measured.
+- **The class board.** A row is `verified: true` only when its figure came
+  from a ledger this server executed. An account that has never traded through
+  the server still falls back to what its browser reported, and that row is
+  labelled on screen. Do not collapse the two into one number.
 
 ## Accessibility is gated, not aspirational
 
@@ -154,6 +154,32 @@ Two places this shapes the design rather than just the copy:
   only under `(pointer: coarse)`. A narrow desktop viewport does not match
   that media query, so measuring targets in a resized desktop browser tells
   you nothing about phones — emulate a touch device.
+
+## The trading ledger
+
+`src/server/ledger.ts` holds the rules and `data/ledgers.json` holds the state,
+keyed by user id. Two things make it worth having:
+
+- **The price is the server's.** An order carries only symbol, quantity, side
+  and product. A price in the body is ignored, because a client that could name
+  its own price could buy at ₹1.
+- **The user is the session's.** Never a userId from the body, or one account
+  could trade in another's ledger.
+
+The browser still applies a trade locally so the ticket answers instantly, then
+sends the same order for the server to execute independently; whatever the
+server returns replaces the local copy. If the server refuses an order the
+browser already applied, the client adopts the server's ledger and says so.
+With no backend — a static build — the local ledger stands and
+`sessionVerified` stays false.
+
+A reset clears both, so the header's undo restores both: the server keeps the
+displaced ledger for a minute behind `/api/portfolio/reset/undo`. Undoing only
+locally would be put straight back by the next sync.
+
+Options, GTT, bracket legs and the replay terminal are still local only. The
+client keeps those orders alongside the server's record rather than letting a
+sync drop them.
 
 ## Density
 

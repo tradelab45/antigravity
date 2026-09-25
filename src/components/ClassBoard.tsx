@@ -5,9 +5,15 @@ import { formatINR } from '../utils/formatters';
 
 interface BoardMember {
   name: string;
-  reportedPortfolioValue: number | null;
-  reportedTrades: number | null;
-  reportedAt: string | null;
+  portfolioValue: number | null;
+  trades: number | null;
+  updatedAt: string | null;
+  /**
+   * True when the figure came from a ledger this server executed, false when
+   * it is what a learner's browser reported. Shown per row, because a board
+   * can hold both.
+   */
+  verified: boolean;
 }
 
 const CODE_PATTERN = /^[A-Z0-9-]{4,16}$/;
@@ -214,13 +220,16 @@ export const ClassBoard: React.FC = () => {
         </div>
       </div>
 
-      <p className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-900 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
-        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        <span>
-          Trades run on each learner&rsquo;s own device, so these figures are reported
-          rather than checked. Read this as a class noticeboard, not a scoreboard.
-        </span>
-      </p>
+      {members !== null && members.some((member) => !member.verified) && (
+        <p className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-900 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <span>
+            Rows marked <strong>reported</strong> came from that learner&rsquo;s own
+            browser rather than from a trade this server executed, so they are not
+            checked. The rest were executed here.
+          </span>
+        </p>
+      )}
 
       {members === null && (
         <p className="mt-4 text-xs text-slate-500 dark:text-slate-400">Loading the board…</p>
@@ -245,16 +254,20 @@ export const ClassBoard: React.FC = () => {
               <span className="min-w-0 flex-1 truncate text-xs font-bold text-slate-900 dark:text-white">
                 {member.name}
               </span>
+              {!member.verified && (
+                <span className="shrink-0 rounded-md bg-amber-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-900 dark:bg-amber-950 dark:text-amber-300">
+                  Reported
+                </span>
+              )}
+
               <span className="shrink-0 text-right">
                 <span className="block font-mono text-xs font-black tabular-nums text-slate-900 dark:text-white">
-                  {member.reportedPortfolioValue === null
-                    ? 'Not reported'
-                    : formatINR(member.reportedPortfolioValue)}
+                  {member.portfolioValue === null ? 'No trades yet' : formatINR(member.portfolioValue)}
                 </span>
                 <span className="block text-[10px] font-medium text-slate-500 dark:text-slate-400">
-                  {member.reportedTrades === null
+                  {member.trades === null
                     ? '—'
-                    : `${member.reportedTrades} trade${member.reportedTrades === 1 ? '' : 's'}`}
+                    : `${member.trades} trade${member.trades === 1 ? '' : 's'}`}
                 </span>
               </span>
             </li>
