@@ -8,11 +8,14 @@ coverage/
 !.env.example
 data/users.json
 data/users.json.tmp
+data/users.json.bak
 data/trades.json
 data/trades.json.tmp
+data/trades.json.bak
 # The trading ledger holds a learner's own portfolio and never belongs in git.
 data/ledgers.json
 data/ledgers.json.tmp
+data/ledgers.json.bak
 # Local agent state stays out, but skills are shared instructions for anyone
 # working in this repo, so they are tracked. Git will not descend into an
 # excluded directory, so the contents are excluded rather than the directory.
