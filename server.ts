@@ -9,6 +9,7 @@ import { UpstoxService } from './src/server/upstoxService';
 import { catalogPage, listedStockDetail } from './src/server/stockCatalog';
 import { createAuthLimiter } from './src/server/authRateLimit';
 import { createAcademyService } from './src/server/academyService';
+import { createScreenerRouter } from './src/server/routes/screener';
 import { TOP_100_INDIAN_COMPANIES } from "./src/data/indianCompanies";
 import { 
   fetchGoogleFinanceQuote, 
@@ -16,10 +17,6 @@ import {
   type GoogleFinanceQuote,
   type GoogleFinanceIndex
 } from "./src/server/googleFinanceService";
-import { 
-  getScreenerData,
-  type ScreenerChartResponse
-} from "./src/server/screenerService";
 
 dotenv.config();
 
@@ -2017,31 +2014,9 @@ app.get("/api/stocks/:symbol", async (req, res) => {
   });
 });
 
-// 2b. Direct Screener.in Company & Historical Dataset Endpoint
-app.get("/api/screener/:symbol", async (req, res) => {
-  const symbol = req.params.symbol.toUpperCase().replace('.NS', '').replace('.BO', '');
-  const stock = currentStocks.find((s: StockDetail) => s.symbol === symbol);
-  try {
-    const screenerData = await getScreenerData(
-      symbol,
-      stock?.name,
-      stock?.price,
-      stock?.dayHigh,
-      stock?.dayLow,
-      stock?.previousClose
-    );
-    if (!screenerData) {
-      return res.status(404).json({ success: false, error: `Screener data not found for ${symbol}` });
-    }
-    res.json({
-      success: true,
-      symbol,
-      ...screenerData
-    });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message || "Failed to fetch from Screener.in" });
-  }
-});
+// Screener.in company and historical dataset endpoint; see
+// src/server/routes/screener.ts.
+app.use(createScreenerRouter({ getStocks: () => currentStocks }));
 
 // 3. Market Summary & Breaking Dalal Street News
 app.get("/api/market/summary", async (req, res) => {
