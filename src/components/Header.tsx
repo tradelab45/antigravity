@@ -43,6 +43,7 @@ import {
 import { useSimulator, isUserAdmin } from '../context/SimulatorContext';
 import { useTheme } from '../context/ThemeContext';
 import { formatINR, formatPercent } from '../utils/formatters';
+import { ProfileCard } from '../modules/auth/components/ProfileCard';
 import { isSoundEnabled, setSoundEnabled, playNseBellSound } from '../utils/soundEffects';
 import { NotificationCenter } from './NotificationCenter';
 import { AuthModal } from '../modules/auth/components/AuthModal';
@@ -72,6 +73,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
     totalPnL, 
     totalPnLPercent, 
     userXP, 
+    badges, 
     userLevel, 
     marketIndices, 
     resetSimulator,
@@ -677,29 +679,20 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 6, scale: 0.96 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute right-0 mt-2 w-64 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 z-50 overflow-hidden text-left"
+                  className="absolute right-0 mt-2 w-80 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 z-50 overflow-hidden text-left"
                 >
-                  {/* Profile Header Banner */}
-                  <div className="p-3.5 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center font-black text-white text-sm border border-white/20 shadow-xs">
-                        {currentUser ? currentUser.fullName.charAt(0).toUpperCase() : <User className="w-4 h-4" />}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="font-extrabold text-xs text-white truncate">
-                          {currentUser ? currentUser.fullName : 'Guest Investor'}
-                        </div>
-                        <div className="text-[10px] text-indigo-200 truncate">
-                          {currentUser ? `@${currentUser.username}` : 'Virtual Practice Account'}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between text-[10px]">
-                      <span className="text-slate-300 font-medium">Virtual Capital:</span>
-                      <span className="font-mono font-bold text-amber-300">{formatINR(portfolioValue)}</span>
-                    </div>
-                  </div>
+                  {/* Personalised investor profile card (auth module) */}
+                  <ProfileCard
+                    user={currentUser}
+                    portfolioValue={portfolioValue}
+                    totalPnLPercent={totalPnLPercent}
+                    userXP={userXP}
+                    userLevel={userLevel.level}
+                    levelTitle={userLevel.title}
+                    levelMinXP={userLevel.minXP}
+                    levelMaxXP={userLevel.maxXP}
+                    badgeCount={badges.filter((b) => b.unlocked).length}
+                  />
 
                   {/* Profile Menu Actions */}
                   <div className="p-1.5 space-y-0.5">

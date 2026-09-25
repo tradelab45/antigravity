@@ -12,6 +12,9 @@ Sign-up, sign-in, Google identity, profile completion, data-privacy centre and a
 - `GoogleSignInButton.tsx` — moved from `src/components/GoogleSignInButton.tsx`
 - `CompleteProfileModal.tsx` — moved from `src/components/CompleteProfileModal.tsx`
 - `DataPrivacyCenter.tsx` — moved from `src/components/DataPrivacyCenter.tsx`
+- `ProfileCard.tsx` — new. The personalised investor card shown inside the
+  header profile box, adapted from @dhileepkumargm's ProfileCard on 21st.dev.
+  `src/components/Header.tsx` is shared and stays put, so it imports this.
 
 ### `server/`
 
