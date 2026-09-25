@@ -123,8 +123,14 @@ test('the command palette is a dialog and keeps focus', { timeout: 90_000 }, asy
 test('the stock detail modal is a dialog and keeps focus', { timeout: 120_000 }, async () => {
   const page = await openApp('screener');
   try {
+    // The screener renders its cards from a catalog fetch that the preview
+    // server cannot answer, so the list can take a while and the rows
+    // re-render as prices settle. Wait for the button to exist, let the list
+    // stop moving, then click — a bare waitFor raced the render and made this
+    // test flaky under load.
     const trade = page.getByRole('button', { name: 'Trade', exact: true }).first();
-    await trade.waitFor({ state: 'visible', timeout: 30000 });
+    await trade.waitFor({ state: 'visible', timeout: 60000 });
+    await waitForStableView(page);
     await trade.click();
     await page.waitForTimeout(1500);
 
