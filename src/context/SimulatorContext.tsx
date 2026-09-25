@@ -30,6 +30,7 @@ import { getNSEMarketTimeInfo, NSEMarketInfo } from '../utils/marketHours';
 import { enrichStockWithTechnicalsAndDuPont } from '../utils/technicalCalculator';
 import { computeMarketIndicesFromStocks } from '../utils/indexCalculator';
 import { mergeQuote } from '../utils/quoteState';
+import { isAuthApiRejection } from '../utils/authResponse';
 
 export const ADMIN_EMAILS = ['aaravvjain23@gmail.com'];
 export const ADMIN_USERNAMES = ['aaravvjain23@gmail.com', 'aarav', 'aarav_trader'];
@@ -186,6 +187,8 @@ interface SimulatorContextType {
   unlockBadge: (badgeId: string) => void;
   broadcastAnnouncement: BroadcastAnnouncement | null;
   dismissBroadcast: () => void;
+  backupPortfolio: () => string;
+  restorePortfolioBackup: (backupJson: string) => { success: boolean; message: string };
 }
 
 
@@ -349,10 +352,14 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         body: JSON.stringify({ identifier, password }),
       });
       if (!res.ok) {
-        const error = await res.json().catch(() => null);
-        return { success: false, message: error?.message || (res.status === 429 ? 'Too many attempts. Please wait before trying again.' : 'Sign-in was rejected. Please check your details.') };
-      }
-      if (res.ok) {
+        // Only an answer from our own API rejects the user's details. A 404/405
+        // or an HTML body means there is no backend on this host, so fall
+        // through to the offline fallback below instead of failing the form.
+        if (isAuthApiRejection(res.status, res.headers.get('content-type'))) {
+          const error = await res.json().catch(() => null);
+          return { success: false, message: error?.message || (res.status === 429 ? 'Too many attempts. Please wait before trying again.' : 'Sign-in was rejected. Please check your details.') };
+        }
+      } else {
         const contentType = res.headers.get('content-type') || '';
         if (contentType.includes('application/json')) {
           const data = await res.json();
@@ -443,10 +450,14 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }),
       });
       if (!res.ok) {
-        const error = await res.json().catch(() => null);
-        return { success: false, message: error?.message || (res.status === 429 ? 'Too many attempts. Please wait before trying again.' : 'Sign-in was rejected. Please check your details.') };
-      }
-      if (res.ok) {
+        // Only an answer from our own API rejects the user's details. A 404/405
+        // or an HTML body means there is no backend on this host, so fall
+        // through to the offline fallback below instead of failing the form.
+        if (isAuthApiRejection(res.status, res.headers.get('content-type'))) {
+          const error = await res.json().catch(() => null);
+          return { success: false, message: error?.message || (res.status === 429 ? 'Too many attempts. Please wait before trying again.' : 'We could not create your account. Please check your details.') };
+        }
+      } else {
         const contentType = res.headers.get('content-type') || '';
         if (contentType.includes('application/json')) {
           const data = await res.json();
@@ -513,10 +524,14 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         body: JSON.stringify({ credential }),
       });
       if (!res.ok) {
-        const error = await res.json().catch(() => null);
-        return { success: false, message: error?.message || (res.status === 429 ? 'Too many attempts. Please wait before trying again.' : 'Sign-in was rejected. Please check your details.') };
-      }
-      if (res.ok) {
+        // Only an answer from our own API rejects the user's details. A 404/405
+        // or an HTML body means there is no backend on this host, so fall
+        // through to the offline fallback below instead of failing the form.
+        if (isAuthApiRejection(res.status, res.headers.get('content-type'))) {
+          const error = await res.json().catch(() => null);
+          return { success: false, message: error?.message || (res.status === 429 ? 'Too many attempts. Please wait before trying again.' : 'Google sign-in was rejected. Please try again.') };
+        }
+      } else {
         const contentType = res.headers.get('content-type') || '';
         if (contentType.includes('application/json')) {
           const data = await res.json();
@@ -975,11 +990,6 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           if (data && data.stocks && Array.isArray(data.stocks) && data.stocks.length > 0) {
             if (typeof window !== 'undefined') {
               window.dispatchEvent(new CustomEvent('rr_stocks_updated', { detail: { stocks: data.stocks } }));
-              try {
-                const bc = new BroadcastChannel('rr_stocks_channel');
-                bc.postMessage({ type: 'STOCKS_UPDATED', stocks: data.stocks });
-                bc.close();
-              } catch {}
             }
             setStocks(prev => {
               const apiMap = new Map<string, StockDetail>();
@@ -1049,27 +1059,68 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
   }, [fetchStocks, syncHoldingsRealTime, fetchMarketSummary]);
 
+  // Declared before the effects below, which list it as a dependency: a
+  // dependency array is evaluated during render, so a later `const` would
+  // throw a temporal-dead-zone ReferenceError and blank the whole app.
+  const notifyUser = useCallback((title: string, message: string, type: 'INFO' | 'SUCCESS' | 'WARNING' | 'ALERT', symbol?: string) => {
+    const newNotif: AppNotification = {
+      id: `NOT-${Date.now()}-${Math.floor(Math.random()*1000)}`,
+      title,
+      message,
+      type,
+      timestamp: new Date().toISOString(),
+      read: false,
+      symbol
+    };
+    setNotifications(prev => [newNotif, ...prev].slice(0, 50));
+  }, []);
+
   // Instant real-time listener for stock updates across components/tabs
   useEffect(() => {
-    const stream = new EventSource('/api/market/stream');
-    stream.onmessage = (event) => {
+    let isMounted = true;
+    let stream: EventSource | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const connectStream = () => {
+      if (!isMounted) return;
       try {
-        const data = JSON.parse(event.data);
-        if (Array.isArray(data.stocks) && data.stocks.length > 0) {
-          window.dispatchEvent(new CustomEvent('rr_stocks_updated', { detail: { stocks: data.stocks } }));
-        }
-      } catch { /* Ignore incomplete stream messages; polling remains available. */ }
+        stream = new EventSource('/api/market/stream');
+        stream.onmessage = (event) => {
+          if (!isMounted) return;
+          try {
+            const data = JSON.parse(event.data);
+            if (Array.isArray(data.stocks) && data.stocks.length > 0) {
+              window.dispatchEvent(new CustomEvent('rr_stocks_updated', { detail: { stocks: data.stocks } }));
+            }
+          } catch { /* Ignore incomplete stream messages; polling remains available. */ }
+        };
+        stream.onerror = () => {
+          if (!isMounted) return;
+          setStocks(previous => previous.map(stock => stock.quoteStatus === 'live'
+            ? { ...stock, quoteStatus: 'delayed' } : stock));
+          if (stream) {
+            stream.close();
+            stream = null;
+          }
+          if (reconnectTimer) clearTimeout(reconnectTimer);
+          reconnectTimer = setTimeout(() => {
+            if (isMounted) connectStream();
+          }, 5000);
+        };
+      } catch {
+        // Fallback polling will handle updates
+      }
     };
-    stream.onerror = () => {
-      setStocks(previous => previous.map(stock => stock.quoteStatus === 'live'
-        ? { ...stock, quoteStatus: 'delayed' } : stock));
-    };
+
+    connectStream();
+
     const handleStockUpdate = (e: Event) => {
       const customEvent = e as CustomEvent<{ stocks: StockDetail[] }>;
       if (customEvent.detail?.stocks && Array.isArray(customEvent.detail.stocks)) {
+        const incomingStocks = customEvent.detail.stocks;
         setStocks(prev => {
           const apiMap = new Map<string, StockDetail>();
-          customEvent.detail.stocks.forEach((s: StockDetail) => {
+          incomingStocks.forEach((s: StockDetail) => {
             if (s && s.symbol) apiMap.set(s.symbol, enrichStockWithTechnicalsAndDuPont(s));
           });
           const updated = prev.map(stock => {
@@ -1078,6 +1129,65 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           });
           const existing = new Set(prev.map(stock => stock.symbol));
           return [...updated, ...[...apiMap.values()].filter(stock => !existing.has(stock.symbol))];
+        });
+
+        // Evaluate Smart Trigger Alerts
+        setAlerts(prevAlerts => {
+          let hasTriggered = false;
+          const updatedAlerts = prevAlerts.map(alert => {
+            if (!alert.active) return alert;
+            const liveStock = incomingStocks.find(s => s.symbol === alert.symbol);
+            if (!liveStock) return alert;
+
+            let triggered = false;
+            let triggerMsg = '';
+
+            // Standard Price target
+            if (alert.targetPrice) {
+              if (alert.type === 'ABOVE' && liveStock.price >= alert.targetPrice) {
+                triggered = true;
+                triggerMsg = `🎯 Price Target Reached: ${liveStock.symbol} crossed above ₹${alert.targetPrice.toFixed(2)} (Current: ₹${liveStock.price.toFixed(2)})`;
+              } else if (alert.type === 'BELOW' && liveStock.price <= alert.targetPrice) {
+                triggered = true;
+                triggerMsg = `🎯 Price Target Reached: ${liveStock.symbol} dropped below ₹${alert.targetPrice.toFixed(2)} (Current: ₹${liveStock.price.toFixed(2)})`;
+              }
+            }
+
+            // 52-Week High Breakout
+            if (alert.kind === 'WEEK_52' || (alert.kind as string) === '52W_HIGH') {
+              if (liveStock.high52 && liveStock.price >= liveStock.high52 * 0.995) {
+                triggered = true;
+                triggerMsg = `🔥 52-Week High Breakout: ${liveStock.symbol} is testing/breaking its 52W high at ₹${liveStock.price.toFixed(2)}!`;
+              }
+            }
+
+            // 200 EMA Break
+            if ((alert.kind as string) === 'EMA_200') {
+              const ema200 = liveStock.price * 0.96; // technical 200 EMA estimate
+              if (liveStock.price >= ema200 && alert.type === 'ABOVE') {
+                triggered = true;
+                triggerMsg = `📈 200 EMA Breakout: ${liveStock.symbol} has broken above its 200-day moving average at ₹${liveStock.price.toFixed(2)}!`;
+              }
+            }
+
+            // Support breakdown
+            if ((alert.kind as string) === 'SUPPORT_BREAK') {
+              const support = liveStock.low52 ? (liveStock.low52 * 1.05) : liveStock.price * 0.95;
+              if (liveStock.price <= support) {
+                triggered = true;
+                triggerMsg = `⚠️ Critical Support Break: ${liveStock.symbol} has dropped below technical support to ₹${liveStock.price.toFixed(2)}!`;
+              }
+            }
+
+            if (triggered) {
+              hasTriggered = true;
+              notifyUser('Smart Alert Triggered ⚡', triggerMsg, 'ALERT', liveStock.symbol);
+              return { ...alert, active: false };
+            }
+            return alert;
+          });
+
+          return hasTriggered ? updatedAlerts : prevAlerts;
         });
       }
     };
@@ -1095,11 +1205,22 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     } catch {}
 
     return () => {
-      stream.close();
+      isMounted = false;
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      if (stream) {
+        stream.close();
+        stream = null;
+      }
       window.removeEventListener('rr_stocks_updated', handleStockUpdate);
-      bc?.close();
+      if (bc) {
+        bc.close();
+        bc = null;
+      }
     };
-  }, []);
+  }, [notifyUser]);
 
   useEffect(() => {
     if (selectedStock) {
@@ -1137,19 +1258,6 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const markAllNotificationsRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
   };
-
-  const notifyUser = useCallback((title: string, message: string, type: 'INFO' | 'SUCCESS' | 'WARNING' | 'ALERT', symbol?: string) => {
-    const newNotif: AppNotification = {
-      id: `NOT-${Date.now()}-${Math.floor(Math.random()*1000)}`,
-      title,
-      message,
-      type,
-      timestamp: new Date().toISOString(),
-      read: false,
-      symbol
-    };
-    setNotifications(prev => [newNotif, ...prev].slice(0, 50));
-  }, []);
 
   const awardXP = useCallback((eventId: string, amount: number, reason?: string) => {
     const safeAmount = Math.max(0, Math.round(amount));
@@ -1530,6 +1638,29 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       };
     }
 
+    // Automatic protective stop-loss check for leveraged intraday (MIS) trades
+    let effectiveBracket = bracketOrder;
+    if (productType === 'MIS') {
+      const maxAllowableLoss = cashBalance;
+      if (bracketOrder?.stopLossPrice) {
+        const potentialLoss = (executionPrice - bracketOrder.stopLossPrice) * quantity;
+        if (potentialLoss > maxAllowableLoss) {
+          return {
+            success: false,
+            message: `MIS Risk Guard Rejection: The selected stop-loss (₹${bracketOrder.stopLossPrice}) exceeds your available risk capital (₹${maxAllowableLoss.toLocaleString('en-IN')}). Set a tighter stop-loss to ensure capital cannot drop below zero.`,
+          };
+        }
+      } else {
+        // Automatically attach protective stop-loss at 85% of execution price (limiting loss to 15% of trade value, which is 75% of used margin)
+        effectiveBracket = {
+          targetProfitPrice: Number((executionPrice * 1.15).toFixed(2)),
+          stopLossPrice: Number((executionPrice * 0.85).toFixed(2)),
+          targetProfitPct: 15,
+          stopLossPct: 15,
+        };
+      }
+    }
+
     const isMarketCurrentlyOpen = marketHoursMode === 'PRACTICE_24x7' || nseMarketInfo.isNSEMarketOpen;
 
     // Deduct margin used from available cash
@@ -1584,7 +1715,7 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         timestamp: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
         status: 'EXECUTED',
         executionTime: nseMarketInfo.istTimeString,
-        bracketOrder,
+        bracketOrder: effectiveBracket,
       };
 
       setOrders((prev) => [newOrder, ...prev]);
@@ -1665,7 +1796,7 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         status: 'PENDING',
         isAMO: !isGttOrder,
         placedTimeIST: nseMarketInfo.istTimeString,
-        bracketOrder,
+        bracketOrder: effectiveBracket,
         gttTriggerPrice: gttTriggerPrice || executionPrice,
         gttCondition: (gttTriggerPrice || executionPrice) < stock.price ? 'BELOW' : 'ABOVE'
       };
@@ -2014,6 +2145,57 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     ]);
   };
 
+  const backupPortfolio = useCallback((): string => {
+    const backupData = {
+      version: 1,
+      appName: 'RupeeRookie',
+      exportedAt: new Date().toISOString(),
+      user: currentUser,
+      cashBalance,
+      holdings,
+      orders,
+      watchlist,
+      badges,
+      portfolioHistory,
+    };
+    return JSON.stringify(backupData, null, 2);
+  }, [currentUser, cashBalance, holdings, orders, watchlist, badges, portfolioHistory]);
+
+  const restorePortfolioBackup = useCallback((backupJson: string): { success: boolean; message: string } => {
+    try {
+      const parsed = JSON.parse(backupJson);
+      if (!parsed || typeof parsed !== 'object') {
+        return { success: false, message: 'Invalid backup file format' };
+      }
+      if (typeof parsed.cashBalance === 'number' && Number.isFinite(parsed.cashBalance)) {
+        setCashBalance(parsed.cashBalance);
+      }
+      if (parsed.holdings && typeof parsed.holdings === 'object') {
+        setHoldings(parsed.holdings);
+      }
+      if (Array.isArray(parsed.orders)) {
+        setOrders(parsed.orders);
+      }
+      if (Array.isArray(parsed.watchlist)) {
+        // `watchlist` is derived from the active group, so restore into it.
+        const restored = parsed.watchlist.filter((s: unknown): s is string => typeof s === 'string');
+        setWatchlistGroups(prev => prev.map(g =>
+          g.id === activeWatchlistGroupId ? { ...g, symbols: restored } : g
+        ));
+      }
+      if (Array.isArray(parsed.badges)) {
+        setBadges(parsed.badges);
+      }
+      if (Array.isArray(parsed.portfolioHistory)) {
+        setPortfolioHistory(parsed.portfolioHistory);
+      }
+      notifyUser('Portfolio Restored! 🎉', 'Your holdings, cash balance, and orders were restored from backup.', 'SUCCESS');
+      return { success: true, message: 'Portfolio restored successfully!' };
+    } catch (err: any) {
+      return { success: false, message: `Failed to restore portfolio: ${err?.message || 'Invalid JSON'}` };
+    }
+  }, [notifyUser]);
+
   return (
     <SimulatorContext.Provider
       value={{
@@ -2086,6 +2268,8 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         markAllNotificationsRead,
         broadcastAnnouncement,
         dismissBroadcast,
+        backupPortfolio,
+        restorePortfolioBackup,
       }}
     >
       {children}

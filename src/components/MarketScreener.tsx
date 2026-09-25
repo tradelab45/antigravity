@@ -37,11 +37,13 @@ import {
   ChevronRight,
   ChevronDown,
   Rocket,
-  HelpCircle
+  HelpCircle,
+  Swords,
+  Languages
 } from 'lucide-react';
 import { useSimulator } from '../context/SimulatorContext';
 import { StockDetail } from '../types';
-import { formatINR, formatPercent, formatIndianShort, formatNumberIndian } from '../utils/formatters';
+import { formatINR, formatPercent, formatIndianShort, formatNumberIndian, getDynamicMarketSessionBadge } from '../utils/formatters';
 import { ThematicBasketsModal, ANGEL_THEMATIC_BASKETS, ThematicBasket } from './ThematicBasketsModal';
 import { QuickAlertModal } from './QuickAlertModal';
 import { SpotlightCard } from './ui/spotlight-card';
@@ -122,6 +124,20 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
   const [hasMoreCatalog, setHasMoreCatalog] = useState(true);
   const [loadingCatalog, setLoadingCatalog] = useState(false);
   const catalogBusy = useRef(false);
+
+  const [isHindiMode, setIsHindiMode] = useState<boolean>(() => {
+    try { return localStorage.getItem('rr_lang_hindi') === 'true'; } catch { return false; }
+  });
+
+  const toggleHindiMode = () => {
+    setIsHindiMode(prev => {
+      const next = !prev;
+      try { localStorage.setItem('rr_lang_hindi', String(next)); } catch {}
+      return next;
+    });
+  };
+
+  const marketSession = getDynamicMarketSessionBadge();
 
   const fetchCatalogPage = useCallback(async (offset: number, limit: number) => {
     if (catalogBusy.current) return false;
@@ -642,6 +658,58 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
 
   return (
     <div className="rr-surfaces space-y-6 min-w-0 max-w-full overflow-hidden">
+      {/* 1. DYNAMIC MARKET CONTEXT & QUICK TOOLS HEADER */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-slate-200 dark:border-slate-800 shadow-xs">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-black border shadow-2xs ${marketSession.style}`}>
+            <span>{marketSession.dot}</span>
+            <span>{marketSession.label}</span>
+          </span>
+          <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 font-bold">
+            IST: {nseMarketInfo.istTimeString}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap sm:justify-end">
+          {/* Bilingual Hindi/English Toggle */}
+          <button
+            type="button"
+            onClick={toggleHindiMode}
+            className={`px-3 py-1.5 rounded-xl text-xs font-black border transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs ${
+              isHindiMode 
+                ? 'bg-amber-500 text-slate-950 border-amber-400 font-black' 
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 font-bold'
+            }`}
+            title="Toggle Hindi/English terms (Bhav, Labh/Hani, Tiraskrit)"
+          >
+            <Languages className="w-3.5 h-3.5" />
+            <span>{isHindiMode ? '🌐 हिंदी (Hindi Active)' : '🌐 English / हिंदी'}</span>
+          </button>
+
+          {/* Quick-action button: Head-to-Head Stock Battle */}
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('open-stock-battle'))}
+            className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-black text-xs shadow-md shadow-violet-600/20 flex items-center gap-1.5 transition-all cursor-pointer"
+            title="1v1 Head-to-Head Stock Battle Mode"
+          >
+            <Swords className="w-3.5 h-3.5 text-amber-300" />
+            <span>⚔️ Stock Battle</span>
+          </button>
+
+          {/* Quick-action button: Options Chain & Greeks */}
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('open-options-chain'))}
+            className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs shadow-md shadow-emerald-600/20 flex items-center gap-1.5 transition-all cursor-pointer"
+            title="Options Chain Greek & IV Smile Visualizer"
+          >
+            <Zap className="w-3.5 h-3.5 text-amber-300" />
+            <span>⚡ Options Chain</span>
+          </button>
+        </div>
+      </div>
+
       <div className={`flex flex-col gap-2 rounded-2xl border p-3 text-xs sm:flex-row sm:items-center sm:justify-between ${isMarketLive ? 'border-emerald-200 bg-emerald-50 text-emerald-950' : 'border-amber-200 bg-amber-50 text-amber-950'}`} role="status">
         <div className="flex items-center gap-2"><span className={`rounded-full px-2 py-1 text-[9px] font-black ${isMarketLive ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-slate-950 dark:text-slate-950'}`}>{isMarketLive ? 'LATEST' : nseMarketInfo.isNSEMarketOpen ? 'DELAYED' : 'LAST CLOSE'}</span><span className="font-bold">{isMarketLive ? 'Latest available provider quote; exchange data may be delayed.' : nseMarketInfo.isNSEMarketOpen ? 'The feed may be delayed. Confirm important figures with an exchange-authorised source.' : 'Market is closed. Figures show the last available session; live-style language is disabled.'}</span></div><span className="shrink-0 font-mono text-[10px]">Updated {lastHoldingsSyncTime} IST · RupeeRookie market feed</span>
       </div>
@@ -939,8 +1007,10 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
           <div className="-mx-1 flex items-center gap-2 overflow-x-auto px-1 pb-1 scrollbar-none sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0 min-w-0">
             {/* Sector Dropdown */}
             <div className="flex shrink-0 items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 min-w-0">
-              <span className="text-[10px] text-slate-500 font-bold uppercase">Sector:</span>
+              <label htmlFor="screener-sector-select" className="text-[10px] text-slate-500 font-bold uppercase cursor-pointer">Sector:</label>
               <select
+                id="screener-sector-select"
+                name="sector"
                 aria-label="Filter by sector"
                 value={selectedSector}
                 onChange={(e) => setSelectedSector(e.target.value)}
@@ -954,8 +1024,10 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
 
             {/* Benchmark Index Dropdown */}
             <div className="flex shrink-0 items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 min-w-0">
-              <span className="text-[10px] text-slate-500 font-bold uppercase">Index:</span>
+              <label htmlFor="screener-index-select" className="text-[10px] text-slate-500 font-bold uppercase cursor-pointer">Index:</label>
               <select
+                id="screener-index-select"
+                name="index"
                 aria-label="Filter by market index"
                 value={selectedBenchmark}
                 onChange={(e) => setSelectedBenchmark(e.target.value)}
@@ -972,6 +1044,8 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
             <div className="hidden items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 min-w-0">
               <ArrowUpDown className="w-3.5 h-3.5 text-slate-500" />
               <select
+                id="screener-sort-select"
+                name="sortBy"
                 aria-label="Sort stocks"
                 value={sortBy}
                 onChange={(e: any) => setSortBy(e.target.value)}
@@ -988,8 +1062,10 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
             </div>
 
             {/* Benchmark Subheading Grouping Toggle */}
-            <label className="hidden items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-xs font-bold text-slate-800 cursor-pointer hover:bg-slate-100 transition-colors">
+            <label htmlFor="screener-group-subheadings" className="hidden items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-xs font-bold text-slate-800 cursor-pointer hover:bg-slate-100 transition-colors">
               <input
+                id="screener-group-subheadings"
+                name="groupSubheadings"
                 type="checkbox"
                 checked={groupBySubheadings}
                 onChange={(e) => setGroupBySubheadings(e.target.checked)}
@@ -1033,11 +1109,11 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
           onRemoveToken={handleRemoveToken}
           onClearAll={handleClearAllTokens}
           quickChips={[
-            { label: "Banking Titans", token: { id: "sector-token", field: "Sector", operator: "=", value: "Banking" } },
+            { label: "Banking Titans", token: { id: "sector-token-banking", field: "Sector", operator: "=", value: "Banking" } },
             { label: "NIFTY 50", token: { id: "bench-token", field: "Index", operator: "=", value: "NIFTY 50" } },
             { label: "Top Gainers", token: { id: "filter-token", field: "Filter", operator: "=", value: "GAINERS" } },
             { label: "Golden Cross", token: { id: "strat-token", field: "Preset", operator: "=", value: "GOLDEN_CROSS" } },
-            { label: "Tech Giants", token: { id: "sector-token", field: "Sector", operator: "=", value: "Information Technology" } },
+            { label: "Tech Giants", token: { id: "sector-token-tech", field: "Sector", operator: "=", value: "Information Technology" } },
           ]}
           onAddToken={(tok) => {
             if (tok.field === 'Sector') setSelectedSector(tok.value);
@@ -1823,8 +1899,8 @@ const StockRowItem: React.FC<StockCardItemProps> = ({
   const isUp = stock.change >= 0;
   const isWatchlisted = watchlist.includes(stock.symbol);
   const moveClass = isUp
-    ? 'text-emerald-600 dark:text-emerald-400'
-    : 'text-rose-600 dark:text-rose-400';
+    ? 'text-[#047857] dark:text-emerald-400'
+    : 'text-[#be123c] dark:text-rose-400';
 
   return (
     <div className="flex items-center border-b border-slate-200 last:border-b-0 dark:border-slate-800">
@@ -1853,7 +1929,11 @@ const StockRowItem: React.FC<StockCardItemProps> = ({
           <span className="block font-mono text-sm font-black text-slate-900 dark:text-white">
             {formatINR(stock.price)}
           </span>
-          <span className={`mt-0.5 block font-mono text-[11px] font-bold ${moveClass}`}>
+          <span 
+            aria-live="polite"
+            aria-atomic="true"
+            className={`mt-0.5 block font-mono text-[11px] font-bold ${moveClass}`}
+          >
             {isUp ? '+' : ''}{stock.change.toFixed(2)} ({isUp ? '+' : ''}{stock.changePercent.toFixed(2)}%)
           </span>
         </span>
@@ -1862,9 +1942,9 @@ const StockRowItem: React.FC<StockCardItemProps> = ({
       <button
         type="button"
         onClick={() => toggleWatchlist(stock.symbol)}
-        aria-label={`${isWatchlisted ? 'Remove' : 'Add'} ${stock.symbol} ${isWatchlisted ? 'from' : 'to'} watchlist`}
+        aria-label={`${isWatchlisted ? 'Remove' : 'Add'} ${stock.symbol} (${stock.name}) ${isWatchlisted ? 'from' : 'to'} watchlist`}
         aria-pressed={isWatchlisted}
-        className="shrink-0 p-3 pr-4 text-slate-400 active:text-rose-500 dark:text-slate-500"
+        className="shrink-0 p-3 pr-4 text-slate-400 active:text-rose-500 dark:text-slate-500 min-h-[48px] min-w-[48px] flex items-center justify-center cursor-pointer"
       >
         <Heart className={`h-4 w-4 ${isWatchlisted ? 'fill-rose-500 text-rose-500' : ''}`} />
       </button>
@@ -1944,8 +2024,10 @@ const StockCardItem: React.FC<StockCardItemProps> = ({
           ? `perspective(1000px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) translateY(-2px)` 
           : 'perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(0px)',
         transition: isHovered ? 'transform 0.12s ease-out, box-shadow 0.25s ease' : 'transform 0.35s ease-out, box-shadow 0.25s ease',
+        contentVisibility: 'auto',
+        containIntrinsicSize: '180px',
       }}
-      className="rr-terminal-card relative rounded-3xl border p-6 flex flex-col justify-between group cursor-pointer overflow-hidden isolate transition-all"
+      className="rr-terminal-card relative rounded-3xl border border-slate-700/50 backdrop-blur-md bg-slate-900/60 p-6 flex flex-col justify-between group cursor-pointer overflow-hidden isolate transition-all shadow-xl"
       onClick={() => onSelectStock(stock)}
     >
       {/* 0. Polymo Lighting Specular Top Bevel & Ambient Gradient Wash */}
@@ -1996,7 +2078,7 @@ const StockCardItem: React.FC<StockCardItemProps> = ({
                   NSE
                 </span>
                 {stock.psuStatus && (
-                  <span className="text-[9px] font-black bg-blue-500/20 text-blue-300 border border-blue-500/40 px-1.5 py-0.5 rounded-md">
+                  <span className="text-[9px] font-black bg-blue-100 dark:bg-blue-500/20 text-blue-900 dark:text-blue-300 border border-blue-300 dark:border-blue-500/40 px-1.5 py-0.5 rounded-md">
                     🏛️ {stock.psuStatus}
                   </span>
                 )}
@@ -2018,14 +2100,17 @@ const StockCardItem: React.FC<StockCardItemProps> = ({
           <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
             <button
               onClick={() => onOpenAlert(stock)}
-              className="p-2 rounded-full border bg-white/10 border-white/15 text-slate-300 hover:text-amber-400 hover:border-amber-400/50 hover:bg-white/20 transition-all shadow-2xs cursor-pointer"
+              className="p-2 rounded-full border bg-white/10 border-white/15 text-slate-300 hover:text-amber-400 hover:border-amber-400/50 hover:bg-white/20 transition-all shadow-2xs cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
               title="Set Price Alert Trigger"
+              aria-label={`Set price alert trigger for ${stock.symbol} (${stock.name})`}
             >
               <Bell className="w-4 h-4" />
             </button>
             <button
               onClick={() => toggleWatchlist(stock.symbol)}
-              className={`transition-all p-2 rounded-full border shadow-2xs cursor-pointer ${isWatchlisted ? 'bg-rose-500/20 border-rose-500/40 text-rose-400 hover:bg-rose-500/30' : 'bg-white/10 border-white/15 text-slate-300 hover:text-rose-400 hover:bg-white/20'}`}
+              aria-label={`${isWatchlisted ? 'Remove' : 'Add'} ${stock.symbol} (${stock.name}) ${isWatchlisted ? 'from' : 'to'} watchlist`}
+              aria-pressed={isWatchlisted}
+              className={`transition-all p-2 rounded-full border shadow-2xs cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center ${isWatchlisted ? 'bg-rose-500/20 border-rose-500/40 text-rose-400 hover:bg-rose-500/30' : 'bg-white/10 border-white/15 text-slate-300 hover:text-rose-400 hover:bg-white/20'}`}
               title={isWatchlisted ? 'Remove from Favorites' : 'Add to Favorites'}
             >
               <Heart className={`w-4 h-4 ${isWatchlisted ? 'fill-rose-500 text-rose-500' : ''}`} />
@@ -2048,16 +2133,20 @@ const StockCardItem: React.FC<StockCardItemProps> = ({
           )}
         </div>
 
-        {/* Price & Today's Change */}
+        {/* Price & Today's Change with aria-live */}
         <div className="mt-3.5 flex items-baseline justify-between">
           <div>
             <span className="text-2xl font-black text-white tracking-tight font-mono">
               {formatINR(stock.price)}
             </span>
           </div>
-          <div className={`flex items-center text-xs font-black px-2.5 py-1 rounded-xl shadow-2xs font-mono ${
-            isUp ? 'bg-emerald-500/20 text-mint border border-emerald-500/40' : 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
-          }`}>
+          <div 
+            aria-live="polite"
+            aria-atomic="true"
+            className={`flex items-center text-xs font-black px-2.5 py-1 rounded-xl shadow-2xs font-mono ${
+              isUp ? 'bg-emerald-500/20 text-[#047857] dark:text-emerald-400 border border-emerald-500/40' : 'bg-rose-500/20 text-[#be123c] dark:text-rose-400 border border-rose-500/40'
+            }`}
+          >
             {isUp ? '+' : ''}{stock.change.toFixed(2)} ({formatPercent(stock.changePercent)})
           </div>
         </div>
@@ -2101,22 +2190,36 @@ const StockCardItem: React.FC<StockCardItemProps> = ({
           />
         </div>
 
-        {/* Valuation & Fundamentals Row */}
+        {/* Valuation & Fundamentals Row with ELI16 Educational Tooltips */}
         <div className="grid grid-cols-2 gap-2 mt-3 text-[11px]">
-          <div className="bg-white/5 p-2.5 rounded-xl border border-white/10">
-            <span className="text-slate-400 font-semibold flex items-center gap-1 text-[10px] uppercase font-mono"><abbr className="no-underline" title="Price-to-earnings ratio: market price divided by earnings per share. Compare it with business quality, growth and peers—not by itself.">P/E Ratio</abbr><HelpCircle className="h-3 w-3" aria-hidden="true" /></span>
+          <div 
+            className="bg-white/5 p-2.5 rounded-xl border border-white/10 cursor-help"
+            title={`Explain Like I'm 16: If P/E is ${stock.peRatio}, you are paying ₹${stock.peRatio} for every ₹1 the company earns each year.`}
+          >
+            <span className="text-slate-400 font-semibold flex items-center gap-1 text-[10px] uppercase font-mono">
+              <abbr className="no-underline">P/E Ratio</abbr>
+              <span className="text-[8px] px-1 py-0.5 rounded bg-indigo-100 dark:bg-indigo-500/30 text-indigo-900 dark:text-indigo-300 font-black">ELI16</span>
+              <HelpCircle className="h-3 w-3 text-slate-400" aria-hidden="true" />
+            </span>
             <div className="flex items-center justify-between mt-0.5">
               <span className="font-extrabold text-white font-mono">{stock.peRatio}</span>
               <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-md font-mono ${
-                isLowPe ? 'text-mint bg-emerald-500/20 border border-emerald-500/30' : 'text-slate-300 bg-white/10'
+                isLowPe ? 'text-[#047857] dark:text-emerald-400 bg-emerald-500/20 border border-emerald-500/30' : 'text-slate-300 bg-white/10'
               }`}>
                 Ind: {stock.industryPe}
               </span>
             </div>
           </div>
 
-          <div className="bg-white/5 p-2.5 rounded-xl border border-white/10">
-            <span className="text-slate-400 font-semibold flex items-center gap-1 text-[10px] uppercase font-mono"><abbr className="no-underline" title="Market capitalisation: share price multiplied by shares outstanding. It describes company size, not how cheap it is.">Market Cap</abbr><HelpCircle className="h-3 w-3" aria-hidden="true" /></span>
+          <div 
+            className="bg-white/5 p-2.5 rounded-xl border border-white/10 cursor-help"
+            title="Explain Like I'm 16: DuPont Breakdown separates luck from skill: is profit coming from high margins, fast inventory turns, or debt? RoE shows how many paise of pure profit the company generates for every ₹1 of shareholder money."
+          >
+            <span className="text-slate-400 font-semibold flex items-center gap-1 text-[10px] uppercase font-mono">
+              <abbr className="no-underline">Market Cap</abbr>
+              <span className="text-[8px] px-1 py-0.5 rounded bg-emerald-100 dark:bg-emerald-500/30 text-emerald-950 dark:text-emerald-300 font-black">ELI16</span>
+              <HelpCircle className="h-3 w-3 text-slate-400" aria-hidden="true" />
+            </span>
             <span className="font-extrabold text-white font-mono block mt-0.5">{formatIndianShort(stock.marketCapCr * 10000000)}</span>
           </div>
         </div>

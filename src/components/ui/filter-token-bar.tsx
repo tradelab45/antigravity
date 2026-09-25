@@ -85,10 +85,10 @@ export const FilterTokenBar: React.FC<FilterTokenBarProps> = ({
       {quickChips && quickChips.length > 0 && (
         <div className="flex items-center gap-1.5 flex-wrap ml-auto">
           {quickChips.map((chip) => {
-            const isSelected = activeIds.has(chip.token.id);
+            const isSelected = activeIds.has(chip.token.id) || tokens.some(t => t.field === chip.token.field && t.value === chip.token.value);
             return (
               <button
-                key={chip.token.id}
+                key={chip.label || chip.token.id}
                 onClick={() => {
                   if (isSelected) onRemoveToken(chip.token.id);
                   else onAddToken?.(chip.token);
