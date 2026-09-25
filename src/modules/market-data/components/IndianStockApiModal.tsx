@@ -20,7 +20,7 @@ import {
   PlusCircle,
   BarChart2
 } from 'lucide-react';
-import { StockDetail } from '../types';
+import { StockDetail } from '../../../types';
 
 interface IndianStockApiModalProps {
   isOpen: boolean;

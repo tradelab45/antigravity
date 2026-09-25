@@ -2,10 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { gzipSync } from 'node:zlib';
-import { UpstoxService, mapUpstoxInstruments, parseUpstoxQuote } from '../src/server/upstoxService';
-import { mergeQuote, quoteLabel } from '../src/utils/quoteState';
+import { UpstoxService, mapUpstoxInstruments, parseUpstoxQuote } from '../src/modules/market-data/server/upstoxService';
+import { mergeQuote, quoteLabel } from '../src/modules/market-data/utils/quoteState';
 import type { StockDetail } from '../src/types';
-import { catalogPage, listedStockDetail } from '../src/server/stockCatalog';
+import { catalogPage, listedStockDetail } from '../src/modules/market-data/server/stockCatalog';
 
 const key = 'NSE_EQ|INE002A01018';
 const rows = [{ segment: 'NSE_EQ', instrument_type: 'EQ', trading_symbol: 'RELIANCE', instrument_key: key }];

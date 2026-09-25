@@ -44,12 +44,12 @@ import {
   Bar,
   ReferenceLine
 } from 'recharts';
-import { StockDetail, ProductType, BracketOrderParams } from '../types';
-import { useSimulator } from '../context/SimulatorContext';
+import { StockDetail, ProductType, BracketOrderParams } from '../../../types';
+import { useSimulator } from '../../../context/SimulatorContext';
 import { getStockWithTechnicals } from '../data/indianCompanies';
 import { calculateDuPontAnalysis } from '../utils/technicalCalculator';
-import { formatINR, formatPercent, formatIndianShort, formatNumberIndian } from '../utils/formatters';
-import { playOrderFilledSound, playStopLossTriggeredSound } from '../utils/soundEffects';
+import { formatINR, formatPercent, formatIndianShort, formatNumberIndian } from '../../../utils/formatters';
+import { playOrderFilledSound, playStopLossTriggeredSound } from '../../../utils/soundEffects';
 
 interface StockDetailModalProps {
   stock: StockDetail | null;

@@ -25,11 +25,11 @@ import {
   BroadcastAnnouncement
 } from '../types';
 import { INITIAL_BADGES } from '../data/lessonsData';
-import { TOP_100_INDIAN_COMPANIES } from '../data/indianCompanies';
-import { getNSEMarketTimeInfo, NSEMarketInfo } from '../utils/marketHours';
-import { enrichStockWithTechnicalsAndDuPont } from '../utils/technicalCalculator';
-import { computeMarketIndicesFromStocks } from '../utils/indexCalculator';
-import { mergeQuote } from '../utils/quoteState';
+import { TOP_100_INDIAN_COMPANIES } from '../modules/market-data/data/indianCompanies';
+import { getNSEMarketTimeInfo, NSEMarketInfo } from '../modules/market-data/utils/marketHours';
+import { enrichStockWithTechnicalsAndDuPont } from '../modules/market-data/utils/technicalCalculator';
+import { computeMarketIndicesFromStocks } from '../modules/market-data/utils/indexCalculator';
+import { mergeQuote } from '../modules/market-data/utils/quoteState';
 
 export const ADMIN_EMAILS = ['aaravvjain23@gmail.com'];
 export const ADMIN_USERNAMES = ['aaravvjain23@gmail.com', 'aarav', 'aarav_trader'];

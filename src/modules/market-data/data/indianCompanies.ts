@@ -1,4 +1,4 @@
-import { StockDetail } from '../types';
+import { StockDetail } from '../../../types';
 import { GOVERNMENT_PSU_STOCKS } from './psuStocks';
 
 export interface ExtendedStockDetail extends StockDetail {

@@ -29,11 +29,11 @@ import {
   ReferenceLine,
   CartesianGrid
 } from 'recharts';
-import { useSimulator } from '../context/SimulatorContext';
+import { useSimulator } from '../../../context/SimulatorContext';
 import { generateOptionChain } from '../utils/optionsCalculator';
-import { playOrderFilledSound } from '../utils/soundEffects';
-import { formatINR } from '../utils/formatters';
-import { OptionContract } from '../types';
+import { playOrderFilledSound } from '../../../utils/soundEffects';
+import { formatINR } from '../../../utils/formatters';
+import { OptionContract } from '../../../types';
 
 interface OptionsChainModalProps {
   isOpen: boolean;

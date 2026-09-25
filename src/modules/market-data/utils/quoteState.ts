@@ -1,4 +1,4 @@
-import type { StockDetail } from '../types';
+import type { StockDetail } from '../../../types';
 
 export function mergeQuote(current: StockDetail, incoming: StockDetail): StockDetail {
   const currentTime = Date.parse(current.quoteAsOf || '');

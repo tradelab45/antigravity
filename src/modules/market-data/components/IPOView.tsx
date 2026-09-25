@@ -15,8 +15,8 @@ import {
   AlertCircle,
   HelpCircle
 } from 'lucide-react';
-import { useSimulator } from '../context/SimulatorContext';
-import { formatINR } from '../utils/formatters';
+import { useSimulator } from '../../../context/SimulatorContext';
+import { formatINR } from '../../../utils/formatters';
 
 interface IPOItem {
   id: string;
