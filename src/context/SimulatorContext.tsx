@@ -187,6 +187,8 @@ interface SimulatorContextType {
   unlockBadge: (badgeId: string) => void;
   broadcastAnnouncement: BroadcastAnnouncement | null;
   dismissBroadcast: () => void;
+  backupPortfolio: () => string;
+  restorePortfolioBackup: (backupJson: string) => { success: boolean; message: string };
 }
 
 
@@ -2027,6 +2029,57 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     ]);
   };
 
+  const backupPortfolio = useCallback((): string => {
+    const backupData = {
+      version: 1,
+      appName: 'RupeeRookie',
+      exportedAt: new Date().toISOString(),
+      user: currentUser,
+      cashBalance,
+      holdings,
+      orders,
+      watchlist,
+      badges,
+      portfolioHistory,
+    };
+    return JSON.stringify(backupData, null, 2);
+  }, [currentUser, cashBalance, holdings, orders, watchlist, badges, portfolioHistory]);
+
+  const restorePortfolioBackup = useCallback((backupJson: string): { success: boolean; message: string } => {
+    try {
+      const parsed = JSON.parse(backupJson);
+      if (!parsed || typeof parsed !== 'object') {
+        return { success: false, message: 'Invalid backup file format' };
+      }
+      if (typeof parsed.cashBalance === 'number' && Number.isFinite(parsed.cashBalance)) {
+        setCashBalance(parsed.cashBalance);
+      }
+      if (parsed.holdings && typeof parsed.holdings === 'object') {
+        setHoldings(parsed.holdings);
+      }
+      if (Array.isArray(parsed.orders)) {
+        setOrders(parsed.orders);
+      }
+      if (Array.isArray(parsed.watchlist)) {
+        // `watchlist` is derived from the active group, so restore into it.
+        const restored = parsed.watchlist.filter((s: unknown): s is string => typeof s === 'string');
+        setWatchlistGroups(prev => prev.map(g =>
+          g.id === activeWatchlistGroupId ? { ...g, symbols: restored } : g
+        ));
+      }
+      if (Array.isArray(parsed.badges)) {
+        setBadges(parsed.badges);
+      }
+      if (Array.isArray(parsed.portfolioHistory)) {
+        setPortfolioHistory(parsed.portfolioHistory);
+      }
+      notifyUser('Portfolio Restored! 🎉', 'Your holdings, cash balance, and orders were restored from backup.', 'SUCCESS');
+      return { success: true, message: 'Portfolio restored successfully!' };
+    } catch (err: any) {
+      return { success: false, message: `Failed to restore portfolio: ${err?.message || 'Invalid JSON'}` };
+    }
+  }, [notifyUser]);
+
   return (
     <SimulatorContext.Provider
       value={{
@@ -2099,6 +2152,8 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         markAllNotificationsRead,
         broadcastAnnouncement,
         dismissBroadcast,
+        backupPortfolio,
+        restorePortfolioBackup,
       }}
     >
       {children}
