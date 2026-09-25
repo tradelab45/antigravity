@@ -5,14 +5,14 @@ import {
   ShieldCheck, Sparkles, Pause, Play, TrendingUp, TrendingDown,
   Compass, CheckCircle2, Zap, BarChart3, Layers, Award, Activity
 } from 'lucide-react';
-import { useAccessibility } from '../context/AccessibilityContext';
-import { useSimulator } from '../context/SimulatorContext';
-import type { AppTabType } from './Header';
+import { useAccessibility } from '../../../context/AccessibilityContext';
+import { useSimulator } from '../../../context/SimulatorContext';
+import type { AppTabType } from '../../../components/Header';
 import './landing-3d.css';
-import { MetalButton } from './ui/liquid-glass-button';
-import { GlowCard, SpotlightCard } from './ui/spotlight-card';
+import { MetalButton } from '../../../components/ui/liquid-glass-button';
+import { GlowCard, SpotlightCard } from '../../../components/ui/spotlight-card';
 import { MotionFooter } from './MotionFooter';
-import { SpatialCandlestickChart } from './ui/spatial-candlestick-chart';
+import { SpatialCandlestickChart } from '../../../components/ui/spatial-candlestick-chart';
 
 const money = (value: number) => 
   new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value);

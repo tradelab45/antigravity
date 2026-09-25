@@ -24,8 +24,8 @@ const AuthLaunchTransition = lazy(() => import('./components/AuthLaunchTransitio
 const LandingPage = lazy(() => {
   const isClassic = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('classic') === 'true';
   return isClassic
-    ? import('./components/LandingPage').then((module) => ({ default: module.LandingPage }))
-    : import('./components/LandingPage3D').then((module) => ({ default: module.LandingPage3D }));
+    ? import('./modules/landing/components/LandingPage').then((module) => ({ default: module.LandingPage }))
+    : import('./modules/landing/components/LandingPage3D').then((module) => ({ default: module.LandingPage3D }));
 });
 const PortfolioHub = lazy(() => import('./components/PortfolioHub').then((module) => ({ default: module.PortfolioHub })));
 const MarketScreener = lazy(() => import('./components/MarketScreener').then((module) => ({ default: module.MarketScreener })));

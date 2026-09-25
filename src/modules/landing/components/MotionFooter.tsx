@@ -11,7 +11,7 @@ import {
   Heart,
   ExternalLink
 } from 'lucide-react';
-import type { AppTabType } from './Header';
+import type { AppTabType } from '../../../components/Header';
 
 interface MotionFooterProps {
   onNavigate?: (tab: AppTabType) => void;

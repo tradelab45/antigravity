@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion, useScroll, useTransform } from 'motion/react';
 import { ArrowUpRight, ArrowRight, ArrowDown, BookOpen, RotateCcw, ShieldCheck, Sparkles, Pause, Play } from 'lucide-react';
-import { useAccessibility } from '../context/AccessibilityContext';
-import type { AppTabType } from './Header';
+import { useAccessibility } from '../../../context/AccessibilityContext';
+import type { AppTabType } from '../../../components/Header';
 import './landing.css';
-import { LiquidButton, MetalButton } from './ui/liquid-glass-button';
-import { LiquidGlassLogo } from './ui/LiquidGlassLogo';
+import { LiquidButton, MetalButton } from '../../../components/ui/liquid-glass-button';
+import { LiquidGlassLogo } from '../../../components/ui/LiquidGlassLogo';
 
 const money = (value: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value);
 const features = [
