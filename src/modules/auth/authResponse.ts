@@ -18,6 +18,26 @@ export const isAuthApiRejection = (status: number, contentType: string | null): 
   return (contentType || '').toLowerCase().includes('application/json');
 };
 
+/**
+ * Pulls the human-readable reason out of an API error body.
+ *
+ * The server answers with two different shapes. The auth routes use
+ * `{ success: false, message }`, but thirteen other responses — including the
+ * API 404 catch-all and the global 500 error handler — use
+ * `{ success: false, error }`. Reading only `message` silently discarded the
+ * reason from the second shape and showed the caller's generic fallback
+ * instead, so a sign-in against a missing route or a crashing handler reported
+ * "Sign-in was rejected. Please check your details." rather than what happened.
+ */
+export const extractApiErrorMessage = (body: unknown): string | null => {
+  if (!body || typeof body !== 'object') return null;
+  const candidates = [(body as Record<string, unknown>).message, (body as Record<string, unknown>).error];
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) return candidate;
+  }
+  return null;
+};
+
 /** Server-side username rule, mirrored client-side so signup fails fast and locally. */
 export const USERNAME_PATTERN = /^[a-z0-9_]{3,30}$/;
 

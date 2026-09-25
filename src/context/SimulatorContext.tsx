@@ -30,7 +30,7 @@ import { getNSEMarketTimeInfo, NSEMarketInfo } from '../utils/marketHours';
 import { enrichStockWithTechnicalsAndDuPont } from '../utils/technicalCalculator';
 import { computeMarketIndicesFromStocks } from '../utils/indexCalculator';
 import { mergeQuote } from '../utils/quoteState';
-import { isAuthApiRejection } from '../modules/auth/authResponse';
+import { isAuthApiRejection, extractApiErrorMessage } from '../modules/auth/authResponse';
 
 export const ADMIN_EMAILS = ['aaravvjain23@gmail.com'];
 export const ADMIN_USERNAMES = ['aaravvjain23@gmail.com', 'aarav', 'aarav_trader'];
@@ -394,8 +394,8 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         // or an HTML body means there is no backend on this host, so fall
         // through to the offline fallback below instead of failing the form.
         if (isAuthApiRejection(res.status, res.headers.get('content-type'))) {
-          const error = await res.json().catch(() => null);
-          return { success: false, message: error?.message || (res.status === 429 ? 'Too many attempts. Please wait before trying again.' : 'Sign-in was rejected. Please check your details.') };
+          const reason = extractApiErrorMessage(await res.json().catch(() => null));
+          return { success: false, message: reason || (res.status === 429 ? 'Too many attempts. Please wait before trying again.' : 'Sign-in was rejected. Please check your details.') };
         }
       } else {
         const contentType = res.headers.get('content-type') || '';
@@ -472,8 +472,8 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         // or an HTML body means there is no backend on this host, so fall
         // through to the offline fallback below instead of failing the form.
         if (isAuthApiRejection(res.status, res.headers.get('content-type'))) {
-          const error = await res.json().catch(() => null);
-          return { success: false, message: error?.message || (res.status === 429 ? 'Too many attempts. Please wait before trying again.' : 'We could not create your account. Please check your details.') };
+          const reason = extractApiErrorMessage(await res.json().catch(() => null));
+          return { success: false, message: reason || (res.status === 429 ? 'Too many attempts. Please wait before trying again.' : 'We could not create your account. Please check your details.') };
         }
       } else {
         const contentType = res.headers.get('content-type') || '';
@@ -546,8 +546,8 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         // or an HTML body means there is no backend on this host, so fall
         // through to the offline fallback below instead of failing the form.
         if (isAuthApiRejection(res.status, res.headers.get('content-type'))) {
-          const error = await res.json().catch(() => null);
-          return { success: false, message: error?.message || (res.status === 429 ? 'Too many attempts. Please wait before trying again.' : 'Google sign-in was rejected. Please try again.') };
+          const reason = extractApiErrorMessage(await res.json().catch(() => null));
+          return { success: false, message: reason || (res.status === 429 ? 'Too many attempts. Please wait before trying again.' : 'Google sign-in was rejected. Please try again.') };
         }
       } else {
         const contentType = res.headers.get('content-type') || '';
