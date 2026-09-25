@@ -1,4 +1,4 @@
-import { Lesson } from '../types';
+import { Lesson } from '../../../types';
 
 /**
  * Taxation modules for the Investor Academy.
