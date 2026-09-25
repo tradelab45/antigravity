@@ -43,7 +43,7 @@ const DataPrivacyCenter = lazy(() => import('./components/DataPrivacyCenter').th
 const HelpSupportCenter = lazy(() => import('./components/HelpSupportCenter').then((module) => ({ default: module.HelpSupportCenter })));
 const StockBattleModal = lazy(() => import('./components/StockBattleModal').then((module) => ({ default: module.StockBattleModal })));
 const OptionsChainModal = lazy(() => import('./components/OptionsChainModal').then((module) => ({ default: module.OptionsChainModal })));
-const AdminDashboard = lazy(() => import('./components/AdminDashboard').then((module) => ({ default: module.AdminDashboard })));
+const AdminDashboard = lazy(() => import('./modules/admin/components/AdminDashboard').then((module) => ({ default: module.AdminDashboard })));
 const BigQueryGraphView = lazy(() => import('./components/BigQueryGraphView').then((module) => ({ default: module.BigQueryGraphView })));
 
 const checkIsAdminPortal = (): boolean => {

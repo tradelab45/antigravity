@@ -38,8 +38,8 @@ import {
   RotateCcw,
   Trash2
 } from 'lucide-react';
-import type { StoredTrade } from '../../server';
-import type { UserAccount } from '../types';
+import type { StoredTrade } from '../../../../server';
+import type { UserAccount } from '../../../types';
 
 export type AdminThemeMode = 'beige-blue' | 'cyber-emerald';
 
