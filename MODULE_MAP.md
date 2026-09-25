@@ -25,6 +25,74 @@ branch — that is what keeps the 12 branches independent of each other.
 | **Landing** | `module/landing` | Public landing pages, the 3D/spatial variant and the marketing footer. | 5 | — |
 | **PWA & Platform** | `module/pwa-platform` | Installable PWA plumbing, service-worker registration and connection status. | 3 | — |
 
+## Branch status
+
+Every branch was built from `main` and verified on its own with
+`tsc --noEmit`, `npm run build` and `npm test` (36/36). Branches that moved HTTP
+routes were additionally verified at runtime by booting the server and
+exercising the routes; what each one exercised is recorded in its commit message.
+
+| Branch | Files changed | `server.ts` | Route file |
+| --- | --- | --- | --- |
+| `module/academy` | 32 | 3847 → 3849 | `routes/academy.ts` |
+| `module/market-data` | 23 | 3847 → **1817** | `routes/market-data.ts` |
+| `module/portfolio` | 15 | unchanged | — |
+| `module/auth` | 14 | 3847 → 3488 | `routes/auth.ts` |
+| `module/accessibility` | 12 | unchanged | — |
+| `module/trading-simulator` | 12 | 3847 → 3788 | `routes/trading-simulator.ts` |
+| `module/screener` | 11 | 3847 → 3822 | `routes/screener.ts` |
+| `module/tax` | 8 | unchanged | — |
+| `module/landing` | 8 | unchanged | — |
+| `module/pwa-platform` | 8 | unchanged | — |
+| `module/ai-copilot` | 7 | 3847 → 3318 | `routes/ai-copilot.ts` |
+| `module/admin` | 6 | 3847 → 3483 | `routes/admin.ts` |
+
+## Merging these branches
+
+Each branch merges into `main` **cleanly on its own** — all twelve were tested
+that way. They are not, however, independent of *each other*: merging a second
+one after the first has landed conflicts, because they share `server.ts` and
+`src/App.tsx`, and because a file one branch relocated is still edited at its old
+path by the next. A sequential merge of all twelve conflicts on ten of them.
+
+Two ways to land them:
+
+- **Land them one at a time**, rebasing each remaining branch on the updated
+  `main` before merging it. The conflicts are mechanical (a moved file edited at
+  its old path, or an adjacent hunk in `server.ts`), but there are many.
+- **Treat the branches as the review unit**, then apply the whole segregation in
+  one commit on `main`. Reviewing twelve small, individually green branches is
+  the cheaper path; replaying them one by one is not.
+
+## Server route extraction
+
+Each module that owns HTTP routes gets `src/server/routes/<name>.ts` exporting a
+`create<Name>Router(deps)` factory. `server.ts` keeps ownership of shared state
+and injects what a router needs, rather than each router reaching into the
+monolith:
+
+- Stateful setup stays **inside** the factory, not at module top level, because
+  the Upstox feed and the stock catalogue read environment variables that
+  `dotenv` only loads once `server.ts` starts.
+- `market-data` hands back `getStocks()` (a getter, so callers never hold a stale
+  snapshot) and `stopFeed()` for the shutdown handler.
+- `academy` deliberately returns `logout` instead of mounting it, because
+  `server.ts` registers it *after* the no-store `Cache-Control` middleware for
+  `/api/auth`; mounting it inside the router would silently drop that header.
+- Route modules declare only the record fields they actually read, so they do not
+  depend on `server.ts` internals like `StoredUser`.
+
+## Pre-existing issue found while verifying
+
+`POST /api/gemini/analyze-stock` crashes the server process with
+`TypeError: Cannot read properties of undefined (reading 'toLocaleString')` when
+the posted `stock` object is missing numeric fields. The throw happens in an
+async handler, so Express 4 never sees it and the unhandled rejection takes the
+process down — one malformed request stops the server.
+
+This reproduces identically on `main` and was left as-is, since fixing it is
+outside the scope of segregating the modules.
+
 ## Per-module contents
 
 ### `module/academy` — Investor Academy
