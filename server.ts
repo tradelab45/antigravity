@@ -2668,6 +2668,19 @@ interface StoredUser {
   totalTrades?: number;
   isAdmin?: boolean;
   role?: 'ADMIN' | 'USER';
+  /** The class board this learner joined, uppercased. Absent means none. */
+  classCode?: string;
+  /**
+   * What this learner's browser last reported.
+   *
+   * Trades run entirely on the device — the server never sees an order — so
+   * these are reported figures, not measured ones. They are named `reported`
+   * so nothing downstream can mistake them for the server's own accounting,
+   * and the board says as much on screen.
+   */
+  reportedPortfolioValue?: number;
+  reportedTrades?: number;
+  reportedAt?: string;
 }
 
 const USERS_FILE = path.join(process.cwd(), "data", "users.json");
@@ -3277,6 +3290,127 @@ app.post("/api/auth/otp/cancel", (req, res) => {
   const { challengeId } = req.body;
   if (challengeId && typeof challengeId === "string") discardChallenge(challengeId);
   res.json({ success: true });
+});
+
+/**
+ * Class boards.
+ *
+ * A teacher hands out a code, learners join it, and the board lists who is in
+ * it with what their own browser reports. Nothing here is verified: the
+ * simulator executes trades on the device, so a figure can be edited by anyone
+ * willing to open developer tools. The board is for a class to see itself,
+ * not for deciding a prize, and the UI says so.
+ */
+const CLASS_CODE_PATTERN = /^[A-Z0-9-]{4,16}$/;
+
+const normaliseClassCode = (value: unknown): string | null => {
+  const code = String(value || "").trim().toUpperCase();
+  return CLASS_CODE_PATTERN.test(code) ? code : null;
+};
+
+/** First name plus a last initial: enough to find yourself, not a directory. */
+const boardDisplayName = (fullName: string): string => {
+  const parts = String(fullName || "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "Learner";
+  if (parts.length === 1) return parts[0].slice(0, 24);
+  return `${parts[0].slice(0, 20)} ${parts[parts.length - 1][0].toUpperCase()}.`;
+};
+
+app.post("/api/class/join", (req, res) => {
+  const caller = clientKey(req.ip);
+  if (rateLimited(res, `class:join:${caller}`, AUTH_LIMITS.otpRequest,
+    "Too many attempts. Try again later.")) return;
+
+  const { userId, classCode } = req.body;
+  const code = normaliseClassCode(classCode);
+  if (!code) {
+    return res.status(400).json({
+      success: false,
+      message: "A class code is 4 to 16 letters, numbers or hyphens.",
+    });
+  }
+
+  const users = loadUsers();
+  const user = users.find(u => u.id === userId);
+  if (!user) return res.status(404).json({ success: false, message: "Account not found." });
+
+  user.classCode = code;
+  saveUsers(users);
+  res.json({ success: true, classCode: code, message: `Joined ${code}.` });
+});
+
+app.post("/api/class/leave", (req, res) => {
+  const { userId } = req.body;
+  const users = loadUsers();
+  const user = users.find(u => u.id === userId);
+  if (!user) return res.status(404).json({ success: false, message: "Account not found." });
+
+  delete user.classCode;
+  delete user.reportedPortfolioValue;
+  delete user.reportedTrades;
+  delete user.reportedAt;
+  saveUsers(users);
+  res.json({ success: true, message: "Left the class board." });
+});
+
+/** The learner's own device reports where it has got to. */
+app.post("/api/class/report", (req, res) => {
+  const caller = clientKey(req.ip);
+  if (rateLimited(res, `class:report:${caller}`, { limit: 60, windowMs: 60 * 60_000 },
+    "Too many updates. Try again later.")) return;
+
+  const { userId, portfolioValue, totalTrades } = req.body;
+  const users = loadUsers();
+  const user = users.find(u => u.id === userId);
+  if (!user) return res.status(404).json({ success: false, message: "Account not found." });
+  if (!user.classCode) {
+    return res.status(409).json({ success: false, message: "Join a class board first." });
+  }
+
+  const value = Number(portfolioValue);
+  const trades = Number(totalTrades);
+  // Bounds rather than trust: a figure outside what the simulator can produce
+  // is refused, so the board cannot be decorated with an absurd number.
+  if (!Number.isFinite(value) || value < 0 || value > 1_000_000_000) {
+    return res.status(400).json({ success: false, message: "That portfolio value is out of range." });
+  }
+  if (!Number.isFinite(trades) || trades < 0 || trades > 100_000) {
+    return res.status(400).json({ success: false, message: "That trade count is out of range." });
+  }
+
+  user.reportedPortfolioValue = Math.round(value);
+  user.reportedTrades = Math.round(trades);
+  user.reportedAt = new Date().toISOString();
+  saveUsers(users);
+  res.json({ success: true });
+});
+
+app.get("/api/class/:code/board", (req, res) => {
+  const caller = clientKey(req.ip);
+  if (rateLimited(res, `class:board:${caller}`, { limit: 120, windowMs: 15 * 60_000 },
+    "Too many requests. Try again later.")) return;
+
+  const code = normaliseClassCode(req.params.code);
+  if (!code) return res.status(400).json({ success: false, message: "That is not a class code." });
+
+  const members = loadUsers()
+    .filter(u => u.classCode === code)
+    // No email, no username, no id: a code is not a key to a directory.
+    .map(u => ({
+      name: boardDisplayName(u.fullName),
+      reportedPortfolioValue: u.reportedPortfolioValue ?? null,
+      reportedTrades: u.reportedTrades ?? null,
+      reportedAt: u.reportedAt ?? null,
+    }))
+    .sort((a, b) => (b.reportedPortfolioValue ?? -1) - (a.reportedPortfolioValue ?? -1));
+
+  res.json({
+    success: true,
+    classCode: code,
+    members,
+    verified: false,
+    note: "Figures are reported by each learner's own browser and are not verified.",
+  });
 });
 
 /** Lets the sign-in screen say up front that a code will be needed. */
