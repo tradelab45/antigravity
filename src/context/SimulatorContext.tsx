@@ -110,6 +110,9 @@ export interface AuthOutcome {
   verification?: PendingVerification;
 }
 
+/** How long the header keeps offering to undo a reset. */
+const RESET_UNDO_WINDOW_MS = 20_000;
+
 interface SimulatorContextType {
   currentUser: UserAccount | null;
   loginUser: (identifier: string, password: string) => Promise<AuthOutcome>;
@@ -187,6 +190,10 @@ interface SimulatorContextType {
   setThemeMode: (mode: 'light' | 'dark' | 'oled') => void;
   // Metrics & State
   resetSimulator: () => void;
+  /** Puts back what the last reset wiped, while the window is still open. */
+  undoLastReset: () => boolean;
+  /** Epoch ms the undo offer lapses at, or null when there is nothing to undo. */
+  resetUndoExpiresAt: number | null;
   portfolioValue: number;
   investedValue: number;
   totalPnL: number;
@@ -2125,7 +2132,27 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     awardXP(`activity:${normalizedReason}`, amount, reason);
   };
 
+  /**
+   * A reset wipes every holding, order and history point at once. It used to
+   * do that with no way back, so one mis-click ended a week of practice. The
+   * previous state is kept for a short window and the header offers to put it
+   * back; after that the snapshot is dropped.
+   */
+  const resetSnapshot = useRef<{
+    cashBalance: number;
+    holdings: typeof holdings;
+    orders: typeof orders;
+    optionPositions: typeof optionPositions;
+    portfolioHistory: typeof portfolioHistory;
+  } | null>(null);
+  const [resetUndoExpiresAt, setResetUndoExpiresAt] = useState<number | null>(null);
+
   const resetSimulator = () => {
+    const hadSomethingToLose =
+      Object.keys(holdings).length > 0 || orders.length > 0 || optionPositions.length > 0;
+
+    resetSnapshot.current = { cashBalance, holdings, orders, optionPositions, portfolioHistory };
+
     setCashBalance(INITIAL_CASH);
     setHoldings({});
     setOrders([]);
@@ -2140,7 +2167,44 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         totalPnL: 0,
       },
     ]);
+
+    // Nothing was lost on an already-empty account, so there is nothing worth
+    // offering to undo.
+    setResetUndoExpiresAt(hadSomethingToLose ? Date.now() + RESET_UNDO_WINDOW_MS : null);
   };
+
+  const undoLastReset = (): boolean => {
+    const snapshot = resetSnapshot.current;
+    if (!snapshot || !resetUndoExpiresAt || Date.now() > resetUndoExpiresAt) return false;
+
+    setCashBalance(snapshot.cashBalance);
+    setHoldings(snapshot.holdings);
+    setOrders(snapshot.orders);
+    setOptionPositions(snapshot.optionPositions);
+    setPortfolioHistory(snapshot.portfolioHistory);
+
+    resetSnapshot.current = null;
+    setResetUndoExpiresAt(null);
+    return true;
+  };
+
+  const dismissResetUndo = () => {
+    resetSnapshot.current = null;
+    setResetUndoExpiresAt(null);
+  };
+
+  // The offer lapses on its own, so a stale bar cannot sit there promising an
+  // undo that would no longer restore anything.
+  useEffect(() => {
+    if (!resetUndoExpiresAt) return;
+    const remaining = resetUndoExpiresAt - Date.now();
+    if (remaining <= 0) {
+      dismissResetUndo();
+      return;
+    }
+    const timer = window.setTimeout(dismissResetUndo, remaining);
+    return () => window.clearTimeout(timer);
+  }, [resetUndoExpiresAt]);
 
   return (
     <SimulatorContext.Provider
@@ -2181,6 +2245,8 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         themeMode,
         setThemeMode,
         resetSimulator,
+        undoLastReset,
+        resetUndoExpiresAt,
         portfolioValue,
         investedValue,
         totalPnL,

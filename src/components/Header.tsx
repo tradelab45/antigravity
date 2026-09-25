@@ -49,6 +49,7 @@ import { AuthModal } from './AuthModal';
 import { RiskCenterModal } from './RiskCenterModal';
 import { AnimatedSearchBar } from './ui/animated-search-bar';
 import { StockDetail } from '../types';
+import { createPortal } from 'react-dom';
 
 export type AppTabType = 'home' | 'screener' | 'watchlist' | 'portfolio' | 'replay' | 'review' | 'journal' | 'academy' | 'challenges' | 'calculator' | 'chanakya' | 'badges' | 'privacy' | 'help' | 'graph';
 
@@ -75,6 +76,8 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
     userLevel, 
     marketIndices, 
     resetSimulator,
+    undoLastReset,
+    resetUndoExpiresAt,
     nseMarketInfo,
     marketHoursMode,
     setMarketHoursMode,
@@ -1273,6 +1276,36 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
             </div>
           </div>
         </div>
+      )}
+
+      {/* Undo bar for the reset. A reset wipes every holding, order and
+          history point at once, so the offer to put it back sits on screen
+          until it lapses rather than hiding in a toast that may be missed. */}
+      {/* Portalled to the body: the header sets a backdrop-filter, which makes
+          it the containing block for any fixed descendant, so this bar was
+          being pinned inside the header and covering the nav. */}
+      {resetUndoExpiresAt !== null && createPortal(
+        <div
+          role="status"
+          aria-live="polite"
+          className="motion-safe:animate-in motion-safe:slide-in-from-bottom-4 fixed bottom-[9.5rem] left-3 right-3 z-[110] mx-auto flex max-w-md items-center gap-3 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-white shadow-2xl lg:bottom-6 lg:left-auto lg:right-6 lg:mx-0"
+        >
+          <RotateCcw className="h-4 w-4 shrink-0 text-amber-400" aria-hidden="true" />
+          <p className="min-w-0 flex-1 text-xs font-bold leading-snug">
+            Portfolio reset to ₹10,00,000.
+            <span className="block font-medium text-slate-300">
+              Your holdings and orders were cleared.
+            </span>
+          </p>
+          <button
+            type="button"
+            onClick={() => undoLastReset()}
+            className="shrink-0 rounded-xl bg-white px-3 py-2 text-xs font-black text-slate-900 transition-colors hover:bg-slate-200"
+          >
+            Undo
+          </button>
+        </div>,
+        document.body,
       )}
 
       {/* Sign Out Confirmation Modal */}
