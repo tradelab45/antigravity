@@ -1530,6 +1530,31 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       };
     }
 
+    // Automatic protective stop-loss check for leveraged intraday (MIS) trades
+    if (productType === 'MIS') {
+      const maxAllowableLoss = cashBalance;
+      if (bracketOrder?.stopLossPrice && bracketOrder.stopLossPrice > 0) {
+        const potentialLoss = (executionPrice - bracketOrder.stopLossPrice) * quantity;
+        if (potentialLoss > maxAllowableLoss) {
+          notifyUser(
+            'Protective Stop-Loss Required 🛡️',
+            `MIS Risk Guard Rejection: The selected stop-loss (₹${bracketOrder.stopLossPrice}) exceeds your available risk capital (₹${maxAllowableLoss.toLocaleString('en-IN')}). Set a tighter stop-loss to ensure capital cannot drop below zero.`,
+            'WARNING',
+            stock.symbol
+          );
+          return { success: false, message: 'MIS Risk Guard: Potential loss exceeds available capital.' };
+        }
+      } else {
+        // Automatically inject protective stop-loss if none provided (guaranteeing capital > 0)
+        const autoSlPercent = Math.min(0.18, (cashBalance / totalCost) * 0.9);
+        const autoSlPrice = Number((executionPrice * (1 - autoSlPercent)).toFixed(2));
+        bracketOrder = {
+          stopLossPrice: autoSlPrice,
+          targetPrice: bracketOrder?.targetPrice || Number((executionPrice * 1.05).toFixed(2))
+        };
+      }
+    }
+
     const isMarketCurrentlyOpen = marketHoursMode === 'PRACTICE_24x7' || nseMarketInfo.isNSEMarketOpen;
 
     // Deduct margin used from available cash
