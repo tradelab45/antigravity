@@ -14,6 +14,7 @@ import fs from "fs";
 import path from "path";
 import { createAuthLimiter } from "../../modules/auth/server/authRateLimit";
 import { csvCell } from "../csvCell";
+import { asyncRoute } from "../asyncRoute";
 
 /** A stored user record, as persisted by the store server.ts owns. */
 export interface AuthUserRecord {
@@ -73,7 +74,7 @@ export function createAuthRouter(deps: AuthRouterDeps): express.Router {
   const router = express.Router();
 
   // User Signup
-  router.post("/api/auth/signup", createAuthLimiter(5, 60 * 60 * 1000), async (req, res) => {
+  router.post("/api/auth/signup", createAuthLimiter(5, 60 * 60 * 1000), asyncRoute(async (req, res) => {
     try {
       const { fullName, email, username, password, phone, ageGroup, experienceLevel } = req.body;
       if (!fullName || !email || !username || !password) {
@@ -176,7 +177,7 @@ export function createAuthRouter(deps: AuthRouterDeps): express.Router {
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message || "Failed to register user" });
     }
-  });
+  }));
 
   // User Login
   router.post("/api/auth/login", createAuthLimiter(10), (req, res) => {
@@ -271,7 +272,7 @@ export function createAuthRouter(deps: AuthRouterDeps): express.Router {
 
   // Google Sign-In / Sign-Up: logs in an existing account (linking it by verified
   // email on first use) or creates a new one.
-  router.post("/api/auth/google", createAuthLimiter(20), async (req, res) => {
+  router.post("/api/auth/google", createAuthLimiter(20), asyncRoute(async (req, res) => {
     try {
       const clientId = getGoogleClientId();
       if (!clientId) {
@@ -336,7 +337,7 @@ export function createAuthRouter(deps: AuthRouterDeps): express.Router {
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message || "Google sign-in failed" });
     }
-  });
+  }));
 
   function requireAdminExport(req: express.Request, res: express.Response, next: express.NextFunction) {
     const configuredToken = process.env.ADMIN_EXPORT_TOKEN;
