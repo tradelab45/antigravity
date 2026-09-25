@@ -13,6 +13,7 @@ import express from "express";
 import fs from "fs";
 import path from "path";
 import { createAuthLimiter } from "../../modules/auth/server/authRateLimit";
+import { csvCell } from "../csvCell";
 
 /** A stored user record, as persisted by the store server.ts owns. */
 export interface AuthUserRecord {
@@ -43,10 +44,32 @@ export interface AuthRouterDeps {
   verifyPassword: (password: string, user: any) => boolean;
   /** Issues the academy session cookie once credentials check out. */
   issueSession: (req: express.Request, res: express.Response, userId: string) => void;
+  /** Ends every session a user holds, used when an account changes hands. */
+  revokeUserSessions?: (userId: string) => void;
 }
 
+/**
+ * Every age group a sign-up form actually offers, plus the server's default.
+ * Anything else is replaced by the default, the same way experienceLevel is
+ * handled, so a crafted request cannot store arbitrary text that later lands
+ * in the admin's spreadsheet exports.
+ */
+const DEFAULT_AGE_GROUP = "13-17 (Teen)";
+const KNOWN_AGE_GROUPS = new Set([
+  DEFAULT_AGE_GROUP,
+  // AuthPage
+  "13-15 (Middle School)",
+  "16-18 (High School Teen)",
+  "19-24 (College/Undergrad)",
+  "25+ (Adult Learner)",
+  // AuthModal
+  "16-18 (Teen Investor)",
+  "18-22 (College Student)",
+  "22+ (Young Professional)",
+]);
+
 export function createAuthRouter(deps: AuthRouterDeps): express.Router {
-  const { loadUsers, saveUsers, toSafeUser, hashPassword, verifyPassword, issueSession } = deps;
+  const { loadUsers, saveUsers, toSafeUser, hashPassword, verifyPassword, issueSession, revokeUserSessions } = deps;
   const router = express.Router();
 
   // User Signup
@@ -86,7 +109,7 @@ export function createAuthRouter(deps: AuthRouterDeps): express.Router {
         username: cleanUsername,
         passwordHash: hashPassword(cleanPassword),
         phone: String(phone || "").trim().slice(0, 24),
-        ageGroup: ageGroup || "13-17 (Teen)",
+        ageGroup: typeof ageGroup === "string" && KNOWN_AGE_GROUPS.has(ageGroup) ? ageGroup : DEFAULT_AGE_GROUP,
         experienceLevel: ["BEGINNER", "INTERMEDIATE", "ADVANCED"].includes(experienceLevel) ? experienceLevel : "BEGINNER",
         initialCapital: 1000000,
         registeredAt: new Date().toISOString(),
@@ -270,6 +293,18 @@ export function createAuthRouter(deps: AuthRouterDeps): express.Router {
       const isNew = !user;
 
       if (user) {
+        // First time this account is reached through Google, and it was matched
+        // by email rather than by an existing Google link. Sign-up never checks
+        // that the person owns the address they type, so a password already on
+        // this account may belong to someone who registered the victim's email
+        // in advance. Google has now verified the real owner: the unverified
+        // password stops working and any session it opened is ended, or that
+        // person could keep signing in and watch the owner's activity.
+        if (!user.googleId && (user.passwordHash || user.password)) {
+          delete user.passwordHash;
+          delete user.password;
+          revokeUserSessions?.(user.id);
+        }
         user.googleId = info.sub;
         user.lastLoginAt = new Date().toISOString();
       } else {
@@ -336,11 +371,7 @@ export function createAuthRouter(deps: AuthRouterDeps): express.Router {
         "Last Login Date"
       ];
 
-      const escapeCsv = (val: any) => {
-        if (val === null || val === undefined) return '""';
-        const str = String(val).replace(/"/g, '""');
-        return `"${str}"`;
-      };
+      const escapeCsv = csvCell;
 
       const rows = users.map(u => [
         escapeCsv(u.id),

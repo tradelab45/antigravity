@@ -2951,6 +2951,7 @@ app.use(createAuthRouter({
   hashPassword,
   verifyPassword,
   issueSession: academyService.issueSession,
+  revokeUserSessions: academyService.revokeUser,
 }));
 
 // ==========================================
