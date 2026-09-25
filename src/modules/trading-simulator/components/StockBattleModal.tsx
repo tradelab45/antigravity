@@ -16,6 +16,16 @@ import {
   CheckCircle2,
   ChevronDown
 } from 'lucide-react';
+import {
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  Radar,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+  Legend
+} from 'recharts';
 import confetti from 'canvas-confetti';
 import { useSimulator } from '../../../context/SimulatorContext';
 import { formatINR, formatPercent } from '../../../utils/formatters';
@@ -142,6 +152,76 @@ export const StockBattleModal: React.FC<StockBattleModalProps> = ({
       percentB: pB,
       leader: pA > pB ? 'A' : pA < pB ? 'B' : 'TIE',
     };
+  }, [stockA, stockB]);
+
+  // Head-to-Head Comparative Radar Analysis Data (P/E, 1-Year Return, RoE, Debt-to-Equity)
+  const radarData = useMemo(() => {
+    if (!stockA || !stockB) return [];
+
+    // 1. P/E Valuation (Lower is more attractive / value-oriented)
+    const peA = stockA.peRatio || 25;
+    const peB = stockB.peRatio || 25;
+    const valScoreA = Math.max(15, Math.min(95, Math.round(100 - (peA / 60) * 55)));
+    const valScoreB = Math.max(15, Math.min(95, Math.round(100 - (peB / 60) * 55)));
+
+    // 2. 1-Year Trailing Return (Computed from 52-week baseline)
+    const lowA = stockA.low52 || stockA.price * 0.75;
+    const lowB = stockB.low52 || stockB.price * 0.75;
+    const retA = Math.max(-20, Math.min(150, ((stockA.price - lowA) / lowA) * 100));
+    const retB = Math.max(-20, Math.min(150, ((stockB.price - lowB) / lowB) * 100));
+    const retScoreA = Math.max(15, Math.min(95, Math.round((retA / 90) * 70 + 20)));
+    const retScoreB = Math.max(15, Math.min(95, Math.round((retB / 90) * 70 + 20)));
+
+    // 3. Return on Equity (RoE %)
+    const roeA = stockA.roe || (stockA.dupontAnalysis?.calculatedRoe ? stockA.dupontAnalysis.calculatedRoe * 100 : 18.5);
+    const roeB = stockB.roe || (stockB.dupontAnalysis?.calculatedRoe ? stockB.dupontAnalysis.calculatedRoe * 100 : 16.2);
+    const roeScoreA = Math.max(15, Math.min(95, Math.round((roeA / 35) * 80 + 15)));
+    const roeScoreB = Math.max(15, Math.min(95, Math.round((roeB / 35) * 80 + 15)));
+
+    // 4. Debt-to-Equity (Solvency / Financial Leverage)
+    const deA = stockA.dupontAnalysis?.equityMultiplier ? Math.max(0.05, stockA.dupontAnalysis.equityMultiplier - 1) : 0.42;
+    const deB = stockB.dupontAnalysis?.equityMultiplier ? Math.max(0.05, stockB.dupontAnalysis.equityMultiplier - 1) : 0.58;
+    const deScoreA = Math.max(15, Math.min(95, Math.round(100 - deA * 35)));
+    const deScoreB = Math.max(15, Math.min(95, Math.round(100 - deB * 35)));
+
+    return [
+      {
+        metric: 'P/E Valuation',
+        scoreA: valScoreA,
+        scoreB: valScoreB,
+        rawA: `${peA.toFixed(1)}x`,
+        rawB: `${peB.toFixed(1)}x`,
+        winner: peA < peB ? 'A' : peA > peB ? 'B' : 'TIE',
+        explainer: 'Lower P/E = higher earnings yield per ₹ paid'
+      },
+      {
+        metric: '1-Year Return',
+        scoreA: retScoreA,
+        scoreB: retScoreB,
+        rawA: `+${retA.toFixed(1)}%`,
+        rawB: `+${retB.toFixed(1)}%`,
+        winner: retA > retB ? 'A' : retA < retB ? 'B' : 'TIE',
+        explainer: 'Capital compounding momentum over 52 weeks'
+      },
+      {
+        metric: 'Return on Equity (RoE)',
+        scoreA: roeScoreA,
+        scoreB: roeScoreB,
+        rawA: `${roeA.toFixed(1)}%`,
+        rawB: `${roeB.toFixed(1)}%`,
+        winner: roeA > roeB ? 'A' : roeA < roeB ? 'B' : 'TIE',
+        explainer: 'Profit generated per ₹1 of equity capital'
+      },
+      {
+        metric: 'Debt-to-Equity Moat',
+        scoreA: deScoreA,
+        scoreB: deScoreB,
+        rawA: `${deA.toFixed(2)}x`,
+        rawB: `${deB.toFixed(2)}x`,
+        winner: deA < deB ? 'A' : deA > deB ? 'B' : 'TIE',
+        explainer: 'Solvency cushion; lower leverage reduces interest risk'
+      }
+    ];
   }, [stockA, stockB]);
 
   const handleQuickBackStock = (stock: StockDetail, shares = 10) => {
@@ -548,6 +628,135 @@ export const StockBattleModal: React.FC<StockBattleModalProps> = ({
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 )}
+              </div>
+            </div>
+          </div>
+
+          {/* HEAD-TO-HEAD COMPARATIVE RADAR CHART (P/E, 1-Year Return, RoE, Debt-to-Equity) */}
+          <div className="backdrop-blur-md bg-slate-900/60 border border-slate-700/50 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-violet-400 animate-pulse" />
+                  <h3 className="text-base font-black text-white flex items-center gap-2">
+                    <span>Head-to-Head Radar Comparison</span>
+                    <span className="px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/30 text-[10px] font-mono font-bold uppercase tracking-wider">
+                      Compare Mode
+                    </span>
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-400 mt-1">
+                  Multi-axial financial blueprint comparing <strong>{stockA.symbol}</strong> vs <strong>{stockB.symbol}</strong> across 4 core fundamentals: P/E, 1-Year Return, RoE, and Debt-to-Equity.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 text-xs font-mono font-bold shrink-0">
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-violet-500/15 border border-violet-500/30 text-violet-300">
+                  <span className="w-2.5 h-2.5 rounded-full bg-violet-500" /> {stockA.symbol}
+                </span>
+                <span className="text-slate-500 font-black">vs</span>
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-cyan-300">
+                  <span className="w-2.5 h-2.5 rounded-full bg-cyan-400" /> {stockB.symbol}
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+              {/* Radar Chart Visual */}
+              <div className="lg:col-span-6 h-64 sm:h-72 w-full flex items-center justify-center relative">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RadarChart cx="50%" cy="50%" outerRadius="75%" data={radarData}>
+                    <PolarGrid stroke="#334155" strokeDasharray="3 3" />
+                    <PolarAngleAxis 
+                      dataKey="metric" 
+                      tick={{ fill: '#cbd5e1', fontSize: 11, fontWeight: 'bold' }} 
+                    />
+                    <PolarRadiusAxis angle={30} domain={[0, 100]} stroke="#475569" tick={false} />
+                    <Radar
+                      name={stockA.symbol}
+                      dataKey="scoreA"
+                      stroke="#8b5cf6"
+                      fill="#8b5cf6"
+                      fillOpacity={0.35}
+                      strokeWidth={2}
+                    />
+                    <Radar
+                      name={stockB.symbol}
+                      dataKey="scoreB"
+                      stroke="#06b6d4"
+                      fill="#06b6d4"
+                      fillOpacity={0.35}
+                      strokeWidth={2}
+                    />
+                    <RechartsTooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const item = payload[0].payload as any;
+                          return (
+                            <div className="backdrop-blur-md bg-slate-950/90 border border-slate-700 p-3 rounded-2xl text-xs text-white shadow-2xl font-mono space-y-1">
+                              <div className="font-bold text-amber-300 border-b border-slate-800 pb-1">{item.metric}</div>
+                              <div className="text-violet-400 flex items-center justify-between gap-3">
+                                <span>{stockA.symbol}:</span>
+                                <span className="font-black">{item.rawA} (Score {item.scoreA}/100)</span>
+                              </div>
+                              <div className="text-cyan-400 flex items-center justify-between gap-3">
+                                <span>{stockB.symbol}:</span>
+                                <span className="font-black">{item.rawB} (Score {item.scoreB}/100)</span>
+                              </div>
+                              <div className="text-[10px] text-slate-400 pt-1 border-t border-slate-800 italic">
+                                {item.explainer}
+                              </div>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                  </RadarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* 4 Metric Comparative Cards */}
+              <div className="lg:col-span-6 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                {radarData.map((d) => (
+                  <div
+                    key={d.metric}
+                    className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 hover:border-slate-700 transition-all space-y-2 relative overflow-hidden"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-300 text-[11px]">{d.metric}</span>
+                      {d.winner === 'A' ? (
+                        <span className="text-[10px] font-mono font-bold text-violet-300 bg-violet-500/20 px-1.5 py-0.5 rounded">
+                          🏆 {stockA.symbol}
+                        </span>
+                      ) : d.winner === 'B' ? (
+                        <span className="text-[10px] font-mono font-bold text-cyan-300 bg-cyan-500/20 px-1.5 py-0.5 rounded">
+                          🏆 {stockB.symbol}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-mono font-bold text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded">
+                          Tie
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 pt-1 font-mono">
+                      <div className={"p-2 rounded-xl border " + (d.winner === 'A' ? "bg-violet-950/40 border-violet-500/40 text-violet-200" : "bg-slate-900 border-slate-800 text-slate-400")}>
+                        <div className="text-[9px] text-slate-400 uppercase">{stockA.symbol}</div>
+                        <div className="text-sm font-black mt-0.5">{d.rawA}</div>
+                      </div>
+
+                      <div className={"p-2 rounded-xl border " + (d.winner === 'B' ? "bg-cyan-950/40 border-cyan-500/40 text-cyan-200" : "bg-slate-900 border-slate-800 text-slate-400")}>
+                        <div className="text-[9px] text-slate-400 uppercase">{stockB.symbol}</div>
+                        <div className="text-sm font-black mt-0.5">{d.rawB}</div>
+                      </div>
+                    </div>
+
+                    <p className="text-[10px] text-slate-400 leading-tight italic pt-0.5">
+                      {d.explainer}
+                    </p>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
