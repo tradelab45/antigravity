@@ -2,8 +2,8 @@ import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, ArrowRight, ShieldCheck, Wallet, Zap, TrendingUp } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { playCoinLandingSound, playSuccessChime } from '../utils/soundEffects';
-import type { UserAccount } from '../types';
+import { playCoinLandingSound, playSuccessChime } from '../../../utils/soundEffects';
+import type { UserAccount } from '../../../types';
 
 interface AuthLaunchTransitionProps {
   user: UserAccount;

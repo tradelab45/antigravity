@@ -14,8 +14,8 @@ import {
   LogOut,
   UserCheck
 } from 'lucide-react';
-import { useSimulator } from '../context/SimulatorContext';
-import { AuthFormData } from '../types';
+import { useSimulator } from '../../../context/SimulatorContext';
+import { AuthFormData } from '../../../types';
 import { GoogleSignInButton, AuthOrDivider } from './GoogleSignInButton';
 
 interface AuthModalProps {

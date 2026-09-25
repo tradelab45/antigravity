@@ -5,7 +5,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createAcademyService, gradeExam, rankCohort } from '../src/server/academyService';
-import { createAuthLimiter } from '../src/server/authRateLimit';
+import { createAuthLimiter } from '../src/modules/auth/server/authRateLimit';
 import { STAGE_EXAMS, EXAM_LENGTH } from '../src/data/stageExams';
 import { LEARNING_PATH } from '../src/data/learningPath';
 import { INITIAL_LESSONS } from '../src/data/lessonsData';

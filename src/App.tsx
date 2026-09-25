@@ -19,8 +19,8 @@ import { PracticeTaskBanner } from './components/PracticeTaskBanner';
 import type { StockDetail } from './types';
 
 const Header = lazy(() => import('./components/Header').then((module) => ({ default: module.Header })));
-const AuthPage = lazy(() => import('./components/AuthPage').then((module) => ({ default: module.AuthPage })));
-const AuthLaunchTransition = lazy(() => import('./components/AuthLaunchTransition').then((module) => ({ default: module.AuthLaunchTransition })));
+const AuthPage = lazy(() => import('./modules/auth/components/AuthPage').then((module) => ({ default: module.AuthPage })));
+const AuthLaunchTransition = lazy(() => import('./modules/auth/components/AuthLaunchTransition').then((module) => ({ default: module.AuthLaunchTransition })));
 const LandingPage = lazy(() => {
   const isClassic = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('classic') === 'true';
   return isClassic
@@ -37,9 +37,9 @@ const TradeReviewHub = lazy(() => import('./components/TradeReviewHub').then((mo
 const ProgressHub = lazy(() => import('./components/ProgressHub').then((module) => ({ default: module.ProgressHub })));
 const CompoundCalculator = lazy(() => import('./components/CompoundCalculator').then((module) => ({ default: module.CompoundCalculator })));
 const AppWalkthroughOverlay = lazy(() => import('./components/AppWalkthroughOverlay').then((module) => ({ default: module.AppWalkthroughOverlay })));
-const CompleteProfileModal = lazy(() => import('./components/CompleteProfileModal').then((module) => ({ default: module.CompleteProfileModal })));
+const CompleteProfileModal = lazy(() => import('./modules/auth/components/CompleteProfileModal').then((module) => ({ default: module.CompleteProfileModal })));
 const HomeDashboard = lazy(() => import('./components/HomeDashboard').then((module) => ({ default: module.HomeDashboard })));
-const DataPrivacyCenter = lazy(() => import('./components/DataPrivacyCenter').then((module) => ({ default: module.DataPrivacyCenter })));
+const DataPrivacyCenter = lazy(() => import('./modules/auth/components/DataPrivacyCenter').then((module) => ({ default: module.DataPrivacyCenter })));
 const HelpSupportCenter = lazy(() => import('./components/HelpSupportCenter').then((module) => ({ default: module.HelpSupportCenter })));
 const StockBattleModal = lazy(() => import('./components/StockBattleModal').then((module) => ({ default: module.StockBattleModal })));
 const OptionsChainModal = lazy(() => import('./components/OptionsChainModal').then((module) => ({ default: module.OptionsChainModal })));

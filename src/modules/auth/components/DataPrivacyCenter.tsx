@@ -1,6 +1,6 @@
 import React from 'react';
 import { Download, FileJson, LockKeyhole, Smartphone, UploadCloud } from 'lucide-react';
-import { useSimulator } from '../context/SimulatorContext';
+import { useSimulator } from '../../../context/SimulatorContext';
 
 function downloadFile(filename: string, content: string, type: string) {
   const blob = new Blob([content], { type });

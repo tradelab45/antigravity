@@ -31,15 +31,15 @@ import {
   Lightbulb,
   ArrowDown
 } from 'lucide-react';
-import { useSimulator } from '../context/SimulatorContext';
+import { useSimulator } from '../../../context/SimulatorContext';
 import { GoogleSignInButton, AuthOrDivider } from './GoogleSignInButton';
-import { AuthFormData, UserAccount } from '../types';
+import { AuthFormData, UserAccount } from '../../../types';
 import { AuthLaunchTransition } from './AuthLaunchTransition';
-import { SpotlightCard } from './ui/spotlight-card';
-import { ExpandableTabs } from './ui/expandable-tabs';
-import { RupeeSpatialBackground } from './ui/rupee-spatial-background';
-import { LiquidButton } from './ui/liquid-glass-button';
-import { LiquidGlassLogo } from './ui/LiquidGlassLogo';
+import { SpotlightCard } from '../../../components/ui/spotlight-card';
+import { ExpandableTabs } from '../../../components/ui/expandable-tabs';
+import { RupeeSpatialBackground } from '../../../components/ui/rupee-spatial-background';
+import { LiquidButton } from '../../../components/ui/liquid-glass-button';
+import { LiquidGlassLogo } from '../../../components/ui/LiquidGlassLogo';
 
 interface SampleStock {
   symbol: string;
