@@ -32,6 +32,7 @@ import {
   ArrowDown
 } from 'lucide-react';
 import { useSimulator } from '../context/SimulatorContext';
+import { checkPassword } from '../utils/passwordPolicy';
 import { GoogleSignInButton, AuthOrDivider } from './GoogleSignInButton';
 import { AuthFormData, UserAccount } from '../types';
 import { AuthLaunchTransition } from './AuthLaunchTransition';
@@ -40,6 +41,7 @@ import { ExpandableTabs } from './ui/expandable-tabs';
 import { RupeeSpatialBackground } from './ui/rupee-spatial-background';
 import { LiquidButton } from './ui/liquid-glass-button';
 import { LiquidGlassLogo } from './ui/LiquidGlassLogo';
+import { PasswordResetPanel } from './PasswordResetPanel';
 import { VerificationCodeForm } from './VerificationCodeForm';
 import { useModalDialog } from '../hooks/useModalDialog';
 import type { PendingVerification } from '../context/SimulatorContext';
@@ -226,6 +228,9 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
     }
   };
 
+  // Shown in place of the sign-in form while a password is being recovered.
+  const [recovering, setRecovering] = useState(false);
+
   // Set when the server holds a sign-in back for an emailed code.
   const [pendingVerification, setPendingVerification] = useState<PendingVerification | null>(null);
   const { ref: verifyDialogRef, dialogProps: verifyDialogProps } = useModalDialog({
@@ -294,8 +299,15 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
       setErrorMsg('Please choose a username');
       return;
     }
-    if (!formData.password || formData.password.length < 8) {
-      setErrorMsg('Create a password with at least 8 characters');
+    // The same rule the server applies, so the form says what is wrong
+    // before the round trip rather than after it.
+    const strength = checkPassword(formData.password, {
+      fullName: formData.fullName,
+      username: formData.username,
+      email: formData.email,
+    });
+    if (!strength.ok) {
+      setErrorMsg(strength.message);
       return;
     }
     if (!agreedTerms) {
@@ -705,6 +717,21 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                 <AuthOrDivider />
               </GoogleSignInButton>
 
+              {/* Recovering a forgotten password, in place of the forms. */}
+              {recovering ? (
+                <PasswordResetPanel
+                  initialIdentifier={loginIdentifier}
+                  onCancel={() => setRecovering(false)}
+                  onDone={(message) => {
+                    setRecovering(false);
+                    setMode('LOGIN');
+                    setLoginPassword('');
+                    setErrorMsg('');
+                    setSuccessMsg(message);
+                  }}
+                />
+              ) : (
+              <>
               {/* MODE 1: SIGN IN FORM */}
               {mode === 'LOGIN' ? (
                 <form onSubmit={handleLoginSubmit} className="space-y-4">
@@ -771,6 +798,16 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                         </>
                       )}
                     </LiquidButton>
+                  </div>
+
+                  <div className="text-center">
+                    <button
+                      type="button"
+                      onClick={() => { setRecovering(true); setErrorMsg(''); setSuccessMsg(''); }}
+                      className="min-h-11 text-xs font-black text-mint hover:underline cursor-pointer"
+                    >
+                      Forgot your password?
+                    </button>
                   </div>
 
                   <div className="pt-3 border-t border-white/10 text-center">
@@ -944,6 +981,8 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                     </p>
                   </div>
                 </form>
+              )}
+              </>
               )}
 
             </SpotlightCard>
