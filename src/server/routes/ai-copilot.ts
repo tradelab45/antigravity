@@ -9,10 +9,70 @@
  */
 import express from "express";
 import { GoogleGenAI } from "@google/genai";
+import { rateLimit, ipKeyGenerator } from "express-rate-limit";
 
-export function createAiCopilotRouter(): express.Router {
+/** Longest single chat message or history turn sent to the model. */
+const MAX_TURN_CHARS = 4000;
+/** How many recent history turns go to the model with each question. */
+const MAX_HISTORY_TURNS = 20;
+/** Largest portfolio context accepted, serialised. */
+const MAX_CONTEXT_CHARS = 20000;
+/** Largest stock payload accepted by analyze-stock, serialised. */
+const MAX_STOCK_CHARS = 5000;
+
+/**
+ * The chat history that actually goes to the model: well-formed turns only,
+ * each capped, and just the most recent ones. Clients send their whole visible
+ * conversation, which had no bound at all.
+ */
+export function clampHistory(history: unknown): Array<{ sender: string; text: string }> {
+  if (!Array.isArray(history)) return [];
+  return history
+    .filter((msg): msg is { id?: unknown; sender: string; text: string } =>
+      !!msg && typeof msg === "object"
+      && typeof (msg as any).sender === "string" && (msg as any).sender.length > 0
+      && typeof (msg as any).text === "string"
+      && (msg as any).id !== "welcome" && (msg as any).id !== "error")
+    .map((msg) => ({ sender: msg.sender, text: msg.text.slice(0, MAX_TURN_CHARS) }))
+    .slice(-MAX_HISTORY_TURNS);
+}
+
+export interface AiCopilotRouterDeps {
+  /** The signed-in user behind a request's session cookie, or null. */
+  sessionUserId?: (req: express.Request) => string | null;
+}
+
+export function createAiCopilotRouter(deps: AiCopilotRouterDeps = {}): express.Router {
 
   const router = express.Router();
+
+  /**
+   * Every POST to /api/gemini spends the server's GEMINI_API_KEY, with Google
+   * Search grounding, and needed no sign-in and had no limit, so anyone who
+   * found the endpoint had a free LLM on the owner's bill.
+   *
+   * A signed-in student is limited per account, so a class sharing one school
+   * IP does not share one allowance. Callers without a server session, which
+   * includes the local demo profile and offline accounts, are limited per IP
+   * with a smaller allowance. Signing in is not required, because that would
+   * switch Chanakya off for the demo pass entirely.
+   */
+  router.use("/api/gemini", (req, res, next) => {
+    const userId = deps.sessionUserId?.(req) || null;
+    res.locals.aiCaller = userId
+      ? { key: `user:${userId}`, limit: 60 }
+      : { key: `ip:${ipKeyGenerator(req.ip || "unknown")}`, limit: 30 };
+    next();
+  });
+  router.use("/api/gemini", rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: (_req, res) => res.locals.aiCaller.limit,
+    keyGenerator: (_req, res) => res.locals.aiCaller.key,
+    skip: (req) => req.method !== "POST",
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    message: { error: "Chanakya needs a short break — too many questions in a few minutes. Please try again shortly." },
+  }));
 
   // Initialize Gemini client lazily/safely
   let genAI: GoogleGenAI | null = null;
@@ -247,12 +307,19 @@ export function createAiCopilotRouter(): express.Router {
 
   router.post("/api/gemini/chat", async (req, res) => {
     const { message, context, portfolioContext, history = [] } = req.body;
-  
-    if (!message) {
+
+    if (typeof message !== "string" || !message.trim()) {
       return res.status(400).json({ error: "Message prompt is required" });
+    }
+    if (message.length > MAX_TURN_CHARS) {
+      return res.status(400).json({ error: `Please keep your question under ${MAX_TURN_CHARS} characters.` });
     }
 
     const combinedContext = context || portfolioContext;
+    if (combinedContext && JSON.stringify(combinedContext).length > MAX_CONTEXT_CHARS) {
+      return res.status(400).json({ error: "Portfolio context is too large to send." });
+    }
+    const recentHistory = clampHistory(history);
 
     const systemPrompt = `You are 'Chanakya Jr.', a friendly, wise, witty, and deeply knowledgeable Indian Financial Mentor for teenagers (ages 13-19) on the RupeeRookie stock simulator app, powered by Gemini 3.8 Flash.
   Your goals:
@@ -274,8 +341,7 @@ export function createAiCopilotRouter(): express.Router {
 
       // Construct multi-turn chat history
       const contents: any[] = [];
-      for (const msg of history) {
-        if (msg.id === 'welcome' || msg.id === 'error' || !msg.sender) continue;
+      for (const msg of recentHistory) {
         const role = msg.sender === 'user' ? 'user' : 'model';
         if (contents.length > 0 && contents[contents.length - 1].role === role) {
             contents[contents.length - 1].parts[0].text += `\n\n${msg.text}`;
@@ -379,7 +445,10 @@ export function createAiCopilotRouter(): express.Router {
   // Dedicated Portfolio Health Audit with Gemini 3.8 Flash
   router.post("/api/gemini/portfolio-audit", async (req, res) => {
     const { holdings = [], cashBalance = 1000000, portfolioValue = 1000000 } = req.body;
-  
+    if (JSON.stringify(req.body).length > MAX_CONTEXT_CHARS) {
+      return res.status(400).json({ error: "Portfolio is too large to audit in one request." });
+    }
+
     const auditPrompt = `Conduct a comprehensive Dalal Street Portfolio Audit for a student investor on RupeeRookie.
   Current Cash: ₹${cashBalance}
   Total Portfolio Value: ₹${portfolioValue}
@@ -436,8 +505,11 @@ export function createAiCopilotRouter(): express.Router {
   // 5. Stock Deep AI Analysis for teens
   router.post("/api/gemini/analyze-stock", async (req, res) => {
     const { stock } = req.body;
-    if (!stock) {
+    if (!stock || typeof stock !== "object") {
       return res.status(400).json({ error: "Stock data is required" });
+    }
+    if (JSON.stringify(stock).length > MAX_STOCK_CHARS) {
+      return res.status(400).json({ error: "Stock data is too large." });
     }
 
     const prompt = `Give a high-impact, 3-section Teen Investor Report on ${stock.name} (${stock.symbol}):

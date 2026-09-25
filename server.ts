@@ -2110,7 +2110,7 @@ app.get("/api/market/summary", async (req, res) => {
 // Chanakya AI copilot: /api/gemini/*, /api/market-pulse and /api/market-news
 // live in src/server/routes/ai-copilot.ts, together with the Gemini client, the
 // rule-based fallbacks and their response caches.
-app.use(createAiCopilotRouter());
+app.use(createAiCopilotRouter({ sessionUserId: academyService.sessionUserId }));
 
 // ==========================================
 // 7. USER AUTHENTICATION & SPREADSHEET / NOTEBOOKLLM EXPORT
