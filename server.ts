@@ -18,6 +18,17 @@ import {
   getScreenerData,
   type ScreenerChartResponse
 } from "./src/server/screenerService";
+import { clientKey, consume, reset as resetRateLimit, type RateLimitRule } from './src/server/rateLimit';
+import {
+  CODE_TTL_MS,
+  discardChallenge,
+  issueChallenge,
+  maskEmail,
+  reissueCode,
+  verifyChallenge,
+  type ChallengePurpose,
+} from './src/server/otp';
+import { deliverCode, deliveryMode, otpRequired } from './src/server/otpDelivery';
 
 dotenv.config();
 
@@ -2934,8 +2945,91 @@ function saveTrades(trades: StoredTrade[]): void {
 }
 
 // User Signup
+/**
+ * Starts the verification step for a sign-in whose first factor has already
+ * passed, and answers the request.
+ *
+ * The account is deliberately not returned here. Until the code comes back the
+ * caller holds nothing but an opaque challenge id and a masked address, so a
+ * stolen password or a replayed Google credential is not by itself a session.
+ */
+async function beginVerification(
+  res: express.Response,
+  user: StoredUser,
+  purpose: ChallengePurpose,
+): Promise<void> {
+  const { challengeId, code, expiresAt } = issueChallenge(user.id, user.email, purpose);
+  const outcome = await deliverCode(user.email, code, expiresAt);
+
+  if (!outcome.delivered) {
+    // Fail closed. A code that could not be sent must not become an optional
+    // step, or the second factor is whatever the attacker prefers.
+    discardChallenge(challengeId);
+    res.status(503).json({
+      success: false,
+      message: outcome.message || "The verification code could not be sent. Try again shortly.",
+    });
+    return;
+  }
+
+  res.json({
+    success: true,
+    requiresVerification: true,
+    challengeId,
+    maskedEmail: maskEmail(user.email),
+    expiresInSeconds: Math.round(CODE_TTL_MS / 1000),
+    // Present only when OTP_DEV_ECHO is on outside production.
+    ...(outcome.devCode ? { devCode: outcome.devCode } : {}),
+  });
+}
+
+/**
+ * Throttles for the sign-in surface. Every one of these routes could be tried
+ * as fast as the server would answer, which is how a six-digit code or a weak
+ * password gets guessed.
+ *
+ * Each route is limited twice: once on the caller's address, and once on the
+ * account being targeted. The address rule stops one machine working through a
+ * list of accounts; the account rule stops a spread of addresses working on one
+ * account. A successful sign-in clears the account counter, so a person who
+ * mistypes a password four times and then gets it right is not left blocked.
+ */
+const AUTH_LIMITS: Record<string, RateLimitRule> = {
+  loginIp: { limit: 30, windowMs: 15 * 60_000 },
+  loginAccount: { limit: 8, windowMs: 15 * 60_000 },
+  signupIp: { limit: 10, windowMs: 60 * 60_000 },
+  googleIp: { limit: 30, windowMs: 15 * 60_000 },
+  otpRequest: { limit: 5, windowMs: 15 * 60_000 },
+  otpVerify: { limit: 10, windowMs: 15 * 60_000 },
+};
+
+/**
+ * Applies one rule and answers the request itself when the caller is over it.
+ * Returns true when the request should stop here.
+ */
+function rateLimited(
+  res: express.Response,
+  key: string,
+  rule: RateLimitRule,
+  message: string,
+): boolean {
+  const verdict = consume(key, rule);
+  if (verdict.allowed) return false;
+  res.set("Retry-After", String(verdict.retryAfterSeconds));
+  res.status(429).json({
+    success: false,
+    message,
+    retryAfterSeconds: verdict.retryAfterSeconds,
+  });
+  return true;
+}
+
 app.post("/api/auth/signup", async (req, res) => {
   try {
+    const caller = clientKey(req.ip);
+    if (rateLimited(res, `signup:ip:${caller}`, AUTH_LIMITS.signupIp,
+      "Too many accounts created from here. Try again later.")) return;
+
     const { fullName, email, username, password, phone, ageGroup, experienceLevel } = req.body;
     if (!fullName || !email || !username || !password) {
       return res.status(400).json({ success: false, message: "Full name, email, username, and password are required." });
@@ -3039,15 +3133,24 @@ app.post("/api/auth/signup", async (req, res) => {
 });
 
 // User Login
-app.post("/api/auth/login", (req, res) => {
+app.post("/api/auth/login", async (req, res) => {
   try {
+    const caller = clientKey(req.ip);
+    if (rateLimited(res, `login:ip:${caller}`, AUTH_LIMITS.loginIp,
+      "Too many sign-in attempts from here. Try again later.")) return;
+
     const { identifier, password } = req.body;
     if (!identifier || !password) {
       return res.status(400).json({ success: false, message: "Email or username and password are required." });
     }
 
-    const users = loadUsers();
     const cleanId = identifier.toLowerCase().trim();
+    // Keyed on what was typed rather than on the resolved account, so the
+    // counter also covers attempts against an identifier that does not exist.
+    if (rateLimited(res, `login:id:${cleanId}`, AUTH_LIMITS.loginAccount,
+      "Too many sign-in attempts for this account. Try again later.")) return;
+
+    const users = loadUsers();
     const user = users.find(
       u => u.email.toLowerCase() === cleanId || 
            u.username.toLowerCase() === cleanId ||
@@ -3065,10 +3168,120 @@ app.post("/api/auth/login", (req, res) => {
     user.lastLoginAt = new Date().toISOString();
     saveUsers(users);
 
+    // The run of failures is over, so the account counter starts again.
+    resetRateLimit(`login:id:${cleanId}`);
+
+    if (otpRequired()) {
+      await beginVerification(res, user, "login");
+      return;
+    }
+
     res.json({ success: true, user: toSafeUser(user), message: `Welcome back, ${user.fullName}!` });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message || "Login failed" });
   }
+});
+
+/**
+ * Exchanges a verification code for the account.
+ *
+ * Wrong codes are counted twice over: the challenge itself allows five before
+ * it is destroyed, and the caller's address is capped separately so a stream
+ * of fresh challenges cannot be used to walk the keyspace.
+ */
+app.post("/api/auth/otp/verify", (req, res) => {
+  try {
+    const caller = clientKey(req.ip);
+    if (rateLimited(res, `otp:verify:${caller}`, AUTH_LIMITS.otpVerify,
+      "Too many verification attempts. Try again later.")) return;
+
+    const { challengeId, code } = req.body;
+    if (!challengeId || typeof challengeId !== "string" || !code) {
+      return res.status(400).json({ success: false, message: "A verification code is required." });
+    }
+    if (!/^\d{4,8}$/.test(String(code).trim())) {
+      return res.status(400).json({ success: false, message: "That code does not look right." });
+    }
+
+    const result = verifyChallenge(challengeId, String(code));
+    if (!result.ok) {
+      const message =
+        result.reason === "expired" ? "That code has expired. Ask for a new one." :
+        result.reason === "exhausted" ? "Too many wrong codes. Start the sign-in again." :
+        result.reason === "unknown" ? "That sign-in is no longer pending. Start again." :
+        `That code is not right. ${result.attemptsLeft} attempt${result.attemptsLeft === 1 ? "" : "s"} left.`;
+      return res.status(401).json({ success: false, message, attemptsLeft: result.attemptsLeft });
+    }
+
+    const users = loadUsers();
+    const user = users.find(u => u.id === result.userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "That account no longer exists." });
+    }
+
+    user.lastLoginAt = new Date().toISOString();
+    saveUsers(users);
+
+    res.json({
+      success: true,
+      user: toSafeUser(user),
+      message: `Welcome back, ${user.fullName}!`,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || "Verification failed" });
+  }
+});
+
+/**
+ * Sends a fresh code for a sign-in already in progress. The old code stops
+ * working immediately, so a resend never leaves two live codes on one account.
+ */
+app.post("/api/auth/otp/resend", async (req, res) => {
+  try {
+    const caller = clientKey(req.ip);
+    if (rateLimited(res, `otp:resend:${caller}`, AUTH_LIMITS.otpRequest,
+      "Too many codes requested. Try again later.")) return;
+
+    const { challengeId } = req.body;
+    if (!challengeId || typeof challengeId !== "string") {
+      return res.status(400).json({ success: false, message: "That sign-in is no longer pending. Start again." });
+    }
+
+    const reissued = reissueCode(challengeId);
+    if (!reissued) {
+      return res.status(410).json({ success: false, message: "That sign-in is no longer pending. Start again." });
+    }
+
+    const outcome = await deliverCode(reissued.email, reissued.code, reissued.expiresAt);
+    if (!outcome.delivered) {
+      discardChallenge(challengeId);
+      return res.status(503).json({
+        success: false,
+        message: outcome.message || "The verification code could not be sent.",
+      });
+    }
+
+    res.json({
+      success: true,
+      maskedEmail: maskEmail(reissued.email),
+      expiresInSeconds: Math.round(CODE_TTL_MS / 1000),
+      ...(outcome.devCode ? { devCode: outcome.devCode } : {}),
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || "Could not resend the code" });
+  }
+});
+
+/** Abandons a pending sign-in, so its code cannot be used later. */
+app.post("/api/auth/otp/cancel", (req, res) => {
+  const { challengeId } = req.body;
+  if (challengeId && typeof challengeId === "string") discardChallenge(challengeId);
+  res.json({ success: true });
+});
+
+/** Lets the sign-in screen say up front that a code will be needed. */
+app.get("/api/auth/otp/status", (_req, res) => {
+  res.json({ required: otpRequired(), delivery: deliveryMode() });
 });
 
 // Helper to resolve current Google Client ID (re-reading from .env if updated)
@@ -3132,6 +3345,10 @@ function uniqueUsernameFromEmail(email: string, users: StoredUser[]): string {
 // email on first use) or creates a new one.
 app.post("/api/auth/google", async (req, res) => {
   try {
+    const caller = clientKey(req.ip);
+    if (rateLimited(res, `google:ip:${caller}`, AUTH_LIMITS.googleIp,
+      "Too many sign-in attempts from here. Try again later.")) return;
+
     const clientId = getGoogleClientId();
     if (!clientId) {
       return res.status(503).json({ success: false, message: "Google Sign-In is not configured on this server." });
@@ -3172,6 +3389,13 @@ app.post("/api/auth/google", async (req, res) => {
       users.unshift(user);
     }
     saveUsers(users);
+
+    if (otpRequired()) {
+      // Google has proved the address belongs to a real mailbox, but not that
+      // whoever is at this browser can read it right now. The code does that.
+      await beginVerification(res, user, "google");
+      return;
+    }
 
     res.json({
       success: true,

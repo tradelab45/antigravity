@@ -40,6 +40,9 @@ import { ExpandableTabs } from './ui/expandable-tabs';
 import { RupeeSpatialBackground } from './ui/rupee-spatial-background';
 import { LiquidButton } from './ui/liquid-glass-button';
 import { LiquidGlassLogo } from './ui/LiquidGlassLogo';
+import { VerificationCodeForm } from './VerificationCodeForm';
+import { useModalDialog } from '../hooks/useModalDialog';
+import type { PendingVerification } from '../context/SimulatorContext';
 
 interface SampleStock {
   symbol: string;
@@ -223,10 +226,23 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
     }
   };
 
+  // Set when the server holds a sign-in back for an emailed code.
+  const [pendingVerification, setPendingVerification] = useState<PendingVerification | null>(null);
+  const { ref: verifyDialogRef, dialogProps: verifyDialogProps } = useModalDialog({
+    onClose: () => setPendingVerification(null),
+    open: pendingVerification !== null,
+    label: 'Verify your sign-in',
+  });
+
   const handleGoogleCredential = async (credential: string) => {
     setErrorMsg('');
     setLoading(true);
     const res = await loginWithGoogle(credential);
+    if (res.verification) {
+      setLoading(false);
+      setPendingVerification(res.verification);
+      return;
+    }
     if (res.success && res.user) {
       const kind = res.isNew ? 'new' : 'returning';
       window.dispatchEvent(new CustomEvent('rr_auth_success', { detail: { kind } }));
@@ -250,6 +266,11 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
     setErrorMsg('');
     setLoading(true);
     const res = await loginUser(loginIdentifier.trim(), loginPassword);
+    if (res.verification) {
+      setLoading(false);
+      setPendingVerification(res.verification);
+      return;
+    }
     if (res.success && res.user) {
       window.dispatchEvent(new CustomEvent('rr_auth_success', { detail: { kind: 'returning' } }));
       setLaunchState({ user: res.user, kind: 'returning' });
@@ -385,6 +406,31 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
       <div className="absolute bottom-[10%] left-1/3 w-[500px] h-[500px] bg-emerald-600/10 blur-[160px] pointer-events-none rounded-full" />
 
       <a href="#main-content" className="skip-link">Skip to sign in</a>
+
+      {/* The code step sits over the sign-in page rather than replacing it, so
+          cancelling drops straight back to the form that was filled in. */}
+      {pendingVerification && (
+        <div
+          ref={verifyDialogRef}
+          {...verifyDialogProps}
+          className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-md"
+        >
+          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+            <VerificationCodeForm
+              pending={pendingVerification}
+              onVerified={(user) => {
+                setPendingVerification(null);
+                window.dispatchEvent(new CustomEvent('rr_auth_success', { detail: { kind: 'returning' } }));
+                setLaunchState({ user, kind: 'returning' });
+              }}
+              onCancel={() => {
+                setPendingVerification(null);
+                setErrorMsg('');
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* 2. Top Ticker Bar with Back to Landing & Live NSE Status */}
       <div className="sticky top-0 bg-[#030604]/95 backdrop-blur-xl border-b border-white/10 text-white py-2 text-xs select-none z-30 shadow-md">

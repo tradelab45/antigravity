@@ -88,11 +88,39 @@ export interface CopilotFeedback {
   timestamp: string;
 }
 
+/** A sign-in the server has parked until an emailed code comes back. */
+export interface PendingVerification {
+  challengeId: string;
+  /** `a•••@example.com`, for the "we sent a code to…" line. */
+  maskedEmail: string;
+  expiresInSeconds: number;
+  /**
+   * Only ever set when the server runs with OTP_DEV_ECHO outside production,
+   * so the flow can be exercised without a mail provider.
+   */
+  devCode?: string;
+}
+
+export interface AuthOutcome {
+  success: boolean;
+  message: string;
+  user?: UserAccount;
+  isNew?: boolean;
+  /** Set when the account is held back pending a code. */
+  verification?: PendingVerification;
+}
+
 interface SimulatorContextType {
   currentUser: UserAccount | null;
-  loginUser: (identifier: string, password: string) => Promise<{ success: boolean; message: string; user?: UserAccount }>;
+  loginUser: (identifier: string, password: string) => Promise<AuthOutcome>;
+  /** Exchanges an emailed code for the account, finishing a sign-in. */
+  completeVerification: (challengeId: string, code: string) => Promise<AuthOutcome>;
+  /** Sends a fresh code for a sign-in already in progress. */
+  resendVerificationCode: (challengeId: string) => Promise<{ success: boolean; message: string; devCode?: string }>;
+  /** Abandons a pending sign-in so its code cannot be used later. */
+  cancelVerification: (challengeId: string) => void;
   registerUser: (data: AuthFormData) => Promise<{ success: boolean; message: string; user?: UserAccount }>;
-  loginWithGoogle: (credential: string) => Promise<{ success: boolean; message: string; user?: UserAccount; isNew?: boolean }>;
+  loginWithGoogle: (credential: string) => Promise<AuthOutcome>;
   logoutUser: () => void;
   alerts: Alert[];
   addAlert: (symbol: string, targetPrice: number, type: 'ABOVE' | 'BELOW') => void;
@@ -341,31 +369,61 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
   }, [currentUser]);
 
-  const loginUser = async (identifier: string, password: string): Promise<{ success: boolean; message: string; user?: UserAccount }> => {
+  /**
+   * Puts a signed-in account into local state. One place, so the login, the
+   * Google and the verification paths cannot drift on what they persist.
+   */
+  const adoptSignedInUser = (user: any, kind: 'new' | 'returning'): UserAccount => {
+    user.isAdmin = isUserAdmin(user);
+    user.role = user.isAdmin ? 'ADMIN' : 'USER';
+    localStorage.setItem('rr_current_user', JSON.stringify(user));
+    localStorage.setItem(getLastActivityKey(user.id), Date.now().toString());
+    localStorage.setItem('rr_auth_entry', JSON.stringify({ kind, userId: user.id, at: Date.now() }));
+    setCurrentUser(user);
+    return user as UserAccount;
+  };
+
+  const loginUser = async (identifier: string, password: string): Promise<AuthOutcome> => {
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ identifier, password }),
       });
-      if (res.ok) {
-        const contentType = res.headers.get('content-type') || '';
-        if (contentType.includes('application/json')) {
-          const data = await res.json();
-          if (data.success && data.user) {
-            data.user.isAdmin = isUserAdmin(data.user);
-            data.user.role = data.user.isAdmin ? 'ADMIN' : 'USER';
-            localStorage.setItem('rr_current_user', JSON.stringify(data.user));
-            localStorage.setItem(getLastActivityKey(data.user.id), Date.now().toString());
-            localStorage.setItem('rr_auth_entry', JSON.stringify({ kind: 'returning', userId: data.user.id, at: Date.now() }));
-            setCurrentUser(data.user);
-            return { success: true, message: data.message, user: data.user };
-          }
-          return { success: false, message: data.message || 'Login failed' };
+
+      // The server answered, so its answer is final. Falling through to the
+      // offline branch on a refusal would turn every rejection — a wrong
+      // password, a rate limit, a demand for a verification code — into a
+      // second chance at signing in without the server.
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const data = await res.json();
+
+        if (data.requiresVerification && data.challengeId) {
+          return {
+            success: false,
+            message: data.message || 'Enter the code we just sent you.',
+            verification: {
+              challengeId: data.challengeId,
+              maskedEmail: data.maskedEmail || '',
+              expiresInSeconds: Number(data.expiresInSeconds) || 600,
+              devCode: typeof data.devCode === 'string' ? data.devCode : undefined,
+            },
+          };
         }
+
+        if (res.ok && data.success && data.user) {
+          adoptSignedInUser(data.user, 'returning');
+          return { success: true, message: data.message, user: data.user };
+        }
+        return { success: false, message: data.message || 'Login failed' };
+      }
+      if (res.status !== 404) {
+        return { success: false, message: 'Login failed. Please try again.' };
       }
     } catch {
-      // Backend not running or offline (e.g. static site deployment on Hostinger / Netlify / Vercel)
+      // Only a genuine network failure reaches here — the app is served
+      // statically with no backend behind it.
     }
 
     // Static / Offline Login Fallback:
@@ -496,34 +554,117 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
-  const loginWithGoogle = async (credential: string): Promise<{ success: boolean; message: string; user?: UserAccount; isNew?: boolean }> => {
-    // 1. First attempt backend validation if available
+  /**
+   * Finishes a sign-in the server parked behind an emailed code.
+   *
+   * There is no offline branch here on purpose. A code can only be checked by
+   * whoever issued it, so if the server cannot be reached the sign-in simply
+   * does not complete.
+   */
+  const completeVerification = async (challengeId: string, code: string): Promise<AuthOutcome> => {
+    try {
+      const res = await fetch('/api/auth/otp/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ challengeId, code }),
+      });
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        return { success: false, message: 'Verification is unavailable right now.' };
+      }
+      const data = await res.json();
+      if (res.ok && data.success && data.user) {
+        const user = adoptSignedInUser(data.user, 'returning');
+        return { success: true, message: data.message || 'Signed in.', user };
+      }
+      return { success: false, message: data.message || 'That code is not right.' };
+    } catch {
+      return { success: false, message: 'Could not reach the server to check that code.' };
+    }
+  };
+
+  const resendVerificationCode = async (challengeId: string) => {
+    try {
+      const res = await fetch('/api/auth/otp/resend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ challengeId }),
+      });
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        return { success: false, message: 'Could not send a new code.' };
+      }
+      const data = await res.json();
+      return {
+        success: Boolean(res.ok && data.success),
+        message: data.message || (res.ok ? 'A new code is on its way.' : 'Could not send a new code.'),
+        devCode: typeof data.devCode === 'string' ? data.devCode : undefined,
+      };
+    } catch {
+      return { success: false, message: 'Could not reach the server.' };
+    }
+  };
+
+  /** Best effort: the challenge expires on its own if this never lands. */
+  const cancelVerification = (challengeId: string) => {
+    if (!challengeId) return;
+    fetch('/api/auth/otp/cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ challengeId }),
+      keepalive: true,
+    }).catch(() => {});
+  };
+
+  const loginWithGoogle = async (credential: string): Promise<AuthOutcome> => {
+    // 1. The server verifies the credential's signature against Google.
     try {
       const res = await fetch('/api/auth/google', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ credential }),
       });
-      if (res.ok) {
-        const contentType = res.headers.get('content-type') || '';
-        if (contentType.includes('application/json')) {
-          const data = await res.json();
-          if (data.success && data.user) {
-            data.user.isAdmin = isUserAdmin(data.user);
-            data.user.role = data.user.isAdmin ? 'ADMIN' : 'USER';
-            localStorage.setItem('rr_current_user', JSON.stringify(data.user));
-            localStorage.setItem(getLastActivityKey(data.user.id), Date.now().toString());
-            localStorage.setItem('rr_auth_entry', JSON.stringify({ kind: data.isNew ? 'new' : 'returning', userId: data.user.id, at: Date.now() }));
-            setCurrentUser(data.user);
-            return { success: true, message: data.message, user: data.user, isNew: Boolean(data.isNew) };
-          }
+
+      // Whatever the server said stands. The unverified branch below exists
+      // only for a build with no backend at all; reaching it after a real
+      // answer would let anyone skip the verification step, or a refusal,
+      // by making this one call fail.
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const data = await res.json();
+
+        if (data.requiresVerification && data.challengeId) {
+          return {
+            success: false,
+            message: data.message || 'Enter the code we just sent you.',
+            verification: {
+              challengeId: data.challengeId,
+              maskedEmail: data.maskedEmail || '',
+              expiresInSeconds: Number(data.expiresInSeconds) || 600,
+              devCode: typeof data.devCode === 'string' ? data.devCode : undefined,
+            },
+          };
         }
+
+        if (res.ok && data.success && data.user) {
+          adoptSignedInUser(data.user, data.isNew ? 'new' : 'returning');
+          return { success: true, message: data.message, user: data.user, isNew: Boolean(data.isNew) };
+        }
+        return { success: false, message: data.message || 'Google sign-in could not complete.' };
+      }
+      if (res.status !== 404) {
+        return { success: false, message: 'Google sign-in could not complete. Please try again.' };
       }
     } catch {
-      // Backend not running (e.g. static site deployment on Hostinger / Netlify / Vercel)
+      // Only a genuine network failure reaches here.
     }
 
-    // 2. Resilient Client-Side ID Token (JWT) parsing for static hosting
+    // 2. No backend answered, so this build is hosted statically. The ID token
+    //    is read WITHOUT verifying its signature, because verifying it needs
+    //    Google's keys and a server to hold them. Anyone able to craft a token
+    //    body can sign in as any address on such a deployment, and a code step
+    //    cannot apply here either — there is nothing to send it. Run the
+    //    Express server in front of the app if either matters.
     try {
       const parts = credential.split('.');
       if (parts.length === 3) {
@@ -2006,6 +2147,9 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       value={{
         currentUser,
         loginUser,
+        completeVerification,
+        resendVerificationCode,
+        cancelVerification,
         registerUser,
         loginWithGoogle,
         logoutUser,

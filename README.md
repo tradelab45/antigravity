@@ -63,6 +63,8 @@ GOOGLE_SHEETS_WEBHOOK_URL=""
 ADMIN_EXPORT_TOKEN=""
 ADMIN_PASSKEY=""
 DEMO_ACCOUNT_PASSWORD=""
+REQUIRE_LOGIN_OTP="false"
+OTP_WEBHOOK_URL=""
 ```
 
 | Variable | Required | Purpose |
@@ -73,6 +75,10 @@ DEMO_ACCOUNT_PASSWORD=""
 | `ADMIN_EXPORT_TOKEN` | Recommended for exports | Protects administrative export routes. |
 | `ADMIN_PASSKEY` | **Yes, to use the admin console** | The only credential the admin routes accept. Unset means every admin route is closed. |
 | `DEMO_ACCOUNT_PASSWORD` | No | Password for the seeded demo account. Unset means a random one per process, so the account cannot be signed into. |
+| `REQUIRE_LOGIN_OTP` | No | `true` asks for an emailed six-digit code after a password or Google sign-in. Off by default. |
+| `OTP_WEBHOOK_URL` | Yes, if the above is on | Receives `{ email, code, expiresAt }` and sends the mail. Without it, sign-in fails closed rather than skipping the code. |
+| `OTP_WEBHOOK_TOKEN` | No | Sent as `Authorization: Bearer …` on that call. |
+| `OTP_DEV_ECHO` | No | Local development only: shows the code on screen instead of emailing it. Refused when `NODE_ENV=production`. |
 | `PORT` | No | Changes the default server port from `3000`. |
 
 Never commit a real `.env` file or API key.
