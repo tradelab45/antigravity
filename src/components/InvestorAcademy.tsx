@@ -34,7 +34,7 @@ import { TaxCentre } from './TaxCentre';
 import { startPracticeTask } from './PracticeTaskBanner';
 import { getPracticeAction } from '../data/practiceActions';
 import { StageExam } from './StageExam';
-import { getStageExam, EXAM_LENGTH, EXAM_PASS_MARK, EXAM_ATTEMPT_HISTORY, type ExamAttempt } from '../data/stageExams';
+import { getStageExam, EXAM_LENGTH, EXAM_PASS_MARK, EXAM_ATTEMPT_HISTORY, EXAM_SEEN_MEMORY, type ExamAttempt } from '../data/stageExams';
 import type { AppTabType } from './Header';
 import { useAccessibility } from '../context/AccessibilityContext';
 
@@ -403,6 +403,26 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
   useEffect(() => {
     localStorage.setItem(`${academyKey}:examAttempts`, JSON.stringify(examAttempts));
   }, [academyKey, examAttempts]);
+
+  // Which question ids recent papers served, so the next draw can prefer the
+  // ones this learner has not met.
+  const [examSeen, setExamSeen] = useState<Record<string, string[]>>(() => {
+    try { return JSON.parse(localStorage.getItem(`${academyKey}:examSeen`) || '{}'); } catch { return {}; }
+  });
+
+  useEffect(() => {
+    localStorage.setItem(`${academyKey}:examSeen`, JSON.stringify(examSeen));
+  }, [academyKey, examSeen]);
+
+  const recordExamSeen = (stageId: string, questionIds: string[]) => {
+    setExamSeen((previous) => {
+      const merged = [...questionIds, ...(previous[stageId] ?? [])];
+      // Newest first, de-duplicated, and capped so the memory cannot grow
+      // until it covers the whole bank and defeats its own purpose.
+      const unique = merged.filter((id, index) => merged.indexOf(id) === index);
+      return { ...previous, [stageId]: unique.slice(0, EXAM_SEEN_MEMORY) };
+    });
+  };
 
   const recordExamScore = (stageId: string, score: number) => {
     setExamScores((previous) => ({
@@ -981,6 +1001,8 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
             passed={hasPassedExam(activeStageId)}
             bestScore={examScores[activeStageId] ?? null}
             attempts={examAttempts[activeStageId] ?? []}
+            recentlySeen={examSeen[activeStageId] ?? []}
+            onQuestionsServed={(ids) => recordExamSeen(activeStageId, ids)}
             onRecordAttempt={(score) => recordExamScore(activeStageId, score)}
             onPass={(score) => {
               recordExamScore(activeStageId, score);

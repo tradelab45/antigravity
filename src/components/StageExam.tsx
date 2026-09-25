@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { CheckCircle2, XCircle, Lock, Award, RotateCcw, ArrowRight, History } from 'lucide-react';
 import { buildExamAttempt, EXAM_LENGTH, EXAM_PASS_MARK, type ExamAttempt, type ExamQuestion, type StageExam as StageExamData } from '../data/stageExams';
@@ -24,6 +24,10 @@ interface StageExamProps {
   bestScore: number | null;
   /** Every recorded attempt for this stage, newest first. */
   attempts: ExamAttempt[];
+  /** Question ids recent papers served, so this one can prefer fresh ones. */
+  recentlySeen: string[];
+  /** Reports which questions this paper drew, so the next one can avoid them. */
+  onQuestionsServed: (questionIds: string[]) => void;
   onPass: (score: number) => void;
   onRecordAttempt: (score: number) => void;
 }
@@ -42,6 +46,8 @@ export const StageExam: React.FC<StageExamProps> = ({
   passed,
   bestScore,
   attempts,
+  recentlySeen,
+  onQuestionsServed,
   onPass,
   onRecordAttempt,
 }) => {
@@ -51,11 +57,21 @@ export const StageExam: React.FC<StageExamProps> = ({
   const [submittedScore, setSubmittedScore] = useState<number | null>(null);
 
   const questions = useMemo<ExamQuestion[]>(
-    () => buildExamAttempt(exam),
-    // A new seed is a new attempt, which is a new shuffle.
+    // `recentlySeen` is read at draw time but deliberately not a dependency:
+    // recording the draw updates it, and depending on it would redraw the
+    // paper underneath the learner mid-exam.
+    () => buildExamAttempt(exam, Math.random, recentlySeen),
+    // A new seed is a new attempt, which is a new draw.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [exam, attemptSeed],
   );
+
+  // Report the draw once per paper, after render, so the next attempt can
+  // avoid these questions.
+  useEffect(() => {
+    onQuestionsServed(questions.map((question) => question.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [questions]);
 
   const answeredCount = Object.keys(answers).length;
   const isSubmitted = submittedScore !== null;

@@ -1,11 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { STAGE_EXAMS, EXAM_LENGTH, EXAM_PASS_MARK, EXAM_ATTEMPT_HISTORY, getStageExam, buildExamAttempt, type ExamAttempt } from '../src/data/stageExams';
+import { STAGE_EXAMS, EXAM_LENGTH, EXAM_PASS_MARK, EXAM_ATTEMPT_HISTORY, EXAM_SEEN_MEMORY, getStageExam, buildExamAttempt, type ExamAttempt } from '../src/data/stageExams';
 
-test('every stage has an exam of exactly the advertised length', () => {
+test('every stage has a bank larger than one paper', () => {
   assert.equal(STAGE_EXAMS.length, 6);
   for (const exam of STAGE_EXAMS) {
-    assert.equal(exam.questions.length, EXAM_LENGTH, `${exam.stageId} has ${exam.questions.length} questions`);
+    // The bank used to be exactly one paper, which meant every retake served
+    // the same twenty questions in a new order.
+    assert.ok(
+      exam.questions.length > EXAM_LENGTH,
+      `${exam.stageId} has ${exam.questions.length} questions, so a retake cannot rotate`,
+    );
   }
 });
 
@@ -46,11 +51,16 @@ test('an attempt shuffles the questions and the options within them', () => {
   const exam = STAGE_EXAMS[0];
   const attempt = buildExamAttempt(exam, rng);
 
-  assert.equal(attempt.length, exam.questions.length);
-  assert.deepEqual(
-    new Set(attempt.map((q) => q.id)),
-    new Set(exam.questions.map((q) => q.id)),
-    'the attempt must contain every question exactly once',
+  assert.equal(attempt.length, EXAM_LENGTH);
+  const bankIds = new Set(exam.questions.map((q) => q.id));
+  assert.ok(
+    attempt.every((q) => bankIds.has(q.id)),
+    'every drawn question must come from this stage’s bank',
+  );
+  assert.equal(
+    new Set(attempt.map((q) => q.id)).size,
+    attempt.length,
+    'the paper must not repeat a question',
   );
 
   // The remap has to follow the answer text, not its original slot.
@@ -121,4 +131,74 @@ test('a pass is decided by the best attempt, not the last one', () => {
   const best = Math.max(...history.map((entry) => entry.score));
   assert.ok(best >= EXAM_PASS_MARK, 'a cleared stage stays cleared after a worse retake');
   assert.ok(history[0].score < EXAM_PASS_MARK, 'the latest attempt here is a fail, deliberately');
+});
+
+test('every bank holds well more questions than one paper asks', () => {
+  for (const exam of STAGE_EXAMS) {
+    assert.ok(
+      exam.questions.length >= EXAM_LENGTH + 10,
+      `${exam.stageId} has ${exam.questions.length} questions; a paper of ${EXAM_LENGTH} would barely rotate`,
+    );
+  }
+});
+
+test('a paper is exactly the exam length even though the bank is larger', () => {
+  for (const exam of STAGE_EXAMS) {
+    assert.equal(buildExamAttempt(exam).length, EXAM_LENGTH);
+  }
+});
+
+test('a retake avoids the questions the last paper served', () => {
+  const exam = STAGE_EXAMS[0];
+  const first = buildExamAttempt(exam);
+  const firstIds = first.map((question) => question.id);
+
+  const second = buildExamAttempt(exam, Math.random, firstIds);
+  const overlap = second.filter((question) => firstIds.includes(question.id));
+
+  // The bank holds 36 and a paper asks 20, so 16 are fresh and only the
+  // remainder can repeat.
+  const unseenAvailable = exam.questions.length - firstIds.length;
+  assert.equal(
+    overlap.length,
+    Math.max(0, EXAM_LENGTH - unseenAvailable),
+    'a retake should draw every unseen question before reusing one',
+  );
+});
+
+test('a paper is still full once every question has been seen', () => {
+  const exam = STAGE_EXAMS[1];
+  const allIds = exam.questions.map((question) => question.id);
+  const paper = buildExamAttempt(exam, Math.random, allIds);
+  assert.equal(paper.length, EXAM_LENGTH, 'an exhausted pool must not shorten the paper');
+});
+
+test('question ids are unique within a bank and across all banks', () => {
+  const seen = new Set<string>();
+  for (const exam of STAGE_EXAMS) {
+    const ids = exam.questions.map((question) => question.id);
+    assert.equal(new Set(ids).size, ids.length, `${exam.stageId} repeats a question id`);
+    for (const id of ids) {
+      assert.ok(!seen.has(id), `id ${id} appears in more than one bank`);
+      seen.add(id);
+    }
+  }
+});
+
+test('no paper serves the same question twice', () => {
+  for (const exam of STAGE_EXAMS) {
+    const ids = buildExamAttempt(exam).map((question) => question.id);
+    assert.equal(new Set(ids).size, ids.length, `${exam.stageId} served a duplicate in one paper`);
+  }
+});
+
+test('the seen memory is smaller than every bank', () => {
+  // Remembering a whole bank would leave no unseen pool and silently return
+  // the learner to repeats.
+  for (const exam of STAGE_EXAMS) {
+    assert.ok(
+      EXAM_SEEN_MEMORY < exam.questions.length,
+      `${exam.stageId} has ${exam.questions.length} questions but the memory holds ${EXAM_SEEN_MEMORY}`,
+    );
+  }
 });
