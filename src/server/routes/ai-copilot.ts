@@ -10,6 +10,7 @@
 import express from "express";
 import { GoogleGenAI } from "@google/genai";
 import { rateLimit, ipKeyGenerator } from "express-rate-limit";
+import { asyncRoute, type AsyncHandler } from "../asyncRoute";
 
 /** Longest single chat message or history turn sent to the model. */
 const MAX_TURN_CHARS = 4000;
@@ -42,33 +43,23 @@ export interface AiCopilotRouterDeps {
   sessionUserId?: (req: express.Request) => string | null;
 }
 
-type AsyncHandler = (req: express.Request, res: express.Response) => Promise<unknown>;
-
 /**
- * Express 4 does not catch errors thrown from async route handlers. An escaped
- * rejection goes unhandled, and Node's default response to that is to end the
- * process, so the server went down with it. The rule-based fallbacks here read
- * fields straight from the request body, so one unauthenticated request with a
- * partial stock ({ stock: { name, symbol } }) or with { holdings: null } killed
- * the whole server whenever Gemini was unavailable: unconfigured, erroring or
- * out of quota. Every async handler goes through this wrapper, so a failure
- * becomes a logged 500 for that one request and the process stays up.
+ * What a user sees if a Chanakya request fails outright. The rule-based
+ * fallbacks here read fields straight from the request body, so one
+ * unauthenticated request with a partial stock ({ stock: { name, symbol } }) or
+ * with { holdings: null } used to kill the whole server whenever Gemini was
+ * unavailable: unconfigured, erroring or out of quota. asyncRoute now turns any
+ * such failure into a logged 500 for that one request.
  */
-const asyncRoute = (handler: AsyncHandler): express.RequestHandler => (req, res, next) => {
-  handler(req, res).catch((err) => {
-    console.error(`[ai-copilot] ${req.method} ${req.path} failed:`, err);
-    if (res.headersSent) return next(err);
-    res.status(500).json({ error: "Chanakya could not answer that request." });
-  });
-};
+const CHANAKYA_FAILURE = "Chanakya could not answer that request.";
 
 export function createAiCopilotRouter(deps: AiCopilotRouterDeps = {}): express.Router {
 
   const router = express.Router();
   /** Registers async handlers through asyncRoute, so none can crash the process. */
   const safe = {
-    get: (path: string, handler: AsyncHandler) => router.get(path, asyncRoute(handler)),
-    post: (path: string, handler: AsyncHandler) => router.post(path, asyncRoute(handler)),
+    get: (path: string, handler: AsyncHandler) => router.get(path, asyncRoute(handler, CHANAKYA_FAILURE)),
+    post: (path: string, handler: AsyncHandler) => router.post(path, asyncRoute(handler, CHANAKYA_FAILURE)),
   };
 
   /**
