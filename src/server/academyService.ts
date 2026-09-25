@@ -56,6 +56,11 @@ export function createAcademyService(file: string) {
   const revokeUser = (userId: string) => {
     for (const [token, session] of sessions) if (session.userId === userId) sessions.delete(token);
   };
+  /** The user a request's session cookie belongs to, or null if it has none. */
+  const sessionUserId = (req: Request): string | null => {
+    const session = sessions.get(tokenFrom(req) || '');
+    return session && session.expires > Date.now() ? session.userId : null;
+  };
   const logout = (req: Request, res: Response) => {
     revoke(req);
     res.clearCookie(cookieName, cookieOptions(req));
@@ -149,5 +154,5 @@ export function createAcademyService(file: string) {
   router.use((_error: unknown, _req: Request, res: Response, _next: unknown) => {
     res.status(503).json({ message: 'Academy storage is temporarily unavailable. Your local progress is unchanged.' });
   });
-  return { router, issueSession, revokeUser, logout };
+  return { router, issueSession, revokeUser, sessionUserId, logout };
 }
