@@ -117,19 +117,16 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
   const [strategyPreset, setStrategyPreset] = useState<'ALL' | 'GOLDEN_CROSS' | 'HIGH_DIVIDEND' | 'HIGH_ROE' | 'RSI_DIP' | 'PSU_GIANTS' | 'MOMENTUM'>('ALL');
   const [sortBy, setSortBy] = useState<'POPULAR' | 'PRICE_HIGH' | 'PRICE_LOW' | 'GAIN_HIGH' | 'LOSS_HIGH' | 'PE_LOW' | 'MCAP_HIGH'>('POPULAR');
   const [viewMode, setViewMode] = useState<'CARDS' | 'TABLE'>('CARDS');
-  const [visibleCount, setVisibleCount] = useState(23);
-  const [catalogOffset, setCatalogOffset] = useState(0);
+  const [visibleCount, setVisibleCount] = useState(100);
+  const [catalogOffset, setCatalogOffset] = useState(100);
   const [hasMoreCatalog, setHasMoreCatalog] = useState(true);
   const [loadingCatalog, setLoadingCatalog] = useState(false);
-  const [catalogError, setCatalogError] = useState('');
   const catalogBusy = useRef(false);
-  const loadMoreMarker = useRef<HTMLDivElement>(null);
 
   const fetchCatalogPage = useCallback(async (offset: number, limit: number) => {
     if (catalogBusy.current) return false;
     catalogBusy.current = true;
     setLoadingCatalog(true);
-    setCatalogError('');
     try {
       const response = await fetch(`/api/stocks/catalog?offset=${offset}&limit=${limit}`);
       if (!response.ok) throw new Error('Catalog unavailable');
@@ -139,8 +136,8 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
       setCatalogOffset(data.nextOffset);
       setHasMoreCatalog(data.hasMore);
       return true;
-    } catch {
-      setCatalogError('Could not load more stocks. Please retry.');
+    } catch (err) {
+      console.warn('Could not load more catalog stocks:', err);
       return false;
     } finally {
       catalogBusy.current = false;
@@ -148,7 +145,6 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
     }
   }, []);
 
-  useEffect(() => { void fetchCatalogPage(0, 100); }, [fetchCatalogPage]);
   const [activeMarketSection, setActiveMarketSection] = useState<'EQUITIES' | 'BASKETS' | 'HEATMAP' | 'MOVERS'>('EQUITIES');
 
   // Angel One Modal & Interactive State
@@ -274,7 +270,7 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
         setSearchQuery('');
         setLiveSearchResults([]);
       } else {
-        setCatalogError(data.error || 'Quote unavailable. Please retry.');
+        console.warn(data.error || 'Quote unavailable.');
       }
     } catch (err) {
       console.error(err);
@@ -477,7 +473,7 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
   }, [stocks, searchQuery, selectedBenchmark, selectedSector, selectedFilter, strategyPreset, sortBy, watchlist]);
 
   useEffect(() => {
-    setVisibleCount(23);
+    setVisibleCount(100);
   }, [searchQuery, selectedBenchmark, selectedSector, selectedFilter, strategyPreset, sortBy, viewMode]);
 
   const displayedStocks = useMemo(() => filteredStocks.slice(0, visibleCount), [filteredStocks, visibleCount]);
@@ -487,20 +483,17 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
   const canLoadMore = displayedStocks.length < filteredStocks.length || (unfiltered && hasMoreCatalog);
   const loadMoreStocks = useCallback(async () => {
     if (catalogBusy.current) return;
-    if (visibleCount + 23 > filteredStocks.length && unfiltered && hasMoreCatalog) {
-      if (!await fetchCatalogPage(catalogOffset, 23)) return;
+    if (visibleCount < filteredStocks.length) {
+      setVisibleCount(count => Math.min(count + 10, filteredStocks.length));
+      return;
     }
-    setVisibleCount(count => count + 23);
+    if (unfiltered && hasMoreCatalog) {
+      const ok = await fetchCatalogPage(catalogOffset, 10);
+      if (ok) {
+        setVisibleCount(count => count + 10);
+      }
+    }
   }, [visibleCount, filteredStocks.length, unfiltered, hasMoreCatalog, fetchCatalogPage, catalogOffset]);
-
-  useEffect(() => {
-    if (!loadMoreMarker.current || !canLoadMore || loadingCatalog || catalogError) return;
-    const observer = new IntersectionObserver(entries => {
-      if (entries.some(entry => entry.isIntersecting)) void loadMoreStocks();
-    }, { rootMargin: '150px' });
-    observer.observe(loadMoreMarker.current);
-    return () => observer.disconnect();
-  }, [canLoadMore, loadingCatalog, catalogError, loadMoreStocks]);
 
   // Grouped Stocks under each Benchmark Subheading
   const benchmarkGroupedSections = useMemo(() => {
@@ -512,11 +505,9 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
     }
 
     const sections: Array<{ benchmark: BenchmarkIndexInfo; stocks: StockDetail[] }> = [];
-    const renderedSymbols = new Set<string>();
     BENCHMARK_INDEX_SUBHEADINGS.forEach((b) => {
-      const groupStocks = displayedStocks.filter(s => b.symbols.includes(s.symbol) && !renderedSymbols.has(s.symbol));
+      const groupStocks = displayedStocks.filter(s => b.symbols.includes(s.symbol));
       if (groupStocks.length > 0) {
-        groupStocks.forEach((stock) => renderedSymbols.add(stock.symbol));
         sections.push({
           benchmark: b,
           stocks: groupStocks
@@ -525,7 +516,8 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
     });
 
     // Also include other listed equities not in the predefined benchmark baskets
-    const unassignedStocks = displayedStocks.filter(s => !renderedSymbols.has(s.symbol));
+    const allBenchmarkSymbols = new Set(BENCHMARK_INDEX_SUBHEADINGS.flatMap(b => b.symbols));
+    const unassignedStocks = displayedStocks.filter(s => !allBenchmarkSymbols.has(s.symbol));
     if (unassignedStocks.length > 0) {
       sections.push({
         benchmark: {
@@ -1731,19 +1723,18 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
       )}
 
       {filteredStocks.length > 0 && (
-        <div ref={loadMoreMarker} className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-200 px-4 py-3">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-200 px-4 py-3">
           <p className="text-xs font-semibold text-slate-600">
             Showing {Math.min(displayedStocks.length, filteredStocks.length)} of {filteredStocks.length} matching companies
           </p>
-          {catalogError && <p role="alert" className="text-xs text-rose-600">{catalogError}</p>}
           {canLoadMore && (
             <button
               type="button"
               onClick={() => void loadMoreStocks()}
               disabled={loadingCatalog}
-              className="w-full sm:w-auto rounded-xl bg-slate-900 px-4 py-2 text-xs font-black text-white hover:bg-slate-800"
+              className="w-full sm:w-auto rounded-xl bg-slate-900 px-4 py-2 text-xs font-black text-white hover:bg-slate-800 transition-colors cursor-pointer"
             >
-              {loadingCatalog ? 'Loading...' : catalogError ? 'Retry' : 'Load 23 more'}
+              {loadingCatalog ? 'Loading...' : 'Load more'}
             </button>
           )}
         </div>

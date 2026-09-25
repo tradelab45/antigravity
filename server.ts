@@ -3769,8 +3769,9 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 async function startServer() {
   const distPath = path.join(process.cwd(), "dist");
   const hasDist = fs.existsSync(path.join(distPath, "index.html"));
+  const isProduction = process.env.NODE_ENV === "production" || process.env.SERVE_DIST === "true";
 
-  if (process.env.NODE_ENV !== "production" && !hasDist) {
+  if (!isProduction) {
     try {
       const { createServer: createViteServer } = await import("vite");
       const vite = await createViteServer({
@@ -3780,6 +3781,17 @@ async function startServer() {
       app.use(vite.middlewares);
     } catch (err) {
       console.warn("Could not start Vite dev middleware:", err);
+      if (hasDist) {
+        app.use(express.static(distPath));
+        app.get("*", (req, res) => {
+          const indexPath = path.join(distPath, "index.html");
+          if (fs.existsSync(indexPath)) {
+            res.sendFile(indexPath);
+          } else {
+            res.status(200).send("RupeeRookie application starting...");
+          }
+        });
+      }
     }
   } else {
     app.use(express.static(distPath));
@@ -3797,22 +3809,38 @@ async function startServer() {
     console.log(`RupeeRookie Server running on http://0.0.0.0:${PORT}`);
   });
 
-  process.on("SIGTERM", () => {
+  const secondaryPort = PORT === 3005 ? 3006 : PORT === 3006 ? 3005 : null;
+  let secondaryServer: any = null;
+  if (secondaryPort) {
+    try {
+      secondaryServer = app.listen(secondaryPort, "0.0.0.0", () => {
+        console.log(`RupeeRookie Secondary Server running on http://0.0.0.0:${secondaryPort}`);
+      });
+      secondaryServer.on("error", (err: any) => {
+        if (err.code !== "EADDRINUSE") {
+          console.warn(`Could not bind secondary port ${secondaryPort}:`, err.message);
+        }
+      });
+    } catch {}
+  }
+
+  const cleanup = () => {
     upstoxFeed.stop();
+    try { server.close(); } catch {}
+    try { server.closeAllConnections(); } catch {}
+    try { secondaryServer?.close(); } catch {}
+    try { secondaryServer?.closeAllConnections(); } catch {}
+    process.exit(0);
+  };
+
+  process.on("SIGTERM", () => {
     console.log("SIGTERM received, closing HTTP server");
-    server.close(() => {
-      process.exit(0);
-    });
-    server.closeAllConnections();
+    cleanup();
   });
 
   process.on("SIGINT", () => {
-    upstoxFeed.stop();
     console.log("SIGINT received, closing HTTP server");
-    server.close(() => {
-      process.exit(0);
-    });
-    server.closeAllConnections();
+    cleanup();
   });
 }
 
