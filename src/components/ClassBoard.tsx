@@ -69,11 +69,7 @@ export const ClassBoard: React.FC = () => {
         await fetch('/api/class/report', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId: currentUser.id,
-            portfolioValue,
-            totalTrades: orders.length,
-          }),
+          body: JSON.stringify({ portfolioValue, totalTrades: orders.length }),
         });
       } catch {
         // The board still renders from whatever the server already has.
@@ -103,7 +99,7 @@ export const ClassBoard: React.FC = () => {
       const res = await fetch('/api/class/join', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: currentUser.id, classCode: code }),
+        body: JSON.stringify({ classCode: code }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
@@ -131,7 +127,7 @@ export const ClassBoard: React.FC = () => {
       await fetch('/api/class/leave', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: currentUser.id }),
+        body: JSON.stringify({}),
       });
     } catch {
       // Leaving locally is still the right outcome for this device.

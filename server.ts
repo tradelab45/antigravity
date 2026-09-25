@@ -2358,6 +2358,13 @@ app.get("/api/gemini/status", (_req, res) => {
 });
 
 app.post("/api/gemini/chat", async (req, res) => {
+  // These spend the operator's Gemini quota, and were reachable by anyone who
+  // could reach the server. They are features for a signed-in learner, so they
+  // now need a session and a cap.
+  if (!sessionUser(req)) return res.status(401).json({ error: "Sign in first." });
+  if (rateLimited(res, `ai:${clientKey(req.ip)}`, AI_LIMIT,
+    "You have used the AI coach a lot in the last hour. Try again later.")) return;
+
   const { message, context, portfolioContext, history = [] } = req.body;
   
   if (!message) {
@@ -2490,6 +2497,10 @@ ${combinedContext ? JSON.stringify(combinedContext) : 'None provided'}
 
 // Dedicated Portfolio Health Audit with Gemini 3.8 Flash
 app.post("/api/gemini/portfolio-audit", async (req, res) => {
+  if (!sessionUser(req)) return res.status(401).json({ error: "Sign in first." });
+  if (rateLimited(res, `ai:${clientKey(req.ip)}`, AI_LIMIT,
+    "You have used the AI coach a lot in the last hour. Try again later.")) return;
+
   const { holdings = [], cashBalance = 1000000, portfolioValue = 1000000 } = req.body;
   
   const auditPrompt = `Conduct a comprehensive Dalal Street Portfolio Audit for a student investor on RupeeRookie.
@@ -2547,6 +2558,10 @@ ${holdingsCount === 0
 
 // 5. Stock Deep AI Analysis for teens
 app.post("/api/gemini/analyze-stock", async (req, res) => {
+  if (!sessionUser(req)) return res.status(401).json({ error: "Sign in first." });
+  if (rateLimited(res, `ai:${clientKey(req.ip)}`, AI_LIMIT,
+    "You have used the AI coach a lot in the last hour. Try again later.")) return;
+
   const { stock } = req.body;
   if (!stock) {
     return res.status(400).json({ error: "Stock data is required" });
@@ -3076,6 +3091,9 @@ async function beginVerification(
  * account. A successful sign-in clears the account counter, so a person who
  * mistypes a password four times and then gets it right is not left blocked.
  */
+/** The AI routes spend the operator's quota, so they get a cap of their own. */
+const AI_LIMIT: RateLimitRule = { limit: 40, windowMs: 60 * 60_000 };
+
 const AUTH_LIMITS: Record<string, RateLimitRule> = {
   loginIp: { limit: 30, windowMs: 15 * 60_000 },
   loginAccount: { limit: 8, windowMs: 15 * 60_000 },
@@ -3386,8 +3404,13 @@ app.post("/api/class/join", (req, res) => {
   if (rateLimited(res, `class:join:${caller}`, AUTH_LIMITS.otpRequest,
     "Too many attempts. Try again later.")) return;
 
-  const { userId, classCode } = req.body;
-  const code = normaliseClassCode(classCode);
+  // The account comes from the session, never from the body: a userId in a
+  // request is whatever the caller typed, so taking it on trust let anyone
+  // join, report for or remove any other learner.
+  const signedIn = sessionUser(req);
+  if (!signedIn) return res.status(401).json({ success: false, message: "Sign in first." });
+
+  const code = normaliseClassCode(req.body?.classCode);
   if (!code) {
     return res.status(400).json({
       success: false,
@@ -3396,7 +3419,7 @@ app.post("/api/class/join", (req, res) => {
   }
 
   const users = loadUsers();
-  const user = users.find(u => u.id === userId);
+  const user = users.find(u => u.id === signedIn.id);
   if (!user) return res.status(404).json({ success: false, message: "Account not found." });
 
   user.classCode = code;
@@ -3405,9 +3428,11 @@ app.post("/api/class/join", (req, res) => {
 });
 
 app.post("/api/class/leave", (req, res) => {
-  const { userId } = req.body;
+  const signedIn = sessionUser(req);
+  if (!signedIn) return res.status(401).json({ success: false, message: "Sign in first." });
+
   const users = loadUsers();
-  const user = users.find(u => u.id === userId);
+  const user = users.find(u => u.id === signedIn.id);
   if (!user) return res.status(404).json({ success: false, message: "Account not found." });
 
   delete user.classCode;
@@ -3424,9 +3449,12 @@ app.post("/api/class/report", (req, res) => {
   if (rateLimited(res, `class:report:${caller}`, { limit: 60, windowMs: 60 * 60_000 },
     "Too many updates. Try again later.")) return;
 
-  const { userId, portfolioValue, totalTrades } = req.body;
+  const signedIn = sessionUser(req);
+  if (!signedIn) return res.status(401).json({ success: false, message: "Sign in first." });
+
+  const { portfolioValue, totalTrades } = req.body || {};
   const users = loadUsers();
-  const user = users.find(u => u.id === userId);
+  const user = users.find(u => u.id === signedIn.id);
   if (!user) return res.status(404).json({ success: false, message: "Account not found." });
   if (!user.classCode) {
     return res.status(409).json({ success: false, message: "Join a class board first." });
@@ -4249,11 +4277,18 @@ app.get("/api/admin/trades", requireAdminAuth, (req, res) => {
 // Record / Live Sync Trade from Trading App
 app.post("/api/trades", (req, res) => {
   try {
+    // The record is attributed to the session, not to whatever identity the
+    // body carried: this route accepted a userId, a name and an email from the
+    // caller, so anyone could write trade records in anyone's name.
+    const signedIn = sessionUser(req);
+    if (!signedIn) return res.status(401).json({ success: false, message: "Sign in first." });
+
+    const userId = signedIn.id;
+    const userName = signedIn.fullName;
+    const userEmail = signedIn.email;
+
     const { 
       orderId, 
-      userId, 
-      userName, 
-      userEmail, 
       symbol, 
       stockName, 
       type, 
