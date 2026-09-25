@@ -5,7 +5,7 @@ import {
   ShieldCheck, Sparkles, Pause, Play, TrendingUp, TrendingDown,
   Compass, CheckCircle2, Zap, BarChart3, Layers, Award, Activity
 } from 'lucide-react';
-import { useAccessibility } from '../context/AccessibilityContext';
+import { useAccessibility } from '../modules/accessibility/context/AccessibilityContext';
 import { useSimulator } from '../context/SimulatorContext';
 import type { AppTabType } from './Header';
 import './landing-3d.css';

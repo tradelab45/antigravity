@@ -36,7 +36,7 @@ import { getPracticeAction } from '../data/practiceActions';
 import { StageExam } from './StageExam';
 import { getStageExam, EXAM_LENGTH, EXAM_PASS_MARK } from '../data/stageExams';
 import type { AppTabType } from './Header';
-import { useAccessibility } from '../context/AccessibilityContext';
+import { useAccessibility } from '../modules/accessibility/context/AccessibilityContext';
 
 import { localizeLesson } from '../data/hindiLessons';
 import { readResume } from '../utils/academyProgress';

@@ -24,7 +24,7 @@ import { useSimulator } from '../context/SimulatorContext';
 import { INITIAL_LESSONS } from '../data/lessonsData';
 import { formatINR, formatPercent } from '../utils/formatters';
 import type { AppTabType } from './Header';
-import { useAccessibility } from '../context/AccessibilityContext';
+import { useAccessibility } from '../modules/accessibility/context/AccessibilityContext';
 import { ResumeLearning } from './ResumeLearning';
 import { PwaInstall } from './PwaInstall';
 import { SpatialCandlestickChart } from './ui/spatial-candlestick-chart';
