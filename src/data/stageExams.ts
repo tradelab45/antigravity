@@ -41,13 +41,80 @@ export const EXAM_PASS_MARK = 14;
 export const EXAM_LENGTH = 20;
 
 /**
- * How many recently served question ids are remembered per stage.
+ * How many papers a question rests for after it was answered correctly.
  *
- * One paper's worth. It has to stay well below a bank's size: remembering
- * more questions than a bank holds would mark every question as seen and put
- * the learner straight back on repeats, which is what a test here checks.
+ * Three, so a question a learner has shown they know does not crowd out the
+ * material they have not met yet.
  */
-export const EXAM_SEEN_MEMORY = EXAM_LENGTH;
+export const REST_PAPERS_AFTER_CORRECT = 3;
+
+/**
+ * How many papers a question rests for after it was answered wrongly.
+ *
+ * One, meaning it is back on the very next paper. A question you got wrong is
+ * the one worth asking again, and the rotation used to treat it exactly like
+ * one you aced: both were suppressed for the same stretch, so the fastest way
+ * to stop meeting a question you did not understand was to get it wrong.
+ */
+export const REST_PAPERS_AFTER_WRONG = 1;
+
+/**
+ * The most of a paper that may be review of previously wrong answers.
+ *
+ * Half. Without a ceiling a learner who failed badly would be drilled on the
+ * same wrong answers and never shown the rest of the bank.
+ */
+export const REVIEW_SHARE = 0.5;
+
+/**
+ * What a learner's history with one stage's questions looks like.
+ *
+ * `papers` counts the papers submitted for the stage, and each question
+ * records the paper it last appeared on and whether it was answered
+ * correctly. Papers rather than clock time: a learner who retakes three times
+ * in an evening has genuinely revisited the material three times, and one who
+ * comes back a month later has not done anything in between.
+ */
+export interface ExamMemory {
+  papers: number;
+  questions: Record<string, { paper: number; correct: boolean }>;
+}
+
+export const emptyExamMemory = (): ExamMemory => ({ papers: 0, questions: {} });
+
+/**
+ * Reads the older store, which remembered only which ids had been served.
+ *
+ * Those are treated as answered correctly on the paper before this one, which
+ * is the conservative reading: it rests them, exactly as the old memory did,
+ * rather than pulling them all back immediately.
+ */
+export const memoryFromSeenIds = (ids: string[]): ExamMemory => ({
+  papers: 1,
+  questions: Object.fromEntries(ids.map((id) => [id, { paper: 0, correct: true }])),
+});
+
+/** One question's result, as the paper is graded. */
+export interface QuestionResult {
+  id: string;
+  correct: boolean;
+}
+
+/**
+ * Files a submitted paper against the stage's memory.
+ *
+ * Only a submitted paper counts. A learner who opens an exam and walks away
+ * has not been tested on anything, and should meet the same questions when
+ * they come back.
+ */
+export const recordPaper = (memory: ExamMemory, results: QuestionResult[]): ExamMemory => {
+  const questions = { ...memory.questions };
+  for (const result of results) {
+    if (!result || typeof result.id !== 'string') continue;
+    questions[result.id] = { paper: memory.papers, correct: Boolean(result.correct) };
+  }
+  return { papers: memory.papers + 1, questions };
+};
 
 const beginner: ExamQuestion[] = [
   {
@@ -2532,18 +2599,24 @@ const taxation: ExamQuestion[] = [
 /**
  * Draws one paper.
  *
- * Each bank holds far more questions than a paper asks, and `recentlySeen`
- * carries the ids served on recent attempts. Questions the learner has not met
- * are drawn first, so a retake is a fresh set rather than the same twenty in a
- * new order — which is what a learner got when every bank held exactly twenty.
+ * Each bank holds far more questions than a paper asks, so the draw can
+ * choose. In order of claim on the paper:
  *
- * When the unseen pool runs dry the seen ones are shuffled back in, so a
- * determined retaker always gets a full paper.
+ * 1. questions answered wrongly and rested for a paper — up to half the
+ *    paper, so a retake is revision of what went wrong rather than a fresh
+ *    set of twenty that lets the misunderstanding stand;
+ * 2. questions the learner has not met;
+ * 3. questions answered correctly three or more papers ago;
+ * 4. whatever is still resting, so a determined retaker always gets a full
+ *    paper rather than a short one.
+ *
+ * The selected questions are then shuffled, so the review questions are not
+ * always the first five on the page.
  */
 export const buildExamAttempt = (
   exam: StageExam,
   random: () => number = Math.random,
-  recentlySeen: string[] = [],
+  memory: ExamMemory = emptyExamMemory(),
 ): ExamQuestion[] => {
   const shuffle = <T,>(items: T[]): T[] => {
     const copy = [...items];
@@ -2554,11 +2627,38 @@ export const buildExamAttempt = (
     return copy;
   };
 
-  const seen = new Set(recentlySeen);
-  const fresh = shuffle(exam.questions.filter((question) => !seen.has(question.id)));
-  const repeats = shuffle(exam.questions.filter((question) => seen.has(question.id)));
+  const history = memory?.questions ?? {};
+  const papers = Number(memory?.papers) || 0;
+  const restedFor = (id: string) => papers - history[id].paper;
 
-  return [...fresh, ...repeats].slice(0, EXAM_LENGTH).map((question) => {
+  const unseen: ExamQuestion[] = [];
+  const dueWrong: ExamQuestion[] = [];
+  const dueCorrect: ExamQuestion[] = [];
+  const resting: ExamQuestion[] = [];
+
+  for (const question of exam.questions) {
+    const record = history[question.id];
+    if (!record) {
+      unseen.push(question);
+    } else if (!record.correct) {
+      (restedFor(question.id) >= REST_PAPERS_AFTER_WRONG ? dueWrong : resting).push(question);
+    } else {
+      (restedFor(question.id) >= REST_PAPERS_AFTER_CORRECT ? dueCorrect : resting).push(question);
+    }
+  }
+
+  const shuffledWrong = shuffle(dueWrong);
+  const reviewCap = Math.floor(EXAM_LENGTH * REVIEW_SHARE);
+
+  const queue = [
+    ...shuffledWrong.slice(0, reviewCap),
+    ...shuffle(unseen),
+    ...shuffle(dueCorrect),
+    ...shuffledWrong.slice(reviewCap),
+    ...shuffle(resting),
+  ];
+
+  return shuffle(queue.slice(0, EXAM_LENGTH)).map((question) => {
     const answer = question.options[question.correctIndex];
     const options = shuffle(question.options);
     return { ...question, options, correctIndex: options.indexOf(answer) };

@@ -1,7 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { CheckCircle2, XCircle, Lock, Award, RotateCcw, ArrowRight, History } from 'lucide-react';
-import { buildExamAttempt, EXAM_LENGTH, EXAM_PASS_MARK, type ExamAttempt, type ExamQuestion, type StageExam as StageExamData } from '../data/stageExams';
+import {
+  buildExamAttempt,
+  emptyExamMemory,
+  EXAM_LENGTH,
+  EXAM_PASS_MARK,
+  type ExamAttempt,
+  type ExamMemory,
+  type ExamQuestion,
+  type QuestionResult,
+  type StageExam as StageExamData,
+} from '../data/stageExams';
 import { StageCertificate } from './StageCertificate';
 import { useSimulator } from '../context/SimulatorContext';
 
@@ -24,10 +34,10 @@ interface StageExamProps {
   bestScore: number | null;
   /** Every recorded attempt for this stage, newest first. */
   attempts: ExamAttempt[];
-  /** Question ids recent papers served, so this one can prefer fresh ones. */
-  recentlySeen: string[];
-  /** Reports which questions this paper drew, so the next one can avoid them. */
-  onQuestionsServed: (questionIds: string[]) => void;
+  /** How this learner has fared on this stage's questions before now. */
+  memory: ExamMemory;
+  /** Reports how the submitted paper went, question by question. */
+  onPaperGraded: (results: QuestionResult[]) => void;
   onPass: (score: number) => void;
   onRecordAttempt: (score: number) => void;
 }
@@ -46,8 +56,8 @@ export const StageExam: React.FC<StageExamProps> = ({
   passed,
   bestScore,
   attempts,
-  recentlySeen,
-  onQuestionsServed,
+  memory,
+  onPaperGraded,
   onPass,
   onRecordAttempt,
 }) => {
@@ -57,21 +67,14 @@ export const StageExam: React.FC<StageExamProps> = ({
   const [submittedScore, setSubmittedScore] = useState<number | null>(null);
 
   const questions = useMemo<ExamQuestion[]>(
-    // `recentlySeen` is read at draw time but deliberately not a dependency:
-    // recording the draw updates it, and depending on it would redraw the
+    // `memory` is read at draw time but deliberately not a dependency:
+    // grading the paper updates it, and depending on it would redraw the
     // paper underneath the learner mid-exam.
-    () => buildExamAttempt(exam, Math.random, recentlySeen),
+    () => buildExamAttempt(exam, Math.random, memory || emptyExamMemory()),
     // A new seed is a new attempt, which is a new draw.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [exam, attemptSeed],
   );
-
-  // Report the draw once per paper, after render, so the next attempt can
-  // avoid these questions.
-  useEffect(() => {
-    onQuestionsServed(questions.map((question) => question.id));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [questions]);
 
   const answeredCount = Object.keys(answers).length;
   const isSubmitted = submittedScore !== null;
@@ -90,6 +93,14 @@ export const StageExam: React.FC<StageExamProps> = ({
       0,
     );
     setSubmittedScore(score);
+    // Recorded on submission rather than on the draw, so a paper a learner
+    // opened and abandoned does not rest the questions they never answered.
+    onPaperGraded(
+      questions.map((question) => ({
+        id: question.id,
+        correct: answers[question.id] === question.correctIndex,
+      })),
+    );
     onRecordAttempt(score);
     if (score >= EXAM_PASS_MARK) onPass(score);
   };
@@ -224,8 +235,16 @@ export const StageExam: React.FC<StageExamProps> = ({
           <p className="mt-1 text-xs leading-relaxed text-slate-700 dark:text-slate-300">
             {submittedScore >= EXAM_PASS_MARK
               ? 'The next stage is now open. Your answers are marked below if you want to read the explanations.'
-              : 'Read the explanations below, revisit the modules, then retake the paper. The questions are reshuffled each time.'}
+              : 'Read the explanations below, revisit the modules, then retake the paper.'}
           </p>
+          {submittedScore < EXAM_LENGTH && (
+            <p className="mt-1 text-xs leading-relaxed text-slate-700 dark:text-slate-300">
+              The {EXAM_LENGTH - submittedScore} question
+              {EXAM_LENGTH - submittedScore === 1 ? '' : 's'} you got wrong will be on your next
+              paper. The ones you got right rest for a few papers while the rest of the bank comes
+              round.
+            </p>
+          )}
           <button
             type="button"
             onClick={startOver}
