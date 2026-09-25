@@ -305,8 +305,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onSwitchToApp })
     setChangeKeyError(null);
     setChangeKeySuccess(null);
 
-    if (newKeyInput.trim().length < 12) {
-      setChangeKeyError('New passkey must be at least 12 characters long.');
+    // Mirrors MIN_PASSKEY_LENGTH in src/server/routes/admin.ts.
+    if (newKeyInput.trim().length < 24) {
+      setChangeKeyError('New passkey must be at least 24 characters long.');
       return;
     }
     if (newKeyInput !== confirmKeyInput) {

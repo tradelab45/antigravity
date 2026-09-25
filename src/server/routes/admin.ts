@@ -9,6 +9,10 @@
  */
 import express from "express";
 import { timingSafeEqual } from "crypto";
+import { rateLimit } from "express-rate-limit";
+import { csvCell } from "../csvCell";
+
+const MIN_PASSKEY_LENGTH = 24;
 
 /** The fields of a stored user record that the admin routes read or write. */
 export interface AdminUserFields {
@@ -54,6 +58,23 @@ export interface AdminRouterDeps {
 export function createAdminRouter(deps: AdminRouterDeps): express.Router {
   const { loadUsers, saveUsers, loadTrades, toSafeUser } = deps;
   const router = express.Router();
+
+  /**
+   * Caps failed admin authentication per client. /verify-passkey answers
+   * yes or no to any guess, and every x-admin-key check did the same, with no
+   * limit, which made the passkey an online guessing target. Only failures
+   * count (skipSuccessfulRequests), so the owner's own dashboard traffic with
+   * the right key never uses up the allowance.
+   */
+  const adminGuessLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 10,
+    skipSuccessfulRequests: true,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    message: { success: false, message: 'Too many failed administrator sign-in attempts. Please wait and try again.' },
+  });
+  router.use('/api/admin', adminGuessLimiter);
 
 
   // ==========================================
@@ -164,8 +185,10 @@ export function createAdminRouter(deps: AdminRouterDeps): express.Router {
     if (!passkeyMatches(currentPasskey)) {
       return res.status(401).json({ success: false, message: "Current passkey is incorrect." });
     }
-    if (!newPasskey || String(newPasskey).trim().length < 12) {
-      return res.status(400).json({ success: false, message: "New passkey must be at least 12 characters." });
+    // .env.example generates the passkey with `openssl rand -hex 24`, 48
+    // characters. A 12-character floor let a rotation drop well below that.
+    if (!newPasskey || String(newPasskey).trim().length < MIN_PASSKEY_LENGTH) {
+      return res.status(400).json({ success: false, message: `New passkey must be at least ${MIN_PASSKEY_LENGTH} characters.` });
     }
     CURRENT_ADMIN_PASSKEY = String(newPasskey).trim();
     return res.json({ success: true, message: "Administrator passkey updated successfully." });
@@ -297,11 +320,7 @@ export function createAdminRouter(deps: AdminRouterDeps): express.Router {
         "Status"
       ];
 
-      const escapeCsv = (val: any) => {
-        if (val === null || val === undefined) return '""';
-        const str = String(val).replace(/"/g, '""');
-        return `"${str}"`;
-      };
+      const escapeCsv = csvCell;
 
       const rows = trades.map(t => [
         escapeCsv(t.id),
@@ -347,11 +366,7 @@ export function createAdminRouter(deps: AdminRouterDeps): express.Router {
         "Last Login Date (IST)"
       ];
 
-      const escapeCsv = (val: any) => {
-        if (val === null || val === undefined) return '""';
-        const str = String(val).replace(/"/g, '""');
-        return `"${str}"`;
-      };
+      const escapeCsv = csvCell;
 
       const rows = users.map(u => [
         escapeCsv(u.id),
