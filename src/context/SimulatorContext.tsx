@@ -30,6 +30,7 @@ import { getNSEMarketTimeInfo, NSEMarketInfo } from '../utils/marketHours';
 import { enrichStockWithTechnicalsAndDuPont } from '../utils/technicalCalculator';
 import { computeMarketIndicesFromStocks } from '../utils/indexCalculator';
 import { mergeQuote } from '../utils/quoteState';
+import { isAuthApiRejection } from '../modules/auth/authResponse';
 
 export const ADMIN_EMAILS = ['aaravvjain23@gmail.com'];
 export const ADMIN_USERNAMES = ['aaravvjain23@gmail.com', 'aarav', 'aarav_trader'];
@@ -349,10 +350,14 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         body: JSON.stringify({ identifier, password }),
       });
       if (!res.ok) {
-        const error = await res.json().catch(() => null);
-        return { success: false, message: error?.message || (res.status === 429 ? 'Too many attempts. Please wait before trying again.' : 'Sign-in was rejected. Please check your details.') };
-      }
-      if (res.ok) {
+        // Only an answer from our own API rejects the user's details. A 404/405
+        // or an HTML body means there is no backend on this host, so fall
+        // through to the offline fallback below instead of failing the form.
+        if (isAuthApiRejection(res.status, res.headers.get('content-type'))) {
+          const error = await res.json().catch(() => null);
+          return { success: false, message: error?.message || (res.status === 429 ? 'Too many attempts. Please wait before trying again.' : 'Sign-in was rejected. Please check your details.') };
+        }
+      } else {
         const contentType = res.headers.get('content-type') || '';
         if (contentType.includes('application/json')) {
           const data = await res.json();
@@ -443,10 +448,14 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }),
       });
       if (!res.ok) {
-        const error = await res.json().catch(() => null);
-        return { success: false, message: error?.message || (res.status === 429 ? 'Too many attempts. Please wait before trying again.' : 'Sign-in was rejected. Please check your details.') };
-      }
-      if (res.ok) {
+        // Only an answer from our own API rejects the user's details. A 404/405
+        // or an HTML body means there is no backend on this host, so fall
+        // through to the offline fallback below instead of failing the form.
+        if (isAuthApiRejection(res.status, res.headers.get('content-type'))) {
+          const error = await res.json().catch(() => null);
+          return { success: false, message: error?.message || (res.status === 429 ? 'Too many attempts. Please wait before trying again.' : 'We could not create your account. Please check your details.') };
+        }
+      } else {
         const contentType = res.headers.get('content-type') || '';
         if (contentType.includes('application/json')) {
           const data = await res.json();
@@ -513,10 +522,14 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         body: JSON.stringify({ credential }),
       });
       if (!res.ok) {
-        const error = await res.json().catch(() => null);
-        return { success: false, message: error?.message || (res.status === 429 ? 'Too many attempts. Please wait before trying again.' : 'Sign-in was rejected. Please check your details.') };
-      }
-      if (res.ok) {
+        // Only an answer from our own API rejects the user's details. A 404/405
+        // or an HTML body means there is no backend on this host, so fall
+        // through to the offline fallback below instead of failing the form.
+        if (isAuthApiRejection(res.status, res.headers.get('content-type'))) {
+          const error = await res.json().catch(() => null);
+          return { success: false, message: error?.message || (res.status === 429 ? 'Too many attempts. Please wait before trying again.' : 'Google sign-in was rejected. Please try again.') };
+        }
+      } else {
         const contentType = res.headers.get('content-type') || '';
         if (contentType.includes('application/json')) {
           const data = await res.json();
