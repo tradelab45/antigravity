@@ -388,6 +388,34 @@
 .dark .rr-surfaces :where([class^="bg-white/"], [class*=" bg-white/"], [class^="bg-slate-50/"], [class*=" bg-slate-50/"], [class^="bg-slate-100/"], [class*=" bg-slate-100/"], [class^="bg-slate-200/"], [class*=" bg-slate-200/"], [class^="bg-gray-50/"], [class*=" bg-gray-50/"], [class^="bg-indigo-50/"], [class*=" bg-indigo-50/"], [class^="bg-indigo-100/"], [class*=" bg-indigo-100/"], [class^="bg-emerald-50/"], [class*=" bg-emerald-50/"], [class^="bg-emerald-100/"], [class*=" bg-emerald-100/"], [class^="bg-rose-50/"], [class*=" bg-rose-50/"], [class^="bg-rose-100/"], [class*=" bg-rose-100/"], [class^="bg-amber-50/"], [class*=" bg-amber-50/"], [class^="bg-amber-100/"], [class*=" bg-amber-100/"], [class^="bg-violet-50/"], [class*=" bg-violet-50/"], [class^="bg-violet-100/"], [class*=" bg-violet-100/"], [class^="bg-blue-50/"], [class*=" bg-blue-50/"], [class^="bg-blue-100/"], [class*=" bg-blue-100/"]):where(.text-amber-950, .text-amber-900, .text-amber-800, .text-amber-700):not([class*="dark:text-"]) { color: #fcd34d; }
 .dark .rr-surfaces :where([class^="bg-white/"], [class*=" bg-white/"], [class^="bg-slate-50/"], [class*=" bg-slate-50/"], [class^="bg-slate-100/"], [class*=" bg-slate-100/"], [class^="bg-slate-200/"], [class*=" bg-slate-200/"], [class^="bg-gray-50/"], [class*=" bg-gray-50/"], [class^="bg-indigo-50/"], [class*=" bg-indigo-50/"], [class^="bg-indigo-100/"], [class*=" bg-indigo-100/"], [class^="bg-emerald-50/"], [class*=" bg-emerald-50/"], [class^="bg-emerald-100/"], [class*=" bg-emerald-100/"], [class^="bg-rose-50/"], [class*=" bg-rose-50/"], [class^="bg-rose-100/"], [class*=" bg-rose-100/"], [class^="bg-amber-50/"], [class*=" bg-amber-50/"], [class^="bg-amber-100/"], [class*=" bg-amber-100/"], [class^="bg-violet-50/"], [class*=" bg-violet-50/"], [class^="bg-violet-100/"], [class*=" bg-violet-100/"], [class^="bg-blue-50/"], [class*=" bg-blue-50/"], [class^="bg-blue-100/"], [class*=" bg-blue-100/"]):where(.text-blue-900, .text-blue-800, .text-blue-700):not([class*="dark:text-"]) { color: #93c5fd; }
 
+/* =========================================================================
+   Density (data-rr-density)
+   The screener and the portfolio show a lot at once, and the padding that
+   suits a phone wastes a third of a laptop screen. Compact tightens the card
+   padding, the vertical rhythm between stacked blocks and the table rows,
+   and leaves type size, controls and touch targets alone — a denser page must
+   not become a less legible or less tappable one.
+   ========================================================================= */
+/* Containers only. Tightening the padding on a button shrinks the button, and
+   measuring the screener in compact turned up thirty controls under the 24px
+   floor the moment these rules were let near interactive elements. */
+:root[data-rr-density="compact"] .rr-app-canvas :where(.p-6):not(button):not(a):not(input):not(select):not(textarea):not([role="button"]) { padding: 1rem; }
+:root[data-rr-density="compact"] .rr-app-canvas :where(.p-5):not(button):not(a):not(input):not(select):not(textarea):not([role="button"]) { padding: 0.875rem; }
+:root[data-rr-density="compact"] .rr-app-canvas :where(.p-4):not(button):not(a):not(input):not(select):not(textarea):not([role="button"]) { padding: 0.75rem; }
+:root[data-rr-density="compact"] .rr-app-canvas :where(.sm\:p-6):not(button):not(a):not(input):not(select):not(textarea):not([role="button"]) { padding: 1rem; }
+
+:root[data-rr-density="compact"] .rr-app-canvas :where(.space-y-6) > * + * { margin-top: 1rem; }
+:root[data-rr-density="compact"] .rr-app-canvas :where(.space-y-5) > * + * { margin-top: 0.875rem; }
+:root[data-rr-density="compact"] .rr-app-canvas :where(.space-y-4) > * + * { margin-top: 0.75rem; }
+
+:root[data-rr-density="compact"] .rr-app-canvas :where(.gap-6) { gap: 1rem; }
+:root[data-rr-density="compact"] .rr-app-canvas :where(.gap-5) { gap: 0.875rem; }
+
+:root[data-rr-density="compact"] .rr-app-canvas :where(td, th) { padding-top: 0.4rem; padding-bottom: 0.4rem; }
+
+/* Whatever else compact does, a control still has to be hittable. */
+:root[data-rr-density="compact"] .rr-app-canvas :where(button, a[href], [role="button"]) { min-height: 24px; min-width: 24px; }
+
 /* Form controls follow the same surfaces. */
 .dark .rr-surfaces :where(input, textarea, select):not([class*="dark:bg-"]) { color: var(--rr-text); }
 .dark .rr-surfaces :where(input, textarea)::placeholder { color: #64748b; }

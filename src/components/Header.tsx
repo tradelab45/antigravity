@@ -8,6 +8,9 @@ import {
   Award, 
   Rocket, 
   RotateCcw, 
+  Rows3,
+  Rows4,
+
   Sparkles, 
   BookOpen, 
   BarChart3, 
@@ -85,7 +88,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
   } = useSimulator();
 
   const isAdmin = isUserAdmin(currentUser);
-  const { theme, isDark, toggleTheme, setTheme, palette, setPalette, palettes } = useTheme();
+  const { theme, isDark, toggleTheme, setTheme, palette, setPalette, palettes, density, setDensity } = useTheme();
   const isOwnerAdmin = Boolean(
     currentUser && (
       (currentUser.email && currentUser.email.trim().toLowerCase() === 'aaravvjain23@gmail.com') ||
@@ -566,6 +569,35 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
                           }`}
                         >
                           <ModeIcon className="h-3.5 w-3.5" />
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <p className="border-t border-slate-100 px-2 pb-1.5 pt-2 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:border-slate-800 dark:text-slate-400">
+                    Density
+                  </p>
+                  <div className="flex gap-1 px-1 pb-2">
+                    {([
+                      { id: 'comfortable' as const, label: 'Comfortable', icon: Rows3 },
+                      { id: 'compact' as const, label: 'Compact', icon: Rows4 },
+                    ]).map(({ id, label, icon: DensityIcon }) => {
+                      const selected = density === id;
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={selected}
+                          onClick={() => setDensity(id)}
+                          className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl border px-2 py-2 text-[11px] font-black transition-colors ${
+                            selected
+                              ? 'border-indigo-500 bg-indigo-600 text-white'
+                              : 'border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800'
+                          }`}
+                        >
+                          <DensityIcon className="h-3.5 w-3.5" />
                           {label}
                         </button>
                       );
