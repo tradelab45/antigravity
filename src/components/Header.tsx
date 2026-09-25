@@ -53,6 +53,7 @@ import { RiskCenterModal } from './RiskCenterModal';
 import { AnimatedSearchBar } from './ui/animated-search-bar';
 import { StockDetail } from '../types';
 import { createPortal } from 'react-dom';
+import { useTranslation } from '../i18n/useTranslation';
 
 export type AppTabType = 'home' | 'screener' | 'watchlist' | 'portfolio' | 'replay' | 'review' | 'journal' | 'academy' | 'challenges' | 'calculator' | 'chanakya' | 'badges' | 'privacy' | 'help' | 'graph';
 
@@ -89,6 +90,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
 
   const isAdmin = isUserAdmin(currentUser);
   const { theme, isDark, toggleTheme, setTheme, palette, setPalette, palettes, density, setDensity } = useTheme();
+  const t = useTranslation();
   const isOwnerAdmin = Boolean(
     currentUser && (
       (currentUser.email && currentUser.email.trim().toLowerCase() === 'aaravvjain23@gmail.com') ||
@@ -189,20 +191,20 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
     badgeColor?: string;
     highlight?: boolean;
   }[] = [
-    { id: 'home', label: 'Home', icon: Compass },
-    { id: 'screener', label: 'Markets', icon: BarChart3 },
-    { id: 'portfolio', label: 'Portfolio', icon: PieChart },
-    { id: 'review', label: 'Trader DNA', icon: Dna, badge: 'Journal', badgeColor: 'bg-indigo-100 text-indigo-900 border-indigo-300 dark:bg-indigo-950 dark:text-indigo-300 dark:border-indigo-800' },
-    { id: 'academy', label: 'Learn', icon: BookOpen },
-    { id: 'chanakya', label: 'AI Coach', icon: Zap, highlight: true },
+    { id: 'home', label: t('nav.home'), icon: Compass },
+    { id: 'screener', label: t('nav.markets'), icon: BarChart3 },
+    { id: 'portfolio', label: t('nav.portfolio'), icon: PieChart },
+    { id: 'review', label: t('nav.traderDna'), icon: Dna, badge: t('nav.journal'), badgeColor: 'bg-indigo-100 text-indigo-900 border-indigo-300 dark:bg-indigo-950 dark:text-indigo-300 dark:border-indigo-800' },
+    { id: 'academy', label: t('nav.learn'), icon: BookOpen },
+    { id: 'chanakya', label: t('nav.aiCoach'), icon: Zap, highlight: true },
   ];
 
   /** Practice tools, grouped under one heading in the main navigation. */
   const LAB_ITEMS: { id: AppTabType; label: string; icon: React.ElementType; badge?: string }[] = [
-    { id: 'replay', label: 'Replay OS', icon: History, badge: 'Blind Mode' },
-    { id: 'graph', label: 'BigQuery Graph Lab', icon: Network, badge: 'GQL' },
-    { id: 'calculator', label: 'Compound Calculator', icon: Calculator, badge: 'SIP' },
-    { id: 'challenges', label: 'Progress & Badges', icon: Trophy },
+    { id: 'replay', label: t('labs.replay'), icon: History, badge: 'Blind Mode' },
+    { id: 'graph', label: t('labs.graph'), icon: Network, badge: 'GQL' },
+    { id: 'calculator', label: t('labs.calculator'), icon: Calculator, badge: 'SIP' },
+    { id: 'challenges', label: t('labs.progress'), icon: Trophy },
   ];
 
   const labsActive = LAB_ITEMS.some(
@@ -512,7 +514,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
             title="Open Help & Support"
           >
             <HelpCircle className="h-3.5 w-3.5" />
-            <span className="hidden xl:inline">Help</span>
+            <span className="hidden xl:inline">{t('header.help')}</span>
           </motion.button>
 
           {/* Display: light/dark and background colour in one control.
@@ -532,7 +534,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
               aria-label="Display settings"
             >
               <Palette className="h-4 w-4" style={{ color: 'var(--rr-app-accent)' }} />
-              <span className="hidden text-[10px] font-mono font-bold lg:inline">Display</span>
+              <span className="hidden text-[10px] font-mono font-bold lg:inline">{t('header.display')}</span>
               <ChevronDown className={`h-3 w-3 shrink-0 transition-transform ${displayMenuOpen ? 'rotate-180' : ''}`} />
             </motion.button>
 
@@ -547,12 +549,12 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
                   className="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl dark:border-slate-700 dark:bg-slate-900"
                 >
                   <p className="px-2 pb-1.5 pt-1 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    Mode
+                    {t('display.mode')}
                   </p>
                   <div className="flex gap-1 px-1 pb-2">
                     {([
-                      { id: 'light' as const, label: 'Light', icon: Sun },
-                      { id: 'dark' as const, label: 'Dark', icon: Moon },
+                      { id: 'light' as const, label: t('display.light'), icon: Sun },
+                      { id: 'dark' as const, label: t('display.dark'), icon: Moon },
                     ]).map(({ id, label, icon: ModeIcon }) => {
                       const selected = theme === id;
                       return (
@@ -576,12 +578,12 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
                   </div>
 
                   <p className="border-t border-slate-100 px-2 pb-1.5 pt-2 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:border-slate-800 dark:text-slate-400">
-                    Density
+                    {t('display.density')}
                   </p>
                   <div className="flex gap-1 px-1 pb-2">
                     {([
-                      { id: 'comfortable' as const, label: 'Comfortable', icon: Rows3 },
-                      { id: 'compact' as const, label: 'Compact', icon: Rows4 },
+                      { id: 'comfortable' as const, label: t('display.comfortable'), icon: Rows3 },
+                      { id: 'compact' as const, label: t('display.compact'), icon: Rows4 },
                     ]).map(({ id, label, icon: DensityIcon }) => {
                       const selected = density === id;
                       return (
@@ -605,7 +607,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
                   </div>
 
                   <p className="border-t border-slate-100 px-2 pb-1.5 pt-2 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:border-slate-800 dark:text-slate-400">
-                    Background colour
+                    {t('display.background')}
                   </p>
                   {palettes.map((option) => {
                     const selected = palette === option.id;
@@ -636,7 +638,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
                     }}
                     className="mt-1 w-full rounded-xl border border-slate-200 px-2 py-2 text-[11px] font-black text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                   >
-                    More display settings
+                    {t('display.more')}
                   </button>
                 </motion.div>
               )}
@@ -1047,7 +1049,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
                 }`}
               >
                 <Sparkles className={`w-3.5 h-3.5 shrink-0 ${labsActive ? 'text-white' : 'text-indigo-500'}`} />
-                <span>Labs</span>
+                <span>{t('nav.labs')}</span>
                 <ChevronDown className={`h-3 w-3 shrink-0 transition-transform ${labsMenuOpen ? 'rotate-180' : ''}`} />
               </motion.button>
 
@@ -1109,7 +1111,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
               aria-label="Open Dalal Street search dialog"
             >
               <Search className="h-3.5 w-3.5 text-emerald-600 dark:text-mint" />
-              <span className="ml-1.5 hidden text-[11px] font-bold xl:inline">Search shares...</span>
+              <span className="ml-1.5 hidden text-[11px] font-bold xl:inline">{t('header.search')}</span>
               <kbd className="ml-2 hidden items-center rounded border border-slate-200/60 bg-slate-100 px-1.5 text-[9px] font-mono font-black text-slate-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-400 xl:inline-flex">
                 /
               </kbd>
