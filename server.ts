@@ -38,6 +38,17 @@ import {
   type Ledger,
 } from './src/server/ledger';
 import {
+  DEFAULT_CLASS_DAYS,
+  createRoom,
+  extendRoom,
+  generateClassCode,
+  memberHandle,
+  normaliseClassCode,
+  roomExpired,
+  sanitiseRooms,
+  type ClassRoom,
+} from './src/server/classRooms';
+import {
   SESSION_COOKIE,
   SESSION_TTL_MS,
   issueSession,
@@ -3384,12 +3395,37 @@ app.post("/api/auth/otp/cancel", (req, res) => {
  * willing to open developer tools. The board is for a class to see itself,
  * not for deciding a prize, and the UI says so.
  */
-const CLASS_CODE_PATTERN = /^[A-Z0-9-]{4,16}$/;
+const CLASSES_FILE = path.join(process.cwd(), "data", "classes.json");
 
-const normaliseClassCode = (value: unknown): string | null => {
-  const code = String(value || "").trim().toUpperCase();
-  return CLASS_CODE_PATTERN.test(code) ? code : null;
-};
+/**
+ * Boards created through /api/class/create, keyed by code.
+ *
+ * A code that predates this file has no entry and keeps working exactly as it
+ * did — anyone with it can join, and nobody can manage it. Inventing an owner
+ * for such a board would hand control to whichever learner happened to join
+ * first, so it stays unmanaged until a teacher creates a fresh code.
+ */
+function loadRooms(): Record<string, ClassRoom> {
+  try {
+    if (!fs.existsSync(CLASSES_FILE)) return {};
+    return sanitiseRooms(JSON.parse(fs.readFileSync(CLASSES_FILE, "utf-8")));
+  } catch (err) {
+    console.error("[classes] could not be read:", err);
+    return {};
+  }
+}
+
+function saveRooms(rooms: Record<string, ClassRoom>): void {
+  try {
+    fs.mkdirSync(path.dirname(CLASSES_FILE), { recursive: true });
+    fs.writeFileSync(CLASSES_FILE, JSON.stringify(rooms, null, 2));
+  } catch (err) {
+    console.error("[classes] could not be written:", err);
+  }
+}
+
+/** The board's record, or null for a code nobody created here. */
+const roomFor = (code: string): ClassRoom | null => loadRooms()[code] || null;
 
 /** First name plus a last initial: enough to find yourself, not a directory. */
 const boardDisplayName = (fullName: string): string => {
@@ -3422,9 +3458,95 @@ app.post("/api/class/join", (req, res) => {
   const user = users.find(u => u.id === signedIn.id);
   if (!user) return res.status(404).json({ success: false, message: "Account not found." });
 
+  // A board created here has a door. One that predates the registry does not,
+  // and keeps letting anyone in, because that is what it has always done.
+  const room = roomFor(code);
+  if (room) {
+    if (roomExpired(room)) {
+      return res.status(410).json({
+        success: false,
+        message: "That class board has finished. Ask your teacher for this year's code.",
+      });
+    }
+    if (room.removed.includes(memberHandle(room, user.id))) {
+      return res.status(403).json({
+        success: false,
+        message: "Your teacher removed you from that board. Ask them to let you back in.",
+      });
+    }
+  }
+
   user.classCode = code;
   saveUsers(users);
-  res.json({ success: true, classCode: code, message: `Joined ${code}.` });
+  res.json({ success: true, classCode: code, managed: Boolean(room), message: `Joined ${code}.` });
+});
+
+/**
+ * Creates a class board a teacher owns.
+ *
+ * Owning one is what makes the controls possible: removing somebody who
+ * should not be on it, and an end date so that next year's class does not
+ * inherit last year's board. A code already in use cannot be claimed — the
+ * learners on it did not agree to be managed by whoever asked first.
+ */
+app.post("/api/class/create", (req, res) => {
+  const caller = clientKey(req.ip);
+  if (rateLimited(res, `class:create:${caller}`, AUTH_LIMITS.otpRequest,
+    "Too many boards created from here. Try again later.")) return;
+
+  const owner = sessionUser(req);
+  if (!owner) return res.status(401).json({ success: false, message: "Sign in first." });
+
+  const rooms = loadRooms();
+  const requested = req.body?.classCode ? normaliseClassCode(req.body.classCode) : null;
+  if (req.body?.classCode && !requested) {
+    return res.status(400).json({
+      success: false,
+      message: "A class code is 4 to 16 letters, numbers or hyphens.",
+    });
+  }
+
+  const users = loadUsers();
+  const inUse = (code: string) =>
+    Boolean(rooms[code]) || users.some(u => u.classCode === code);
+
+  let code = requested;
+  if (code) {
+    if (inUse(code)) {
+      return res.status(409).json({
+        success: false,
+        message: `${code} is already in use. Choose another code.`,
+      });
+    }
+  } else {
+    // A generated code has to be one nobody is using, and the loop has to end
+    // even in the unlikely case that it keeps colliding.
+    for (let attempt = 0; attempt < 20 && !code; attempt += 1) {
+      const candidate = generateClassCode();
+      if (!inUse(candidate)) code = candidate;
+    }
+    if (!code) {
+      return res.status(503).json({ success: false, message: "Could not find a free code. Try again." });
+    }
+  }
+
+  const room = createRoom(code, owner.id, Number(req.body?.days) || DEFAULT_CLASS_DAYS);
+  rooms[code] = room;
+  saveRooms(rooms);
+
+  // The teacher joins their own board, so they appear on it like everyone else.
+  const account = users.find(u => u.id === owner.id);
+  if (account) {
+    account.classCode = code;
+    saveUsers(users);
+  }
+
+  res.json({
+    success: true,
+    classCode: code,
+    expiresAt: room.expiresAt,
+    message: `Class board ${code} is open. Share the code with your class.`,
+  });
 });
 
 app.post("/api/class/leave", (req, res) => {
@@ -3493,15 +3615,22 @@ app.get("/api/class/:code/board", (req, res) => {
   // of the two it is.
   const ledgers = loadLedgers();
   const quotes = quoteMap();
+  const room = roomFor(code);
+  const viewer = sessionUser(req);
+  const isOwner = Boolean(room && viewer && room.ownerId === viewer.id);
 
   const members = loadUsers()
     .filter(u => u.classCode === code)
-    // No email, no username, no id: a code is not a key to a directory.
+    // No email, no username, no id: a code is not a key to a directory. The
+    // handle is meaningless off this board and is what the owner removes by,
+    // so managing a board never needs an account id on the wire.
     .map(u => {
+      const handle = room ? memberHandle(room, u.id) : undefined;
       const ledger = ledgers[u.id];
       if (ledger) {
         return {
           name: boardDisplayName(u.fullName),
+          handle,
           portfolioValue: computePortfolioValue(ledger, quotes),
           trades: ledger.orders.length,
           updatedAt: ledger.updatedAt,
@@ -3510,6 +3639,7 @@ app.get("/api/class/:code/board", (req, res) => {
       }
       return {
         name: boardDisplayName(u.fullName),
+        handle,
         portfolioValue: u.reportedPortfolioValue ?? null,
         trades: u.reportedTrades ?? null,
         updatedAt: u.reportedAt ?? null,
@@ -3525,7 +3655,140 @@ app.get("/api/class/:code/board", (req, res) => {
     // True only when every row came from a ledger this server executed.
     verified: members.length > 0 && members.every(member => member.verified),
     note: "Rows marked unverified were reported by a learner's own browser rather than executed here.",
+    // A board nobody created here has no owner and no end date, and the UI
+    // says as much rather than implying a teacher is holding it.
+    managed: Boolean(room),
+    owner: isOwner,
+    expiresAt: room?.expiresAt ?? null,
+    expired: room ? roomExpired(room) : false,
   });
+});
+
+/** Everything only the teacher who created the board may do. */
+function ownedRoom(req: express.Request, res: express.Response): ClassRoom | null {
+  const code = normaliseClassCode(req.params.code);
+  if (!code) {
+    res.status(400).json({ success: false, message: "That is not a class code." });
+    return null;
+  }
+
+  const user = sessionUser(req);
+  if (!user) {
+    res.status(401).json({ success: false, message: "Sign in first." });
+    return null;
+  }
+
+  const room = loadRooms()[code];
+  if (!room) {
+    res.status(404).json({
+      success: false,
+      message: "That board was not created here, so it has no teacher controls.",
+    });
+    return null;
+  }
+  // Checked against the session, never against anything in the request: an
+  // ownerId in a body is whatever the caller typed.
+  if (room.ownerId !== user.id) {
+    res.status(403).json({ success: false, message: "Only the teacher who created this board can do that." });
+    return null;
+  }
+  return room;
+}
+
+/**
+ * Removes a member, by the handle the board published for them.
+ *
+ * They stay removed: rejoining with the code is refused until the teacher
+ * readmits them, or the board would only be as closed as the learner's
+ * patience.
+ */
+app.post("/api/class/:code/remove", (req, res) => {
+  const room = ownedRoom(req, res);
+  if (!room) return;
+
+  const handle = String(req.body?.handle || "").trim();
+  if (!/^[a-f0-9]{12}$/.test(handle)) {
+    return res.status(400).json({ success: false, message: "That is not a member of this board." });
+  }
+  if (handle === memberHandle(room, room.ownerId)) {
+    return res.status(400).json({ success: false, message: "You cannot remove yourself from your own board." });
+  }
+
+  const users = loadUsers();
+  const member = users.find(u => u.classCode === room.code && memberHandle(room, u.id) === handle);
+  if (!member) {
+    return res.status(404).json({ success: false, message: "That learner is not on this board." });
+  }
+
+  delete member.classCode;
+  delete member.reportedPortfolioValue;
+  delete member.reportedTrades;
+  delete member.reportedAt;
+  saveUsers(users);
+
+  const rooms = loadRooms();
+  const stored = rooms[room.code];
+  if (stored && !stored.removed.includes(handle)) {
+    stored.removed.push(handle);
+    saveRooms(rooms);
+  }
+
+  res.json({ success: true, message: "Removed from the board." });
+});
+
+/** Lets a removed learner back in. */
+app.post("/api/class/:code/readmit", (req, res) => {
+  const room = ownedRoom(req, res);
+  if (!room) return;
+
+  const handle = String(req.body?.handle || "").trim();
+  const rooms = loadRooms();
+  const stored = rooms[room.code];
+  if (!stored) return res.status(404).json({ success: false, message: "That board no longer exists." });
+
+  stored.removed = stored.removed.filter(entry => entry !== handle);
+  saveRooms(rooms);
+  res.json({ success: true, message: "They can join the board again with the code." });
+});
+
+/** Pushes the end date out, for a board that is still being used. */
+app.post("/api/class/:code/extend", (req, res) => {
+  const room = ownedRoom(req, res);
+  if (!room) return;
+
+  const rooms = loadRooms();
+  rooms[room.code] = extendRoom(room, Number(req.body?.days) || DEFAULT_CLASS_DAYS);
+  saveRooms(rooms);
+  res.json({ success: true, expiresAt: rooms[room.code].expiresAt, message: "The board stays open." });
+});
+
+/**
+ * Closes the board for good.
+ *
+ * Everyone on it is taken off, because a board nobody can join and nobody can
+ * manage would otherwise sit on thirty accounts forever.
+ */
+app.delete("/api/class/:code", (req, res) => {
+  const room = ownedRoom(req, res);
+  if (!room) return;
+
+  const users = loadUsers();
+  let touched = 0;
+  for (const user of users) {
+    if (user.classCode !== room.code) continue;
+    delete user.classCode;
+    delete user.reportedPortfolioValue;
+    delete user.reportedTrades;
+    delete user.reportedAt;
+    touched += 1;
+  }
+  if (touched > 0) saveUsers(users);
+
+  const rooms = loadRooms();
+  delete rooms[room.code];
+  saveRooms(rooms);
+
+  res.json({ success: true, message: `Class board ${room.code} is closed.`, removed: touched });
 });
 
 /**
