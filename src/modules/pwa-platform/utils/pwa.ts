@@ -36,7 +36,7 @@ export async function prepareOfflineAcademy() {
   try {
     await navigator.serviceWorker.register('/sw.js');
     const registration = await navigator.serviceWorker.ready;
-    await Promise.all([import('../components/InvestorAcademy'), import('../components/HomeDashboard')]);
+    await Promise.all([import('../../../components/InvestorAcademy'), import('../../../components/HomeDashboard')]);
     const urls = performance.getEntriesByType('resource').map(entry => entry.name).filter(value => {
       const url = new URL(value);
       return url.origin === location.origin && url.pathname.startsWith('/assets/');
