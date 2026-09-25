@@ -42,7 +42,7 @@ import {
 import { useSimulator } from '../context/SimulatorContext';
 import { StockDetail } from '../types';
 import { formatINR, formatPercent, formatIndianShort, formatNumberIndian } from '../utils/formatters';
-import { ThematicBasketsModal, ANGEL_THEMATIC_BASKETS, ThematicBasket } from './ThematicBasketsModal';
+import { ThematicBasketsModal, ANGEL_THEMATIC_BASKETS, ThematicBasket } from '../modules/portfolio/components/ThematicBasketsModal';
 import { QuickAlertModal } from './QuickAlertModal';
 import { SpotlightCard } from './ui/spotlight-card';
 import { AnimatedSearchBar } from './ui/animated-search-bar';

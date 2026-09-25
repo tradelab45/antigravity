@@ -40,12 +40,12 @@ import {
   Pie, 
   Cell 
 } from 'recharts';
-import { useSimulator } from '../context/SimulatorContext';
-import { INITIAL_LESSONS } from '../data/lessonsData';
-import { StockDetail, Holding, Order } from '../types';
-import { formatINR, formatPercent, formatIndianShort, formatNumberIndian } from '../utils/formatters';
+import { useSimulator } from '../../../context/SimulatorContext';
+import { INITIAL_LESSONS } from '../../../data/lessonsData';
+import { StockDetail, Holding, Order } from '../../../types';
+import { formatINR, formatPercent, formatIndianShort, formatNumberIndian } from '../../../utils/formatters';
 import { describePortfolioDay, formatSignedPercent } from '../utils/attribution';
-import { PortfolioEquityAreaChart } from './ui/area-charts-2';
+import { PortfolioEquityAreaChart } from '../../../components/ui/area-charts-2';
 import { PortfolioReportModal } from './PortfolioReportModal';
 
 interface PortfolioViewProps {

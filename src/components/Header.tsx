@@ -46,7 +46,7 @@ import { formatINR, formatPercent } from '../utils/formatters';
 import { isSoundEnabled, setSoundEnabled, playNseBellSound } from '../utils/soundEffects';
 import { NotificationCenter } from './NotificationCenter';
 import { AuthModal } from './AuthModal';
-import { RiskCenterModal } from './RiskCenterModal';
+import { RiskCenterModal } from '../modules/portfolio/components/RiskCenterModal';
 import { AnimatedSearchBar } from './ui/animated-search-bar';
 import { StockDetail } from '../types';
 

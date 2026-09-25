@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { AlertTriangle, BarChart3, GitCompareArrows, ShieldCheck } from 'lucide-react';
-import { useSimulator } from '../context/SimulatorContext';
-import { formatINR } from '../utils/formatters';
+import { useSimulator } from '../../../context/SimulatorContext';
+import { formatINR } from '../../../utils/formatters';
 
 const MODELS = {
   CONSERVATIVE: { Cash: 30, FMCG: 20, Banking: 15, Pharma: 15, IT: 10, Energy: 5, Auto: 5 },

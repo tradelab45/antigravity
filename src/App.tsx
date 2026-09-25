@@ -27,7 +27,7 @@ const LandingPage = lazy(() => {
     ? import('./components/LandingPage').then((module) => ({ default: module.LandingPage }))
     : import('./components/LandingPage3D').then((module) => ({ default: module.LandingPage3D }));
 });
-const PortfolioHub = lazy(() => import('./components/PortfolioHub').then((module) => ({ default: module.PortfolioHub })));
+const PortfolioHub = lazy(() => import('./modules/portfolio/components/PortfolioHub').then((module) => ({ default: module.PortfolioHub })));
 const MarketScreener = lazy(() => import('./components/MarketScreener').then((module) => ({ default: module.MarketScreener })));
 const InvestorAcademy = lazy(() => import('./components/InvestorAcademy').then((module) => ({ default: module.InvestorAcademy })));
 const ChanakyaMentor = lazy(() => import('./components/ChanakyaMentor').then((module) => ({ default: module.ChanakyaMentor })));

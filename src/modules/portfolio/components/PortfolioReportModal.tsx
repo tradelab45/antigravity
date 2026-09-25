@@ -19,8 +19,8 @@ import {
   CheckCircle2,
   FileSpreadsheet
 } from 'lucide-react';
-import { formatINR, formatPercent, formatIndianShort, formatNumberIndian } from '../utils/formatters';
-import { Holding, Order, StockDetail } from '../types';
+import { formatINR, formatPercent, formatIndianShort, formatNumberIndian } from '../../../utils/formatters';
+import { Holding, Order, StockDetail } from '../../../types';
 
 interface PortfolioReportModalProps {
   isOpen: boolean;

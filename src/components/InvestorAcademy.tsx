@@ -29,7 +29,7 @@ import { useSimulator } from '../context/SimulatorContext';
 import { Lesson, LessonQuizOption } from '../types';
 import { formatINR } from '../utils/formatters';
 import { HistoricalEventsLab } from './HistoricalEventsLab';
-import { PortfolioConstructionLab } from './PortfolioConstructionLab';
+import { PortfolioConstructionLab } from '../modules/portfolio/components/PortfolioConstructionLab';
 import { TaxCentre } from './TaxCentre';
 import { startPracticeTask } from './PracticeTaskBanner';
 import { getPracticeAction } from '../data/practiceActions';

@@ -1,4 +1,4 @@
-import { formatINR } from './formatters';
+import { formatINR } from '../../../utils/formatters';
 
 /** A single holding's contribution to the day's move. */
 export interface DayContribution {
