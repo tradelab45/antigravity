@@ -35,6 +35,7 @@ import { startPracticeTask } from './PracticeTaskBanner';
 import { getPracticeAction } from '../data/practiceActions';
 import { StageExam } from './StageExam';
 import { getStageExam, EXAM_LENGTH, EXAM_PASS_MARK, EXAM_ATTEMPT_HISTORY, EXAM_SEEN_MEMORY, type ExamAttempt } from '../data/stageExams';
+import { SectionSkipLinks } from './ui/section-skip-links';
 import type { AppTabType } from './Header';
 import { useAccessibility } from '../context/AccessibilityContext';
 
@@ -686,9 +687,22 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
       {/* VIEW 1: LESSONS & QUIZZES */}
       {activeSubTab === 'LESSONS' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          
+
+          {/*
+            The module list comes before the lesson in the source, so reaching
+            the lesson by keyboard meant tabbing past every module in the
+            stage, every time. These jump straight to either one.
+          */}
+          <SectionSkipLinks
+            label="Skip within the Academy"
+            targets={[
+              { id: 'academy-lesson', label: 'Skip to the lesson' },
+              { id: 'academy-modules', label: 'Skip to the module list' },
+            ]}
+          />
+
           {/* Left 4 Cols: Stage Modules & Search */}
-          <div className="lg:col-span-4 space-y-3">
+          <div id="academy-modules" tabIndex={-1} className="lg:col-span-4 space-y-3">
             <div className="rounded-2xl border border-indigo-200 bg-indigo-50 px-3 py-2.5 dark:border-indigo-900 dark:bg-indigo-950/40">
               <p className="text-[10px] font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-300">
                 {lessonQuery.trim() ? 'Searching all modules' : `Stage ${LEARNING_PATH.findIndex((stage) => stage.id === activeStageId) + 1} · ${activeStage.name}`}
@@ -795,7 +809,7 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
           </div>
 
           {/* Right 8 Cols: Active Lesson Reader & Interactive Quiz */}
-          <div className="lg:col-span-8 bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+          <div id="academy-lesson" tabIndex={-1} className="lg:col-span-8 bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
             
             {/* Lesson Title Header */}
             <div className="border-b border-slate-200 pb-4">
@@ -1061,8 +1075,16 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <SectionSkipLinks
+              label="Skip within the case studies"
+              targets={[
+                { id: 'academy-case', label: 'Skip to the case study' },
+                { id: 'academy-case-list', label: 'Skip to the case study list' },
+              ]}
+            />
+
             {/* Left 4 Cols: Case Study Selector */}
-            <div className="lg:col-span-4 space-y-3">
+            <div id="academy-case-list" tabIndex={-1} className="lg:col-span-4 space-y-3">
               <div className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-5 shadow-xs space-y-3">
                 <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                   <div className="flex items-center gap-2">
@@ -1125,7 +1147,7 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
             </div>
 
             {/* Right 8 Cols: Detailed Case Study & Comparison Matrix */}
-            <div className="lg:col-span-8">
+            <div id="academy-case" tabIndex={-1} className="lg:col-span-8">
               {(() => {
                 const currentCase = CASE_STUDIES_DATA.find((c) => c.id === activeCaseStudyId) || CASE_STUDIES_DATA[0];
 
