@@ -11,8 +11,8 @@ import {
   Building2,
   Globe2
 } from 'lucide-react';
-import { useSimulator } from '../context/SimulatorContext';
-import { formatPercent } from '../utils/formatters';
+import { useSimulator } from '../../../context/SimulatorContext';
+import { formatPercent } from '../../../utils/formatters';
 
 type CohortType = 'TEEN' | 'COLLEGE' | 'OPEN';
 type TimeframeType = 'DAILY' | 'WEEKLY' | 'ALL_TIME';

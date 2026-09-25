@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowRight, CheckCircle2, History, RotateCcw, ShieldAlert } from 'lucide-react';
 import { HISTORICAL_EVENTS } from '../data/historicalEventsData';
-import { useAccessibility } from '../context/AccessibilityContext';
+import { useAccessibility } from '../../../context/AccessibilityContext';
 
 export function HistoricalEventsLab() {
   const [eventId, setEventId] = useState(HISTORICAL_EVENTS[0].id);

@@ -25,18 +25,18 @@ import {
 } from 'lucide-react';
 import { INITIAL_LESSONS } from '../data/lessonsData';
 import { CASE_STUDIES_DATA, CaseStudy } from '../data/caseStudiesData';
-import { useSimulator } from '../context/SimulatorContext';
-import { Lesson, LessonQuizOption } from '../types';
-import { formatINR } from '../utils/formatters';
+import { useSimulator } from '../../../context/SimulatorContext';
+import { Lesson, LessonQuizOption } from '../../../types';
+import { formatINR } from '../../../utils/formatters';
 import { HistoricalEventsLab } from './HistoricalEventsLab';
-import { PortfolioConstructionLab } from './PortfolioConstructionLab';
-import { TaxCentre } from './TaxCentre';
+import { PortfolioConstructionLab } from '../../../components/PortfolioConstructionLab';
+import { TaxCentre } from '../../../components/TaxCentre';
 import { startPracticeTask } from './PracticeTaskBanner';
 import { getPracticeAction } from '../data/practiceActions';
 import { StageExam } from './StageExam';
 import { getStageExam, EXAM_LENGTH, EXAM_PASS_MARK } from '../data/stageExams';
-import type { AppTabType } from './Header';
-import { useAccessibility } from '../context/AccessibilityContext';
+import type { AppTabType } from '../../../components/Header';
+import { useAccessibility } from '../../../context/AccessibilityContext';
 
 import { localizeLesson } from '../data/hindiLessons';
 import { readResume } from '../utils/academyProgress';

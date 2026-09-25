@@ -8,7 +8,7 @@ import yfPackage from "yahoo-finance2";
 import { UpstoxService } from './src/server/upstoxService';
 import { catalogPage, listedStockDetail } from './src/server/stockCatalog';
 import { createAuthLimiter } from './src/server/authRateLimit';
-import { createAcademyService } from './src/server/academyService';
+import { createAcademyRoutes } from './src/server/routes/academy';
 import { TOP_100_INDIAN_COMPANIES } from "./src/data/indianCompanies";
 import { 
   fetchGoogleFinanceQuote, 
@@ -40,10 +40,12 @@ app.get("/livez", (req, res) => {
 app.use(express.json());
 const proxyHops = Number(process.env.TRUST_PROXY_HOPS || 0);
 if (Number.isInteger(proxyHops) && proxyHops > 0 && proxyHops <= 5) app.set('trust proxy', proxyHops);
-const academyService = createAcademyService(path.join(process.cwd(), 'data', 'academy.json'));
-app.use('/api/academy', academyService.router);
+// Academy routes live in src/server/routes/academy.ts. logout is mounted below
+// rather than inside that router so it stays behind the no-store middleware.
+const academy = createAcademyRoutes(path.join(process.cwd(), 'data', 'academy.json'));
+app.use(academy.router);
 app.use('/api/auth', (_req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
-app.post('/api/auth/logout', academyService.logout);
+app.post('/api/auth/logout', academy.logout);
 
 // Lazy-safe Yahoo Finance client
 let yahooFinanceInstance: any = null;
@@ -3040,7 +3042,7 @@ app.post("/api/auth/signup", createAuthLimiter(5, 60 * 60 * 1000), async (req, r
       }
     }
 
-    academyService.issueSession(req, res, newUser.id);
+    academy.issueSession(req, res, newUser.id);
     res.json({ success: true, user: toSafeUser(newUser), message: "Account created successfully!" });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message || "Failed to register user" });
@@ -3074,7 +3076,7 @@ app.post("/api/auth/login", createAuthLimiter(10), (req, res) => {
     user.lastLoginAt = new Date().toISOString();
     saveUsers(users);
 
-    academyService.issueSession(req, res, user.id);
+    academy.issueSession(req, res, user.id);
     res.json({ success: true, user: toSafeUser(user), message: `Welcome back, ${user.fullName}!` });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message || "Login failed" });
@@ -3183,7 +3185,7 @@ app.post("/api/auth/google", createAuthLimiter(20), async (req, res) => {
     }
     saveUsers(users);
 
-    academyService.issueSession(req, res, user.id);
+    academy.issueSession(req, res, user.id);
     res.json({
       success: true,
       isNew,

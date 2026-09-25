@@ -1,5 +1,5 @@
-import { Lesson, Badge } from '../types';
-import { TAXATION_LESSONS } from './taxationLessons';
+import { Lesson, Badge } from '../../../types';
+import { TAXATION_LESSONS } from '../../../data/taxationLessons';
 
 const CORE_LESSONS: Lesson[] = [
   {

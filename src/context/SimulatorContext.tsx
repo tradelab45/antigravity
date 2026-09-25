@@ -24,7 +24,7 @@ import {
   OptionPosition,
   BroadcastAnnouncement
 } from '../types';
-import { INITIAL_BADGES } from '../data/lessonsData';
+import { INITIAL_BADGES } from '../modules/academy/data/lessonsData';
 import { TOP_100_INDIAN_COMPANIES } from '../data/indianCompanies';
 import { getNSEMarketTimeInfo, NSEMarketInfo } from '../utils/marketHours';
 import { enrichStockWithTechnicalsAndDuPont } from '../utils/technicalCalculator';

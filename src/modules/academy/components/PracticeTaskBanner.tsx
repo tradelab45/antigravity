@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GraduationCap, X } from 'lucide-react';
-import type { AppTabType } from './Header';
+import type { AppTabType } from '../../../components/Header';
 import type { PracticeAction } from '../data/practiceActions';
 
 const STORAGE_KEY = 'rr_practice_task';

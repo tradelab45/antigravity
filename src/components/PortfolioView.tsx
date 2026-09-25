@@ -41,7 +41,7 @@ import {
   Cell 
 } from 'recharts';
 import { useSimulator } from '../context/SimulatorContext';
-import { INITIAL_LESSONS } from '../data/lessonsData';
+import { INITIAL_LESSONS } from '../modules/academy/data/lessonsData';
 import { StockDetail, Holding, Order } from '../types';
 import { formatINR, formatPercent, formatIndianShort, formatNumberIndian } from '../utils/formatters';
 import { describePortfolioDay, formatSignedPercent } from '../utils/attribution';

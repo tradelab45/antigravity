@@ -21,11 +21,11 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { useSimulator } from '../context/SimulatorContext';
-import { INITIAL_LESSONS } from '../data/lessonsData';
+import { INITIAL_LESSONS } from '../modules/academy/data/lessonsData';
 import { formatINR, formatPercent } from '../utils/formatters';
 import type { AppTabType } from './Header';
 import { useAccessibility } from '../context/AccessibilityContext';
-import { ResumeLearning } from './ResumeLearning';
+import { ResumeLearning } from '../modules/academy/components/ResumeLearning';
 import { PwaInstall } from './PwaInstall';
 import { SpatialCandlestickChart } from './ui/spatial-candlestick-chart';
 import { SpotlightCard } from './ui/spotlight-card';

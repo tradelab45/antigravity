@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { STAGE_EXAMS, EXAM_LENGTH, EXAM_PASS_MARK, getStageExam, buildExamAttempt } from '../src/data/stageExams';
+import { STAGE_EXAMS, EXAM_LENGTH, EXAM_PASS_MARK, getStageExam, buildExamAttempt } from '../src/modules/academy/data/stageExams';
 
 test('every stage has an exam of exactly the advertised length', () => {
   assert.equal(STAGE_EXAMS.length, 6);
