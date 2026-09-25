@@ -93,6 +93,7 @@ interface SimulatorContextType {
   currentUser: UserAccount | null;
   loginUser: (identifier: string, password: string) => Promise<{ success: boolean; message: string; user?: UserAccount }>;
   registerUser: (data: AuthFormData) => Promise<{ success: boolean; message: string; user?: UserAccount }>;
+  startDemoSession: () => { success: boolean; message: string; user: UserAccount };
   loginWithGoogle: (credential: string) => Promise<{ success: boolean; message: string; user?: UserAccount; isNew?: boolean }>;
   logoutUser: () => void;
   alerts: Alert[];
@@ -344,6 +345,43 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
   }, [currentUser]);
 
+  /**
+   * Opens the local practice profile behind the "1-Click Demo Pass".
+   *
+   * This deliberately takes no password and never calls the server. The
+   * seeded demo account's password is random per server process unless
+   * DEMO_ACCOUNT_PASSWORD is set (see .env.example), precisely so that a
+   * publicly advertised account cannot be signed into — but the landing page
+   * still offers a demo pass, and the button used to post a hard-coded
+   * password, which the server correctly rejected with a 401.
+   *
+   * So the demo pass is what it claims to be: a local sandbox profile with
+   * virtual money. It mints no server session and carries no privileges.
+   */
+  const startDemoSession = (): { success: boolean; message: string; user: UserAccount } => {
+    const demoAccountUser: UserAccount = {
+      id: 'usr_rookie_demo',
+      fullName: 'Aarav Jain',
+      email: 'xyz@gmail.com',
+      username: 'rookie_trader',
+      phone: '+91 98765 43210',
+      ageGroup: '16-18 (High School Teen)',
+      experienceLevel: 'BEGINNER',
+      initialCapital: INITIAL_CASH,
+      registeredAt: '2026-03-01T09:15:00.000Z',
+      lastLoginAt: new Date().toISOString(),
+      portfolioValue: 1022789,
+      totalTrades: 14,
+      isAdmin: false,
+      role: 'USER',
+    };
+    localStorage.setItem('rr_current_user', JSON.stringify(demoAccountUser));
+    localStorage.setItem(getLastActivityKey(demoAccountUser.id), Date.now().toString());
+    localStorage.setItem('rr_auth_entry', JSON.stringify({ kind: 'returning', userId: demoAccountUser.id, at: Date.now() }));
+    setCurrentUser(demoAccountUser);
+    return { success: true, message: 'Opened the demo practice profile.', user: demoAccountUser };
+  };
+
   const loginUser = async (identifier: string, password: string): Promise<{ success: boolean; message: string; user?: UserAccount }> => {
     try {
       const res = await fetch('/api/auth/login', {
@@ -391,27 +429,7 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       cleanId === 'rookie_trader';
 
     if (isDemoAccount && password.length > 0) {
-      const demoAccountUser: UserAccount = {
-        id: 'usr_rookie_demo',
-        fullName: 'Aarav Jain',
-        email: 'xyz@gmail.com',
-        username: 'rookie_trader',
-        phone: '+91 98765 43210',
-        ageGroup: '16-18 (High School Teen)',
-        experienceLevel: 'BEGINNER',
-        initialCapital: INITIAL_CASH,
-        registeredAt: '2026-03-01T09:15:00.000Z',
-        lastLoginAt: new Date().toISOString(),
-        portfolioValue: 1022789,
-        totalTrades: 14,
-        isAdmin: false,
-        role: 'USER',
-      };
-      localStorage.setItem('rr_current_user', JSON.stringify(demoAccountUser));
-      localStorage.setItem(getLastActivityKey(demoAccountUser.id), Date.now().toString());
-      localStorage.setItem('rr_auth_entry', JSON.stringify({ kind: 'returning', userId: demoAccountUser.id, at: Date.now() }));
-      setCurrentUser(demoAccountUser);
-      return { success: true, message: 'Signed in to the offline demo account.', user: demoAccountUser };
+      return startDemoSession();
     }
 
     // Check local registry
@@ -2086,6 +2104,7 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         currentUser,
         loginUser,
         registerUser,
+        startDemoSession,
         loginWithGoogle,
         logoutUser,
         stocks,

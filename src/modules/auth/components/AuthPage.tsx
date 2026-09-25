@@ -131,7 +131,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
   initialMode = 'LOGIN',
   onBackToLanding,
 }) => {
-  const { loginUser, registerUser, loginWithGoogle, nseMarketInfo, marketIndices, stocks } = useSimulator();
+  const { loginUser, registerUser, loginWithGoogle, startDemoSession, nseMarketInfo, marketIndices, stocks } = useSimulator();
 
   // Dynamically resolve live or context prices for sample stocks if available
   const sampleStocks: SampleStock[] = useMemo(() => {
@@ -211,17 +211,15 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
   const [agreedTerms, setAgreedTerms] = useState(false);
 
   // Quick Demo Login helper
-  const handleQuickDemoLogin = async () => {
+  const handleQuickDemoLogin = () => {
     setErrorMsg('');
     setLoading(true);
-    const res = await loginUser('xyz@gmail.com', 'demo');
-    if (res.success && res.user) {
-      window.dispatchEvent(new CustomEvent('rr_auth_success', { detail: { kind: 'returning' } }));
-      setLaunchState({ user: res.user, kind: 'returning' });
-    } else {
-      setLoading(false);
-      setErrorMsg(res.message || 'Demo login failed');
-    }
+    // Opens the local practice profile directly. Posting a hard-coded password
+    // here failed with a 401: the seeded demo account's password is random per
+    // server process unless DEMO_ACCOUNT_PASSWORD is set, by design.
+    const res = startDemoSession();
+    window.dispatchEvent(new CustomEvent('rr_auth_success', { detail: { kind: 'returning' } }));
+    setLaunchState({ user: res.user, kind: 'returning' });
   };
 
   const handleGoogleCredential = async (credential: string) => {
