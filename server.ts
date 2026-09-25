@@ -3522,6 +3522,59 @@ app.post("/api/auth/logout-everywhere", (req, res) => {
   res.json({ success: true, message: "Signed out on every device." });
 });
 
+/**
+ * Deletes the signed-in account.
+ *
+ * The privacy centre explained what was held and offered no way to remove it.
+ * The account itself lives on the server, so only the server can delete it.
+ *
+ * Re-authentication is required, not just a live session: a borrowed, unlocked
+ * browser should not be able to destroy the account. An account with a
+ * password must supply it; one that only ever signed in through Google types
+ * the confirmation phrase instead, since there is no password to check.
+ */
+app.delete("/api/account", (req, res) => {
+  const caller = clientKey(req.ip);
+  if (rateLimited(res, `account:delete:${caller}`, AUTH_LIMITS.loginAccount,
+    "Too many attempts. Try again later.")) return;
+
+  const claims = readSession(readCookie(req, SESSION_COOKIE));
+  if (!claims) return res.status(401).json({ success: false, message: "Sign in first." });
+
+  const users = loadUsers();
+  const index = users.findIndex(u => u.id === claims.userId);
+  if (index < 0) {
+    res.clearCookie(SESSION_COOKIE, { path: "/" });
+    return res.status(404).json({ success: false, message: "That account no longer exists." });
+  }
+
+  const user = users[index];
+  const { password, confirmation } = req.body || {};
+
+  if (user.passwordHash || user.password) {
+    if (!password || !verifyPassword(String(password), user)) {
+      return res.status(401).json({ success: false, message: "That password is not right." });
+    }
+  } else if (String(confirmation || "").trim().toUpperCase() !== "DELETE") {
+    return res.status(400).json({
+      success: false,
+      message: 'Type DELETE to confirm.',
+    });
+  }
+
+  users.splice(index, 1);
+  saveUsers(users);
+
+  // Every device, not just this one: the account is gone.
+  revokeAllSessionsForUser(user.id);
+  res.clearCookie(SESSION_COOKIE, { path: "/" });
+
+  res.json({
+    success: true,
+    message: "Your account and everything the server held for it has been deleted.",
+  });
+});
+
 /** Lets the sign-in screen say up front that a code will be needed. */
 app.get("/api/auth/otp/status", (_req, res) => {
   res.json({ required: otpRequired(), delivery: deliveryMode() });
