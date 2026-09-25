@@ -42,9 +42,34 @@ export interface AiCopilotRouterDeps {
   sessionUserId?: (req: express.Request) => string | null;
 }
 
+type AsyncHandler = (req: express.Request, res: express.Response) => Promise<unknown>;
+
+/**
+ * Express 4 does not catch errors thrown from async route handlers. An escaped
+ * rejection goes unhandled, and Node's default response to that is to end the
+ * process, so the server went down with it. The rule-based fallbacks here read
+ * fields straight from the request body, so one unauthenticated request with a
+ * partial stock ({ stock: { name, symbol } }) or with { holdings: null } killed
+ * the whole server whenever Gemini was unavailable: unconfigured, erroring or
+ * out of quota. Every async handler goes through this wrapper, so a failure
+ * becomes a logged 500 for that one request and the process stays up.
+ */
+const asyncRoute = (handler: AsyncHandler): express.RequestHandler => (req, res, next) => {
+  handler(req, res).catch((err) => {
+    console.error(`[ai-copilot] ${req.method} ${req.path} failed:`, err);
+    if (res.headersSent) return next(err);
+    res.status(500).json({ error: "Chanakya could not answer that request." });
+  });
+};
+
 export function createAiCopilotRouter(deps: AiCopilotRouterDeps = {}): express.Router {
 
   const router = express.Router();
+  /** Registers async handlers through asyncRoute, so none can crash the process. */
+  const safe = {
+    get: (path: string, handler: AsyncHandler) => router.get(path, asyncRoute(handler)),
+    post: (path: string, handler: AsyncHandler) => router.post(path, asyncRoute(handler)),
+  };
 
   /**
    * Every POST to /api/gemini spends the server's GEMINI_API_KEY, with Google
@@ -305,7 +330,7 @@ export function createAiCopilotRouter(deps: AiCopilotRouterDeps = {}): express.R
     });
   });
 
-  router.post("/api/gemini/chat", async (req, res) => {
+  safe.post("/api/gemini/chat", async (req, res) => {
     const { message, context, portfolioContext, history = [] } = req.body;
 
     if (typeof message !== "string" || !message.trim()) {
@@ -443,7 +468,7 @@ export function createAiCopilotRouter(deps: AiCopilotRouterDeps = {}): express.R
   });
 
   // Dedicated Portfolio Health Audit with Gemini 3.8 Flash
-  router.post("/api/gemini/portfolio-audit", async (req, res) => {
+  safe.post("/api/gemini/portfolio-audit", async (req, res) => {
     const { holdings = [], cashBalance = 1000000, portfolioValue = 1000000 } = req.body;
     if (JSON.stringify(req.body).length > MAX_CONTEXT_CHARS) {
       return res.status(400).json({ error: "Portfolio is too large to audit in one request." });
@@ -503,7 +528,7 @@ export function createAiCopilotRouter(deps: AiCopilotRouterDeps = {}): express.R
   });
 
   // 5. Stock Deep AI Analysis for teens
-  router.post("/api/gemini/analyze-stock", async (req, res) => {
+  safe.post("/api/gemini/analyze-stock", async (req, res) => {
     const { stock } = req.body;
     if (!stock || typeof stock !== "object") {
       return res.status(400).json({ error: "Stock data is required" });
@@ -533,7 +558,7 @@ export function createAiCopilotRouter(deps: AiCopilotRouterDeps = {}): express.R
   });
 
   // 3. AI-generated Market Pulse (with 10-minute cache)
-  router.get("/api/market-pulse", async (req, res) => {
+  safe.get("/api/market-pulse", async (req, res) => {
     const now = Date.now();
     if (cachedMarketPulse && (now - cachedMarketPulse.timestamp < CACHE_TTL_MS)) {
       return res.json({ success: true, pulse: cachedMarketPulse.text, cached: true });
@@ -564,7 +589,7 @@ export function createAiCopilotRouter(deps: AiCopilotRouterDeps = {}): express.R
   });
 
   // 6. Real-time Market News (with 10-minute cache)
-  router.get("/api/market-news", async (req, res) => {
+  safe.get("/api/market-news", async (req, res) => {
     const now = Date.now();
     if (cachedMarketNews && (now - cachedMarketNews.timestamp < CACHE_TTL_MS)) {
       return res.json({ success: true, news: cachedMarketNews.news, cached: true });
