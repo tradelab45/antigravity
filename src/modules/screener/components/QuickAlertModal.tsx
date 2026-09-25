@@ -9,7 +9,9 @@ type SmartKind = NonNullable<Alert['kind']>;
 const OPTIONS: Array<{ kind: SmartKind; label: string; reason: string; lesson: string }> = [
   { kind: 'PRICE', label: 'Price reaches ₹X', reason: 'A planned price level can prompt a review without encouraging constant checking.', lesson: 'Orders, stops and position sizing' },
   { kind: 'EARNINGS', label: 'Earnings date approaching', reason: 'Results can change expectations and increase short-term volatility.', lesson: 'Reading quarterly results' },
-  { kind: 'WEEK_52', label: '52-week high or low', reason: 'A yearly extreme is context—not an automatic buy or sell signal.', lesson: 'Momentum versus valuation' },
+  { kind: 'WEEK_52', label: '52-week high breakout / low', reason: 'A yearly extreme is context—not an automatic buy or sell signal.', lesson: 'Momentum versus valuation' },
+  { kind: 'EMA_200', label: 'Breaks 200-day EMA moving average', reason: 'The 200 EMA is the institutional benchmark separating bull from bear market regime.', lesson: 'Technical indicators & moving averages' },
+  { kind: 'SUPPORT_BREAK', label: 'Drops below critical support', reason: 'A support breakdown signals institutional supply and potential acceleration downward.', lesson: 'Support, resistance & risk management' },
   { kind: 'MOVE_PERCENT', label: 'Price moves more than 5%', reason: 'A large move is a cue to check news and your thesis before reacting.', lesson: 'Volatility and emotional decisions' },
   { kind: 'PE_CHANGE', label: 'P/E changes materially', reason: 'Valuation can change because of price, earnings, or both.', lesson: 'P/E ratio in plain language' },
   { kind: 'SECTOR_CONCENTRATION', label: 'Sector allocation exceeds limit', reason: 'Too much exposure to one sector can make the whole portfolio depend on one story.', lesson: 'Diversification and concentration' },
