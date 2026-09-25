@@ -71,6 +71,23 @@ const DEMO_USER = {
  * otherwise cover the page and hide most of what needs measuring.
  */
 export async function seedSession(page: Page, theme: Theme, palette: Palette = 'classic'): Promise<void> {
+  // The app asks the server who is signed in and drops its cached copy if the
+  // answer is no, so seeding localStorage alone now lands on the signed-out
+  // landing page — which would quietly leave these checks measuring the wrong
+  // thing. The stub stands in for the session the server would have issued.
+  await page.route('**/api/auth/session', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        authenticated: true,
+        user: { ...DEMO_USER, registeredAt: new Date().toISOString(), lastLoginAt: new Date().toISOString() },
+        session: { expiresAt: Date.now() + 86_400_000, verified: true, durable: true, ttlMs: 86_400_000 },
+      }),
+    }),
+  );
+
   // tsx transpiles with esbuild, which wraps named functions in a `__name`
   // helper. That helper does not travel with a function serialised into
   // page.evaluate, so it is defined in the page first. Passed as raw content

@@ -29,6 +29,16 @@ import {
   type ChallengePurpose,
 } from './src/server/otp';
 import { deliverCode, deliveryMode, otpRequired } from './src/server/otpDelivery';
+import {
+  SESSION_COOKIE,
+  SESSION_TTL_MS,
+  issueSession,
+  readSession,
+  revokeAllSessionsForUser,
+  revokeSession,
+  sessionCookieOptions,
+  sessionSecretIsPersistent,
+} from './src/server/sessions';
 
 dotenv.config();
 
@@ -2959,6 +2969,57 @@ function saveTrades(trades: StoredTrade[]): void {
 
 // User Signup
 /**
+ * Reads one cookie off the request.
+ *
+ * Written out rather than pulling in cookie-parser: the app needs exactly one
+ * cookie, and a dependency for that is not worth the supply chain.
+ */
+function readCookie(req: express.Request, name: string): string | null {
+  const header = req.headers.cookie;
+  if (!header) return null;
+  for (const part of header.split(';')) {
+    const index = part.indexOf('=');
+    if (index < 0) continue;
+    if (part.slice(0, index).trim() !== name) continue;
+    try {
+      return decodeURIComponent(part.slice(index + 1).trim());
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/** Signs the browser in: sets the session cookie and answers with the account. */
+function grantSession(
+  res: express.Response,
+  user: StoredUser,
+  extra: Record<string, unknown> = {},
+) {
+  const { token, expiresAt } = issueSession(user.id);
+  res.cookie(SESSION_COOKIE, token, sessionCookieOptions(expiresAt));
+  res.json({
+    success: true,
+    user: toSafeUser(user),
+    session: { expiresAt, verified: true },
+    ...extra,
+  });
+}
+
+/**
+ * The account behind the request's session cookie, or null.
+ *
+ * Routes that act on an account use this rather than a userId from the body:
+ * a body is whatever the caller typed, a session is something this server
+ * issued and can refuse.
+ */
+function sessionUser(req: express.Request): StoredUser | null {
+  const claims = readSession(readCookie(req, SESSION_COOKIE));
+  if (!claims) return null;
+  return loadUsers().find(u => u.id === claims.userId) || null;
+}
+
+/**
  * Starts the verification step for a sign-in whose first factor has already
  * passed, and answers the request.
  *
@@ -3139,7 +3200,7 @@ app.post("/api/auth/signup", async (req, res) => {
       }
     }
 
-    res.json({ success: true, user: toSafeUser(newUser), message: "Account created successfully!" });
+    grantSession(res, newUser, { message: "Account created successfully!" });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message || "Failed to register user" });
   }
@@ -3189,7 +3250,7 @@ app.post("/api/auth/login", async (req, res) => {
       return;
     }
 
-    res.json({ success: true, user: toSafeUser(user), message: `Welcome back, ${user.fullName}!` });
+    grantSession(res, user, { message: `Welcome back, ${user.fullName}!` });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message || "Login failed" });
   }
@@ -3235,11 +3296,7 @@ app.post("/api/auth/otp/verify", (req, res) => {
     user.lastLoginAt = new Date().toISOString();
     saveUsers(users);
 
-    res.json({
-      success: true,
-      user: toSafeUser(user),
-      message: `Welcome back, ${user.fullName}!`,
-    });
+    grantSession(res, user, { message: `Welcome back, ${user.fullName}!` });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message || "Verification failed" });
   }
@@ -3413,6 +3470,58 @@ app.get("/api/class/:code/board", (req, res) => {
   });
 });
 
+/**
+ * Who the server thinks is signed in.
+ *
+ * The client renders from a cached copy for speed, then asks this. If the
+ * answer is no, the cached copy is dropped — the browser's opinion of who it
+ * is stops being the last word.
+ */
+app.get("/api/auth/session", (req, res) => {
+  const claims = readSession(readCookie(req, SESSION_COOKIE));
+  if (!claims) {
+    return res.status(401).json({ success: false, authenticated: false });
+  }
+
+  const user = loadUsers().find(u => u.id === claims.userId);
+  if (!user) {
+    // The account went away under a live session.
+    res.clearCookie(SESSION_COOKIE, { path: "/" });
+    return res.status(401).json({ success: false, authenticated: false });
+  }
+
+  res.json({
+    success: true,
+    authenticated: true,
+    user: toSafeUser(user),
+    session: {
+      expiresAt: claims.expiresAt,
+      verified: true,
+      // False when SESSION_SECRET is unset: the secret is then random per
+      // boot, so a restart signs everyone out. Worth surfacing to an operator.
+      durable: sessionSecretIsPersistent(),
+      ttlMs: SESSION_TTL_MS,
+    },
+  });
+});
+
+/** Ends this session on the server, not only in the browser. */
+app.post("/api/auth/logout", (req, res) => {
+  revokeSession(readCookie(req, SESSION_COOKIE));
+  res.clearCookie(SESSION_COOKIE, { path: "/" });
+  res.json({ success: true });
+});
+
+/** Ends every session for the signed-in account, on every device. */
+app.post("/api/auth/logout-everywhere", (req, res) => {
+  const user = sessionUser(req);
+  if (!user) return res.status(401).json({ success: false, message: "Not signed in." });
+
+  revokeAllSessionsForUser(user.id);
+  res.clearCookie(SESSION_COOKIE, { path: "/" });
+  res.json({ success: true, message: "Signed out on every device." });
+});
+
 /** Lets the sign-in screen say up front that a code will be needed. */
 app.get("/api/auth/otp/status", (_req, res) => {
   res.json({ required: otpRequired(), delivery: deliveryMode() });
@@ -3531,11 +3640,9 @@ app.post("/api/auth/google", async (req, res) => {
       return;
     }
 
-    res.json({
-      success: true,
+    grantSession(res, user, {
       isNew,
-      user: toSafeUser(user),
-      message: isNew ? "Account created with Google!" : `Welcome back, ${user.fullName}!`
+      message: isNew ? "Account created with Google!" : `Welcome back, ${user.fullName}!`,
     });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message || "Google sign-in failed" });

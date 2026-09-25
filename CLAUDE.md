@@ -108,6 +108,16 @@ codes required and no delivery set up, sign-in **fails closed** rather than
 skipping the step. `OTP_DEV_ECHO` returns the code to the browser for local
 work and is refused outright under `NODE_ENV=production`.
 
+A session is a cookie the server signs: `<userId>.<issuedAt>.<expiresAt>.<tokenId>.<hmac>`,
+httpOnly and SameSite=Lax. The HMAC covers the other fields, so an expiry
+cannot be extended and a user id cannot be swapped. `localStorage` still holds
+a copy of the account, but **only as a cache so the app can paint** —
+`/api/auth/session` is asked straight afterwards and on a timer, and a "no"
+drops the cache. `sessionVerified` is false when there is no backend to ask, so
+the rest of the app can tell an unverified identity from a checked one. Set
+`SESSION_SECRET`, or the secret is random per boot and a restart signs everyone
+out.
+
 `src/server/rateLimit.ts` throttles the auth routes on the caller's address and
 on the identifier being tried. `trust proxy` is deliberately off, so `req.ip`
 is the socket address and `X-Forwarded-For` cannot mint a fresh identity.

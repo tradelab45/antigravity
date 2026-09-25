@@ -125,6 +125,16 @@ interface SimulatorContextType {
   registerUser: (data: AuthFormData) => Promise<{ success: boolean; message: string; user?: UserAccount }>;
   loginWithGoogle: (credential: string) => Promise<AuthOutcome>;
   logoutUser: () => void;
+  /** Ends every session for this account, on every device. */
+  logoutEverywhere: () => Promise<{ success: boolean; message: string }>;
+  /**
+   * Whether the server has confirmed who this browser is.
+   *
+   * null while the first check is in flight. False means the app is running
+   * with no backend to ask — a static deployment — and the signed-in identity
+   * is only this browser's cached claim.
+   */
+  sessionVerified: boolean | null;
   alerts: Alert[];
   addAlert: (symbol: string, targetPrice: number, type: 'ABOVE' | 'BELOW') => void;
   addSmartAlert: (alert: Omit<Alert, 'id' | 'active' | 'createdAt'>) => void;
@@ -746,10 +756,87 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return { success: false, message: 'Google sign-in could not complete. Please try again.' };
   };
 
+  /**
+   * The server decides who is signed in.
+   *
+   * `rr_current_user` is now only a cache, so the app can paint immediately.
+   * This asks the server straight afterwards and on a timer: if the answer is
+   * no, the cached copy is dropped, which is what stops an edited localStorage
+   * entry from being a session. With no backend to ask — a statically hosted
+   * build — the cached copy stands and `sessionVerified` stays false, so the
+   * rest of the app can tell the difference.
+   */
+  const [sessionVerified, setSessionVerified] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const check = async () => {
+      try {
+        const res = await fetch('/api/auth/session');
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) return; // no backend behind this build
+        const data = await res.json();
+        if (cancelled) return;
+
+        if (res.ok && data.authenticated && data.user) {
+          setSessionVerified(true);
+          // The server's copy wins over the cache.
+          const merged = { ...data.user, isAdmin: isUserAdmin(data.user) };
+          merged.role = merged.isAdmin ? 'ADMIN' : 'USER';
+          localStorage.setItem('rr_current_user', JSON.stringify(merged));
+          setCurrentUser((previous) => (previous && previous.id === merged.id ? previous : merged));
+          return;
+        }
+
+        // The server answered and said no. If this browser thinks it is signed
+        // in, it is wrong.
+        setSessionVerified(false);
+        if (localStorage.getItem('rr_current_user')) {
+          localStorage.removeItem('rr_current_user');
+          localStorage.setItem('rr_logout_reason', 'expired');
+          setCurrentUser(null);
+        }
+      } catch {
+        // Unreachable: keep whatever the cache holds and say it is unverified.
+        if (!cancelled) setSessionVerified(false);
+      }
+    };
+
+    check();
+    const timer = window.setInterval(check, 5 * 60_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+    // Runs once for the app's lifetime; currentUser is read inside, not tracked.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const logoutUser = () => {
+    // Tell the server first, so the session is revoked rather than only
+    // forgotten by this browser. keepalive lets it finish through the reload.
+    fetch('/api/auth/logout', { method: 'POST', keepalive: true }).catch(() => {});
     if (currentUser) localStorage.removeItem(getLastActivityKey(currentUser.id));
     localStorage.removeItem('rr_current_user');
     window.location.reload();
+  };
+
+  /** Ends the account's sessions everywhere, not just on this device. */
+  const logoutEverywhere = async (): Promise<{ success: boolean; message: string }> => {
+    try {
+      const res = await fetch('/api/auth/logout-everywhere', { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        return { success: false, message: data.message || 'Could not sign out the other devices.' };
+      }
+      if (currentUser) localStorage.removeItem(getLastActivityKey(currentUser.id));
+      localStorage.removeItem('rr_current_user');
+      window.location.reload();
+      return { success: true, message: data.message || 'Signed out everywhere.' };
+    } catch {
+      return { success: false, message: 'Could not reach the server.' };
+    }
   };
 
   const profileStorageKey = (base: string) => getProfileStorageKey(base, currentUser?.id);
@@ -2217,6 +2304,8 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         registerUser,
         loginWithGoogle,
         logoutUser,
+        logoutEverywhere,
+        sessionVerified,
         stocks,
         selectedStock,
         setSelectedStock,
