@@ -153,17 +153,27 @@ test('nothing focusable is hidden inside a chart', { timeout: 90_000 }, async ()
     // keyboard can land on: focus that reaches an aria-hidden element is
     // announced as nothing at all, which is worse than the silence this
     // replaced.
-    const trapped = await page.evaluate(() =>
-      Array.from(document.querySelectorAll('[aria-hidden="true"]'))
-        .flatMap((node) =>
-          Array.from(
-            node.querySelectorAll('a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])'),
-          ),
-        )
-        .map((node) => `${node.tagName.toLowerCase()} ${node.textContent?.trim().slice(0, 40) ?? ''}`),
-    );
+    const trapped = () =>
+      page.evaluate(() =>
+        Array.from(document.querySelectorAll('[aria-hidden="true"]'))
+          .flatMap((node) =>
+            Array.from(
+              node.querySelectorAll('a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])'),
+            ),
+          )
+          .map((node) => `${node.tagName.toLowerCase()}[tabindex=${node.getAttribute('tabindex')}]`),
+      );
 
-    assert.deepEqual(trapped, [], 'these can be focused but not announced');
+    // Checked at two moments on purpose. The chart's surface is drawn a frame
+    // after its container is measured, so a check that only ran once was
+    // passing locally and failing on CI depending on which side of that frame
+    // it landed. A resize makes the chart redraw, which is the other way the
+    // attribute came back.
+    assert.deepEqual(await trapped(), [], 'these can be focused but not announced, on first paint');
+
+    await page.setViewportSize({ width: 1100, height: 900 });
+    await page.waitForTimeout(1_000);
+    assert.deepEqual(await trapped(), [], 'and again once the chart has been redrawn');
   } finally {
     await page.close();
   }

@@ -41,22 +41,43 @@ export const ChartFigure: React.FC<ChartFigureProps> = ({
   const hasTable = Array.isArray(rows) && rows.length > 0 && Boolean(columns);
 
   /**
-   * Takes the drawing out of the tab order.
+   * Keeps the drawing out of the tab order, for as long as it exists.
    *
    * Recharts gives its SVG surface `tabindex="0"`, so marking the drawing as
-   * decoration left an element a keyboard could land on and a screen reader
-   * would announce as nothing — a silent stop on the way through the page,
-   * which is worse than the silence this replaced. Done after each render
-   * because the chart is rebuilt whenever its data changes.
+   * decoration leaves an element a keyboard can land on and a screen reader
+   * announces as nothing — a silent stop on the way through the page, which
+   * is worse than the silence this replaced.
+   *
+   * Doing this once per render was not enough, and CI caught it where a local
+   * run did not: `ResponsiveContainer` measures its box and only then draws
+   * the surface, a frame later and without re-rendering anything here, so the
+   * sweep ran before the element it was meant to fix existed. An observer
+   * catches the surface whenever it appears, and again if the chart is
+   * redrawn or the attribute is put back.
    */
   useEffect(() => {
     const container = drawing.current;
     if (!container) return;
-    const focusable = container.querySelectorAll<HTMLElement>(
-      'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])',
-    );
-    focusable.forEach((node) => node.setAttribute('tabindex', '-1'));
-  });
+
+    const strip = () => {
+      container
+        .querySelectorAll<HTMLElement>(
+          'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        )
+        .forEach((node) => node.setAttribute('tabindex', '-1'));
+    };
+
+    strip();
+
+    if (typeof MutationObserver === 'undefined') return;
+    const observer = new MutationObserver(strip);
+    observer.observe(container, {
+      childList: true,
+      subtree: true,
+      attributeFilter: ['tabindex', 'href'],
+    });
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <figure className={`m-0 ${className}`} role="group" aria-labelledby={summaryId}>
