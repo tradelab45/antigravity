@@ -118,6 +118,12 @@ the rest of the app can tell an unverified identity from a checked one. Set
 `SESSION_SECRET`, or the secret is random per boot and a restart signs everyone
 out.
 
+**Identity comes from the session, never from the body.** A `userId`, name or
+email in a request is whatever the caller typed. Any route that acts on an
+account uses `sessionUser(req)`; five routes did not and each of them acted on
+whatever account was named. Routes that spend the operator's quota (the Gemini
+ones) need a session and a cap as well.
+
 `src/server/rateLimit.ts` throttles the auth routes on the caller's address and
 on the identifier being tried. `trust proxy` is deliberately off, so `req.ip`
 is the socket address and `X-Forwarded-For` cannot mint a fresh identity.
