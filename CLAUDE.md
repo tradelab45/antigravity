@@ -12,10 +12,15 @@ that are easy to get wrong here, most of which were found the hard way.
 | `npm run lint` | `tsc --noEmit`. There is no ESLint. |
 | `npm test` | Unit tests in `tests/*.test.ts` under `node:test`. |
 | `npm run build` | Vite bundle plus `dist/server.cjs`. |
-| `npm run test:visual` | Drives the built app in Chromium. **Needs `npm run build` first.** |
+| `npm run test:visual` | Drives the built app in Chromium, one file at a time. **Needs `npm run build` first.** |
 | `npm run test:all` | All of the above, in order. |
 
 Playwright needs a Chromium. Set `CHROMIUM_PATH` to use one you already have.
+
+The visual suite runs with `--test-concurrency=1` on purpose. Each file starts
+its own preview server and its own Chromium; run in parallel on a machine with
+no GPU they starve each other and the screener render loses the race, which
+showed up as a test that passed alone and failed in a full run.
 
 ## Layout
 

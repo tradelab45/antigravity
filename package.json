@@ -12,7 +12,7 @@
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
     "test:all": "npm run lint && npm test && npm run build && npm run test:visual",
-    "test:visual": "tsx --test tests/visual/*.test.ts"
+    "test:visual": "tsx --test --test-concurrency=1 tests/visual/*.test.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
