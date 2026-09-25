@@ -30,7 +30,7 @@ const LandingPage = lazy(() => {
 const PortfolioHub = lazy(() => import('./components/PortfolioHub').then((module) => ({ default: module.PortfolioHub })));
 const MarketScreener = lazy(() => import('./components/MarketScreener').then((module) => ({ default: module.MarketScreener })));
 const InvestorAcademy = lazy(() => import('./components/InvestorAcademy').then((module) => ({ default: module.InvestorAcademy })));
-const ChanakyaMentor = lazy(() => import('./components/ChanakyaMentor').then((module) => ({ default: module.ChanakyaMentor })));
+const ChanakyaMentor = lazy(() => import('./modules/ai-copilot/components/ChanakyaMentor').then((module) => ({ default: module.ChanakyaMentor })));
 const StockDetailModal = lazy(() => import('./components/StockDetailModal').then((module) => ({ default: module.StockDetailModal })));
 const ReplayTerminal = lazy(() => import('./components/ReplayTerminal').then((module) => ({ default: module.ReplayTerminal })));
 const TradeReviewHub = lazy(() => import('./components/TradeReviewHub').then((module) => ({ default: module.TradeReviewHub })));
