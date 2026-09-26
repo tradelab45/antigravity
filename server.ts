@@ -25,6 +25,7 @@ import {
 import { clientKey, consume, reset as resetRateLimit, type RateLimitRule } from './src/server/rateLimit';
 import {
   CODE_TTL_MS,
+  peekChallenge,
   discardChallenge,
   issueChallenge,
   maskEmail,
@@ -33,6 +34,7 @@ import {
   type ChallengePurpose,
 } from './src/server/otp';
 import { deliverCode, deliveryMode, otpRequired } from './src/server/otpDelivery';
+import { checkPassword } from './src/utils/passwordPolicy';
 import {
   INITIAL_CAPITAL as INITIAL_LEDGER_CAPITAL,
   emptyLedger,
@@ -48,6 +50,7 @@ import {
   readSession,
   revokeAllSessionsForUser,
   revokeSession,
+  rotateSessionsForUser,
   sessionCookieOptions,
   sessionSecretIsPersistent,
 } from './src/server/sessions';
@@ -3048,8 +3051,9 @@ function grantSession(
   res: express.Response,
   user: StoredUser,
   extra: Record<string, unknown> = {},
+  issued: { token: string; expiresAt: number } = issueSession(user.id),
 ) {
-  const { token, expiresAt } = issueSession(user.id);
+  const { token, expiresAt } = issued;
   res.cookie(SESSION_COOKIE, token, sessionCookieOptions(expiresAt));
   res.json({
     success: true,
@@ -3138,6 +3142,11 @@ const AUTH_LIMITS: Record<string, RateLimitRule> = {
   otpRequest: { limit: 60, windowMs: 15 * 60_000 },
   otpVerify: { limit: 200, windowMs: 15 * 60_000 },
   classJoin: { limit: 120, windowMs: 15 * 60_000 },
+  // A reset code is an email to someone's inbox, so the account rule is the
+  // one that stops a person being flooded; the address rule, like the others,
+  // allows for a classroom behind one address.
+  passwordResetIp: { limit: 60, windowMs: 60 * 60_000 },
+  passwordResetAccount: { limit: 5, windowMs: 60 * 60_000 },
 };
 
 /**
@@ -3183,8 +3192,16 @@ app.post("/api/auth/signup", createAuthLimiter(150, 60 * 60 * 1000), async (req,
     if (!/^[a-z0-9_]{3,30}$/.test(cleanUsername)) {
       return res.status(400).json({ success: false, message: "Username must be 3–30 characters using letters, numbers, or underscores." });
     }
-    if (cleanPassword.length < 8 || cleanPassword.length > 128) {
-      return res.status(400).json({ success: false, message: "Password must be between 8 and 128 characters." });
+    // A length rule alone let `password` and `12345678` through. The policy
+    // also refuses the account's own name, username and email, which are the
+    // first guesses anyone trying this account already has.
+    const strength = checkPassword(cleanPassword, {
+      fullName: cleanFullName,
+      username: cleanUsername,
+      email: cleanEmail,
+    });
+    if (!strength.ok) {
+      return res.status(400).json({ success: false, message: strength.message });
     }
 
     const users = loadUsers();
@@ -3338,6 +3355,16 @@ app.post("/api/auth/otp/verify", (req, res) => {
     }
     if (!/^\d{4,8}$/.test(String(code).trim())) {
       return res.status(400).json({ success: false, message: "That code does not look right." });
+    }
+
+    // Checked before the code is, because verifying consumes the challenge:
+    // a reset code offered here would otherwise be refused and destroyed at
+    // once, and the person would have to start the reset over.
+    if (peekChallenge(challengeId)?.purpose === "reset") {
+      return res.status(400).json({
+        success: false,
+        message: "That code is for resetting a password, not for signing in.",
+      });
     }
 
     const result = verifyChallenge(challengeId, String(code));
@@ -3684,6 +3711,211 @@ app.post("/api/auth/logout-everywhere", (req, res) => {
   revokeAllSessionsForUser(user.id);
   res.clearCookie(SESSION_COOKIE, { path: "/" });
   res.json({ success: true, message: "Signed out on every device." });
+});
+
+/**
+ * Step one of a password reset: emails a code to the account's address.
+ *
+ * Forgetting a password used to mean starting a second account, which left
+ * the first one's portfolio and Academy progress stranded. Recovery rests on
+ * the same thing every other reset does — that the person can read the inbox
+ * the account was registered with.
+ *
+ * The answer says plainly whether the identifier is known. That discloses
+ * nothing the sign-up form does not already: it refuses a duplicate email or
+ * username by name. A uniform reply here would guard nothing while leaving a
+ * student who mistyped their username waiting for a code that is not coming.
+ * The rate limits are what actually make walking a list of addresses useless.
+ */
+app.post("/api/auth/password/forgot", async (req, res) => {
+  try {
+    const caller = clientKey(req.ip);
+    if (rateLimited(res, `reset:ip:${caller}`, AUTH_LIMITS.passwordResetIp,
+      "Too many reset codes requested from here. Try again later.")) return;
+
+    const { identifier } = req.body;
+    if (!identifier || typeof identifier !== "string") {
+      return res.status(400).json({ success: false, message: "Enter your email address or username." });
+    }
+
+    const cleanId = identifier.toLowerCase().trim().slice(0, 120);
+    if (rateLimited(res, `reset:id:${cleanId}`, AUTH_LIMITS.passwordResetAccount,
+      "Too many reset codes requested for this account. Try again later.")) return;
+
+    const user = loadUsers().find(
+      u => u.email.toLowerCase() === cleanId || u.username.toLowerCase() === cleanId,
+    );
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "No account uses that email address or username.",
+      });
+    }
+
+    const { challengeId, code, expiresAt } = issueChallenge(user.id, user.email, "reset");
+    const outcome = await deliverCode(user.email, code, expiresAt);
+    if (!outcome.delivered) {
+      // Same rule as the sign-in code: a code that could not be sent must not
+      // become an optional step.
+      discardChallenge(challengeId);
+      return res.status(503).json({
+        success: false,
+        message: outcome.message || "The reset code could not be sent. Try again shortly.",
+      });
+    }
+
+    res.json({
+      success: true,
+      challengeId,
+      maskedEmail: maskEmail(user.email),
+      expiresInSeconds: Math.round(CODE_TTL_MS / 1000),
+      ...(outcome.devCode ? { devCode: outcome.devCode } : {}),
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || "Could not start the reset." });
+  }
+});
+
+/**
+ * Step two: the code plus the new password.
+ *
+ * Every session for the account goes, on every device, and no new one is
+ * issued here. Whoever knew the old password may still be holding a session,
+ * and a reset that left it alive would change nothing for the person who was
+ * locked out. They sign in again with the new password, which also puts them
+ * through the emailed code when codes are required.
+ */
+app.post("/api/auth/password/reset", (req, res) => {
+  try {
+    const caller = clientKey(req.ip);
+    if (rateLimited(res, `reset:verify:${caller}`, AUTH_LIMITS.otpVerify,
+      "Too many attempts. Try again later.")) return;
+
+    const { challengeId, code, password } = req.body;
+    if (!challengeId || typeof challengeId !== "string" || !code) {
+      return res.status(400).json({ success: false, message: "That reset is no longer pending. Start again." });
+    }
+    if (!/^\d{4,8}$/.test(String(code).trim())) {
+      return res.status(400).json({ success: false, message: "That code does not look right." });
+    }
+
+    // Everything that can be refused is settled before the code is checked,
+    // because checking a correct code consumes the challenge. A new password
+    // that failed the strength rule used to cost the person the code as well,
+    // and the reset had to be started again from the email.
+    const pending = peekChallenge(challengeId);
+    if (!pending) {
+      return res.status(410).json({ success: false, message: "That reset is no longer pending. Start again." });
+    }
+    if (pending.purpose !== "reset") {
+      return res.status(400).json({ success: false, message: "That code is not a reset code." });
+    }
+
+    const users = loadUsers();
+    const user = users.find(u => u.id === pending.userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "That account no longer exists." });
+    }
+
+    const strength = checkPassword(String(password || ""), {
+      fullName: user.fullName,
+      username: user.username,
+      email: user.email,
+    });
+    if (!strength.ok) {
+      return res.status(400).json({ success: false, message: strength.message });
+    }
+
+    const result = verifyChallenge(challengeId, String(code));
+    if (!result.ok) {
+      const message =
+        result.reason === "expired" ? "That code has expired. Ask for a new one." :
+        result.reason === "exhausted" ? "Too many wrong codes. Start the reset again." :
+        result.reason === "unknown" ? "That reset is no longer pending. Start again." :
+        `That code is not right. ${result.attemptsLeft} attempt${result.attemptsLeft === 1 ? "" : "s"} left.`;
+      return res.status(401).json({ success: false, message, attemptsLeft: result.attemptsLeft });
+    }
+
+    user.passwordHash = hashPassword(String(password));
+    delete user.password;
+    saveUsers(users);
+
+    revokeAllSessionsForUser(user.id);
+    res.clearCookie(SESSION_COOKIE, { path: "/" });
+    res.json({
+      success: true,
+      message: "Password changed. Every device has been signed out — sign in with the new one.",
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || "The password could not be changed." });
+  }
+});
+
+/**
+ * Changing the password from inside the app.
+ *
+ * The old password is required even though the session already proves who is
+ * asking, for the same reason deleting the account requires it: a borrowed
+ * unlocked browser has a session. An account that only ever signed in through
+ * Google has no old password to give and is setting its first one.
+ *
+ * Every other device is signed out, because the point of changing a password
+ * is usually that someone else knew it. This browser keeps its session — it is
+ * the one that just proved it knows the password.
+ */
+app.post("/api/auth/password/change", (req, res) => {
+  try {
+    const caller = clientKey(req.ip);
+    if (rateLimited(res, `password:change:${caller}`, AUTH_LIMITS.loginAccount,
+      "Too many attempts. Try again later.")) return;
+
+    const signedIn = sessionUser(req);
+    if (!signedIn) return res.status(401).json({ success: false, message: "Sign in first." });
+    // The shared demo has no password, so this route would let any visitor set
+    // one without knowing a current password, and then sign every other
+    // visitor out of it.
+    if (isPublicDemo(signedIn)) {
+      return res.status(403).json({
+        success: false,
+        message: "The demo account is shared, so its password can't be set. Sign up to get your own.",
+      });
+    }
+
+    const { currentPassword, newPassword } = req.body;
+    const users = loadUsers();
+    const user = users.find(u => u.id === signedIn.id);
+    if (!user) return res.status(404).json({ success: false, message: "That account no longer exists." });
+
+    const hasPassword = Boolean(user.passwordHash || user.password);
+    if (hasPassword && !verifyPassword(String(currentPassword || ""), user)) {
+      return res.status(401).json({ success: false, message: "That is not your current password." });
+    }
+
+    const strength = checkPassword(String(newPassword || ""), {
+      fullName: user.fullName,
+      username: user.username,
+      email: user.email,
+    });
+    if (!strength.ok) {
+      return res.status(400).json({ success: false, message: strength.message });
+    }
+    if (hasPassword && verifyPassword(String(newPassword), user)) {
+      return res.status(400).json({ success: false, message: "That is already your password." });
+    }
+
+    user.passwordHash = hashPassword(String(newPassword));
+    delete user.password;
+    saveUsers(users);
+
+    const issued = rotateSessionsForUser(user.id);
+    grantSession(res, user, {
+      message: hasPassword
+        ? "Password changed. Every other device has been signed out."
+        : "Password set. You can now sign in without Google.",
+    }, issued);
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || "The password could not be changed." });
+  }
 });
 
 /**

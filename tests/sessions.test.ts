@@ -7,6 +7,7 @@ import {
   readSession,
   revokeAllSessionsForUser,
   revokeSession,
+  rotateSessionsForUser,
 } from '../src/server/sessions';
 
 beforeEach(() => clearSessions());
@@ -111,6 +112,37 @@ test('a user id containing a separator survives a round trip', () => {
   const claims = readSession(token);
   assert.ok(claims);
   assert.equal(claims!.userId, 'usr.with.dots');
+});
+
+test('rotating drops every other device and keeps the replacement', () => {
+  const now = 1_700_000_000_000;
+  const phone = issueSession('usr_1', now);
+  const laptop = issueSession('usr_1', now);
+
+  const replacement = rotateSessionsForUser('usr_1', now);
+
+  assert.equal(readSession(phone.token, now + 10), null, 'the other devices go');
+  assert.equal(readSession(laptop.token, now + 10), null);
+  assert.ok(
+    readSession(replacement.token, now + 10),
+    'the browser that changed the password must not sign itself out',
+  );
+});
+
+test('rotating twice in the same millisecond still leaves the newest alive', () => {
+  const now = 1_700_000_000_000;
+  const first = rotateSessionsForUser('usr_1', now);
+  const second = rotateSessionsForUser('usr_1', now);
+
+  assert.equal(readSession(first.token, now + 10), null);
+  assert.ok(readSession(second.token, now + 10));
+});
+
+test('rotating one account leaves another alone', () => {
+  const now = 1_700_000_000_000;
+  const other = issueSession('usr_2', now);
+  rotateSessionsForUser('usr_1', now);
+  assert.ok(readSession(other.token, now + 10));
 });
 
 test('without SESSION_SECRET, separate processes and restarts still agree on sessions', async () => {

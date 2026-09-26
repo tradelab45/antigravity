@@ -184,6 +184,25 @@ export function revokeAllSessionsForUser(userId: string, now: number = Date.now(
   userEpochs.set(userId, now);
 }
 
+/**
+ * Ends every session for an account and returns a replacement for the caller.
+ *
+ * A password change has to drop whoever else is holding a session, but not
+ * the browser doing the changing. The cut-off is compared with `<=`, so a
+ * token issued in the same millisecond as the revoke would be refused along
+ * with the rest; issuing the replacement one millisecond later makes it
+ * survive by construction rather than by timing.
+ */
+export function rotateSessionsForUser(userId: string, now: number = Date.now()): IssuedSession {
+  const previous = userEpochs.get(userId);
+  // The cut-off only ever moves forward. Rotating twice within one
+  // millisecond would otherwise leave the first replacement alive, because it
+  // was issued a millisecond past a cut-off that had not moved.
+  const cutOff = previous === undefined ? now : Math.max(now, previous + 1);
+  userEpochs.set(userId, cutOff);
+  return issueSession(userId, cutOff + 1);
+}
+
 /** Test seam. */
 export function clearSessions(): void {
   revokedTokens.clear();
