@@ -3539,6 +3539,15 @@ app.post("/api/class/create", (req, res) => {
 
   const owner = sessionUser(req);
   if (!owner) return res.status(401).json({ success: false, message: "Sign in first." });
+  // Every visitor on the shared demo is the same account, so a board it
+  // created would be owned by all of them: any of them could remove its
+  // students or delete it.
+  if (isPublicDemo(owner)) {
+    return res.status(403).json({
+      success: false,
+      message: "The demo account is shared, so it can't own a class board. Sign up to create one.",
+    });
+  }
 
   const rooms = loadRooms();
   const requested = req.body?.classCode ? normaliseClassCode(req.body.classCode) : null;
