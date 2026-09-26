@@ -14,6 +14,8 @@ data/trades.json.tmp
 # The trading ledger holds a learner's own portfolio and never belongs in git.
 data/ledgers.json
 data/ledgers.json.tmp
+# The generated session signing secret, when SESSION_SECRET is not set.
+data/session-secret
 # Synced exam attempts and school/college rankings.
 data/academy.json
 data/academy.json.tmp

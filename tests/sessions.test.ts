@@ -144,3 +144,34 @@ test('rotating one account leaves another alone', () => {
   rotateSessionsForUser('usr_1', now);
   assert.ok(readSession(other.token, now + 10));
 });
+
+test('without SESSION_SECRET, separate processes and restarts still agree on sessions', async () => {
+  // A host that runs more than one process, or restarts, used to give each
+  // process its own random secret: a session signed by one was refused by the
+  // next, and a learner who had just signed in was signed straight back out.
+  const { execFileSync } = await import('node:child_process');
+  const { mkdtempSync, rmSync, statSync } = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+
+  const modulePath = path.resolve('src/server/sessions.ts');
+  const directory = mkdtempSync(path.join(os.tmpdir(), 'rr-sessions-'));
+  const env = { ...process.env };
+  delete env.SESSION_SECRET;
+  const { pathToFileURL } = await import('node:url');
+  // The loader by absolute URL: the child runs in an empty directory with no
+  // node_modules of its own.
+  const tsxLoader = pathToFileURL(path.resolve('node_modules/tsx/dist/loader.mjs')).href;
+  const run = (code: string) =>
+    execFileSync(process.execPath, ['--import', tsxLoader, '--input-type=module', '-e', code], {
+      cwd: directory, env, encoding: 'utf-8',
+    }).trim();
+  try {
+    const token = run(`import { issueSession } from ${JSON.stringify(modulePath)}; console.log(issueSession('usr_restart').token);`);
+    const claimed = run(`import { readSession } from ${JSON.stringify(modulePath)}; console.log(readSession(${JSON.stringify(token)})?.userId ?? 'refused');`);
+    assert.equal(claimed, 'usr_restart', 'a second process accepts the first one\'s session');
+    assert.equal(statSync(path.join(directory, 'data', 'session-secret')).mode & 0o777, 0o600, 'owner-only');
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});

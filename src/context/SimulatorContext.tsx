@@ -116,6 +116,8 @@ const RESET_UNDO_WINDOW_MS = 20_000;
 interface SimulatorContextType {
   currentUser: UserAccount | null;
   loginUser: (identifier: string, password: string) => Promise<AuthOutcome>;
+  /** Signs in to the shared practice account behind the landing page's demo button. */
+  loginAsDemo: () => Promise<AuthOutcome>;
   /** Exchanges an emailed code for the account, finishing a sign-in. */
   completeVerification: (challengeId: string, code: string) => Promise<AuthOutcome>;
   /** Sends a fresh code for a sign-in already in progress. */
@@ -398,6 +400,34 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     localStorage.setItem('rr_auth_entry', JSON.stringify({ kind, userId: user.id, at: Date.now() }));
     setCurrentUser(user);
     return user as UserAccount;
+  };
+
+  /**
+   * The demo button's sign-in: a shared account with no password, so there is
+   * no password to send. It used to sign in to the owner's account with the
+   * password "demo", which could never be right. As with every other sign-in,
+   * a server answer is final; only a build with no backend at all falls back
+   * to the offline demo.
+   */
+  const loginAsDemo = async (): Promise<AuthOutcome> => {
+    try {
+      const res = await fetch('/api/auth/demo', { method: 'POST' });
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const data = await res.json();
+        if (res.ok && data.success && data.user) {
+          adoptSignedInUser(data.user, 'returning');
+          return { success: true, message: data.message, user: data.user };
+        }
+        return { success: false, message: data.message || 'The demo is unavailable right now.' };
+      }
+      if (res.status !== 404) {
+        return { success: false, message: 'The demo is unavailable right now.' };
+      }
+    } catch {
+      // No backend at all: fall through to the offline demo below.
+    }
+    return loginUser('xyz@gmail.com', 'demo');
   };
 
   const loginUser = async (identifier: string, password: string): Promise<AuthOutcome> => {
@@ -2425,6 +2455,7 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       value={{
         currentUser,
         loginUser,
+        loginAsDemo,
         completeVerification,
         resendVerificationCode,
         cancelVerification,

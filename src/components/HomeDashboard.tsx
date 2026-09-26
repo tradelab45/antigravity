@@ -349,20 +349,14 @@ export const HomeDashboard: React.FC<{ setActiveTab: (tab: AppTabType) => void }
       >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
           <div>
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-mint shadow-[0_0_8px_#00f59b] animate-pulse" />
-              <p className="text-[10px] font-mono font-bold uppercase tracking-widest text-mint">
-                Dalal Street 3D Arena · Live Spatial Simulation
-              </p>
-            </div>
-            <h2 className="mt-1 text-lg sm:text-xl font-black tracking-tight text-white flex items-center gap-2">
-              <span>Interactive Candlestick Breakout</span>
-              <span className="text-xs text-mint bg-mint/15 px-2 py-0.5 rounded-full border border-mint/30 font-mono">
-                MOVE IT 3D
-              </span>
+            <p className="text-[10px] font-mono font-bold uppercase tracking-widest text-mint">
+              Candlestick primer · example prices
+            </p>
+            <h2 className="mt-1 text-lg sm:text-xl font-black tracking-tight text-white">
+              How to read a candlestick
             </h2>
             <p className="mt-0.5 text-xs text-slate-300">
-              Observe Japanese candlestick price momentum and spatial 3D physics with zero financial risk.
+              Green closed above its open, red below; the wick is the full range. Example prices, not a real share.
             </p>
           </div>
 
@@ -377,8 +371,8 @@ export const HomeDashboard: React.FC<{ setActiveTab: (tab: AppTabType) => void }
         </div>
 
         {/* Embedded Spatial Candlestick Chart */}
-        <div className="w-full">
-          <SpatialCandlestickChart variant="card" showRupee={true} showBadges={true} />
+        <div className="w-full pt-6">
+          <SpatialCandlestickChart variant="card" />
         </div>
       </SpotlightCard>
 
