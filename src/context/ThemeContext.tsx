@@ -42,10 +42,23 @@ interface ThemeContextType {
   palette: ThemePalette;
   setPalette: (palette: ThemePalette) => void;
   palettes: PaletteOption[];
+  density: Density;
+  setDensity: (density: Density) => void;
 }
+
+/**
+ * How tightly the data-heavy views pack their rows.
+ *
+ * The screener and the portfolio show a lot at once, and the padding that
+ * suits a phone wastes a third of a laptop screen. This drives a single
+ * `data-rr-density` attribute that src/index.css scales the card and row
+ * spacing from, so nothing has to be restyled per component.
+ */
+export type Density = 'comfortable' | 'compact';
 
 const STORAGE_KEY = 'rupeeRookie_theme';
 const PALETTE_STORAGE_KEY = 'rupeeRookie_palette';
+const DENSITY_STORAGE_KEY = 'rupeeRookie_density';
 
 const isPalette = (value: unknown): value is ThemePalette =>
   typeof value === 'string' && THEME_PALETTES.some((option) => option.id === value);
@@ -95,6 +108,25 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, [theme]);
 
+  const [density, setDensityState] = useState<Density>(() => {
+    try {
+      const saved = localStorage.getItem(DENSITY_STORAGE_KEY);
+      if (saved === 'compact' || saved === 'comfortable') return saved;
+    } catch {
+      // Ignore localStorage errors
+    }
+    return 'comfortable';
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(DENSITY_STORAGE_KEY, density);
+    } catch {
+      // Ignore localStorage errors
+    }
+    document.documentElement.dataset.rrDensity = density;
+  }, [density]);
+
   useEffect(() => {
     try {
       localStorage.setItem(PALETTE_STORAGE_KEY, palette);
@@ -112,7 +144,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     palette,
     setPalette: (next: ThemePalette) => setPaletteState(next),
     palettes: THEME_PALETTES,
-  }), [palette, theme]);
+    density,
+    setDensity: (next: Density) => setDensityState(next),
+  }), [palette, theme, density]);
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 };

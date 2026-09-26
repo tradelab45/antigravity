@@ -248,6 +248,8 @@ export const AnimatedSearchBar: React.FC<AnimatedSearchBarProps> = ({
             <>
               <input
                 ref={inputRef}
+                id="animated-stock-search-input"
+                name="stockSearch"
                 type="text"
                 value={query}
                 onChange={handleChange}

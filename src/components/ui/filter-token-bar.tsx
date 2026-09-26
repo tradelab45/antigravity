@@ -67,7 +67,7 @@ export const FilterTokenBar: React.FC<FilterTokenBarProps> = ({
             <button
               onClick={() => onRemoveToken(token.id)}
               aria-label={`Remove filter ${token.field}`}
-              className="ml-0.5 p-0.5 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+              className="ml-0.5 flex h-5 w-5 items-center justify-center rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
             >
               <X className="w-3 h-3" />
             </button>
@@ -85,16 +85,16 @@ export const FilterTokenBar: React.FC<FilterTokenBarProps> = ({
       {quickChips && quickChips.length > 0 && (
         <div className="flex items-center gap-1.5 flex-wrap ml-auto">
           {quickChips.map((chip) => {
-            const isSelected = activeIds.has(chip.token.id);
+            const isSelected = activeIds.has(chip.token.id) || tokens.some(t => t.field === chip.token.field && t.value === chip.token.value);
             return (
               <button
-                key={chip.token.id}
+                key={chip.label || chip.token.id}
                 onClick={() => {
                   if (isSelected) onRemoveToken(chip.token.id);
                   else onAddToken?.(chip.token);
                 }}
                 className={cn(
-                  "inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer",
+                  "inline-flex min-h-6 items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer",
                   isSelected
                     ? "bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800"
                     : "bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-850 dark:hover:bg-slate-800 dark:text-slate-400 dark:border-slate-750"
