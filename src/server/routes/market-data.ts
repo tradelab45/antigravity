@@ -706,9 +706,23 @@ export function createMarketDataRouter() {
     };
   }
 
-  router.get('/api/upstox/status', (_req, res) => {
+  // ?symbol=RELIANCE adds what Upstox last sent for that stock next to the price
+  // actually being served, so a mismatch shows whether the displayed figure came
+  // from the broker or from a fallback provider.
+  router.get('/api/upstox/status', (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
-    res.json(upstoxFeed.status());
+    const symbol = typeof req.query.symbol === 'string' ? req.query.symbol.trim().toUpperCase() : '';
+    if (!symbol) return res.json(upstoxFeed.status());
+    const stock = currentStocks.find(item => item.symbol === symbol);
+    if (!stock) return res.status(404).json({ error: `Unknown symbol ${symbol}` });
+    const upstox = upstoxFeed.inspect(symbol);
+    res.json({
+      ...upstoxFeed.status(),
+      symbol,
+      upstox,
+      served: { price: stock.price, previousClose: stock.previousClose, quoteSource: stock.quoteSource ?? null, quoteAsOf: stock.quoteAsOf ?? null },
+      differenceFromUpstox: upstox.lastQuote ? roundMarketValue(stock.price - upstox.lastQuote.price) : null,
+    });
   });
 
   // One broker connection serves every browser; no access token leaves the server.

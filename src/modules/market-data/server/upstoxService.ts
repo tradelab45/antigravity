@@ -106,6 +106,23 @@ export class UpstoxService {
       (this.state === 'connected' && !this.marketOpen)) ? quote : undefined;
   }
 
+  /**
+   * The last quote Upstox actually delivered for a symbol, whether or not it
+   * currently owns that symbol's price. Used to diagnose a displayed price that
+   * disagrees with the broker.
+   */
+  inspect(symbol: string) {
+    const quote = this.quotes.get(symbol);
+    const receivedAt = this.receivedAt.get(symbol);
+    return {
+      subscribed: this.instrumentMap.has(symbol),
+      instrumentKey: this.instrumentMap.get(symbol) ?? null,
+      lastQuote: quote ?? null,
+      receivedSecondsAgo: receivedAt ? Math.round((Date.now() - receivedAt) / 1000) : null,
+      ownsPrice: Boolean(this.getQuote(symbol)),
+    };
+  }
+
   isLive(symbol: string) {
     const quote = this.getQuote(symbol);
     const age = quote ? Date.now() - Date.parse(quote.lastUpdated) : Infinity;

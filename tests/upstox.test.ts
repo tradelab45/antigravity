@@ -200,3 +200,39 @@ test('newly tracked symbols subscribe immediately without reconnecting', async (
     assert.deepEqual(streamer.subscriptions, [[key], ['NSE_EQ|NEW']]);
   } finally { service.stop(); }
 });
+
+test('a live Upstox tick replaces a fallback quote stamped at fetch time', () => {
+  // The fallback was fetched at 10:00:05; the trade it is being compared with
+  // printed at 10:00:02. Ordering by timestamp alone kept the stale fallback.
+  const fallback = { symbol: 'RELIANCE', price: 1244.2, quoteSource: 'Google Finance · NSE fallback',
+    quoteAsOf: '2026-09-25T04:30:05.000Z', quoteStatus: 'delayed' } as StockDetail;
+  const tick = { ...fallback, price: 1250, quoteSource: 'Upstox V3 - NSE',
+    quoteAsOf: '2026-09-25T04:30:02.000Z', quoteStatus: 'live' } as StockDetail;
+  const merged = mergeQuote(fallback, tick);
+  assert.equal(merged.price, 1250);
+  assert.equal(merged.quoteSource, 'Upstox V3 - NSE');
+});
+
+test('an older Upstox tick still cannot replace a newer Upstox tick', () => {
+  const newer = { symbol: 'RELIANCE', price: 1250, quoteSource: 'Upstox V3 - NSE',
+    quoteAsOf: '2026-09-25T04:30:05.000Z' } as StockDetail;
+  assert.equal(mergeQuote(newer, { ...newer, price: 1240, quoteAsOf: '2026-09-25T04:30:01.000Z' }), newer);
+});
+
+test('inspect reports the last Upstox quote even after it stops owning the price', async () => {
+  const { service, streamer } = fixture();
+  try {
+    await service.start();
+    streamer.emit('message', JSON.stringify({ feeds: { [key]: feed(1250) } }));
+    let info = service.inspect('RELIANCE');
+    assert.equal(info.subscribed, true);
+    assert.equal(info.instrumentKey, key);
+    assert.equal(info.lastQuote?.price, 1250);
+    assert.equal(info.ownsPrice, true);
+    streamer.emit('error', new Error('socket dropped'));
+    info = service.inspect('RELIANCE');
+    assert.equal(info.ownsPrice, false);
+    assert.equal(info.lastQuote?.price, 1250);
+    assert.ok(!JSON.stringify(info).includes('test-secret'));
+  } finally { service.stop(); }
+});
