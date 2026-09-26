@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { BookMarked, Search, X } from 'lucide-react';
-import type { AppTabType } from './Header';
-import { useAccessibility } from '../modules/accessibility/context/AccessibilityContext';
+import type { AppTabType } from '../../../components/Header';
+import { useAccessibility } from '../../accessibility/context/AccessibilityContext';
 
 const DEFINITIONS: Record<string, string> = {
   'P/E Ratio': 'Price divided by annual earnings per share. It helps compare what investors pay for each rupee of profit.',

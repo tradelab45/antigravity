@@ -4,14 +4,14 @@ import express from 'express';
 import { mkdtempSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { createAcademyService, gradeExam, rankCohort } from '../src/server/academyService';
+import { createAcademyService, gradeExam, rankCohort } from '../src/modules/academy/server/academyService';
 import { createAuthLimiter } from '../src/server/authRateLimit';
 import { SESSION_COOKIE, issueSession, readSession, revokeSession } from '../src/server/sessions';
-import { STAGE_EXAMS, EXAM_LENGTH } from '../src/data/stageExams';
-import { LEARNING_PATH } from '../src/data/learningPath';
-import { INITIAL_LESSONS } from '../src/data/lessonsData';
-import { HINDI_LESSONS, localizeLesson } from '../src/data/hindiLessons';
-import { parseAttempts, resolveResume } from '../src/utils/academyProgress';
+import { STAGE_EXAMS, EXAM_LENGTH } from '../src/modules/academy/data/stageExams';
+import { LEARNING_PATH } from '../src/modules/academy/data/learningPath';
+import { INITIAL_LESSONS } from '../src/modules/academy/data/lessonsData';
+import { HINDI_LESSONS, localizeLesson } from '../src/modules/academy/data/hindiLessons';
+import { parseAttempts, resolveResume } from '../src/modules/academy/utils/academyProgress';
 
 const exam = STAGE_EXAMS[0];
 // A paper is EXAM_LENGTH questions drawn from the bank, not the whole bank.

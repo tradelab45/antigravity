@@ -43,7 +43,7 @@ import {
 import { useSimulator } from '../../../context/SimulatorContext';
 import { ChartFigure } from '../../../components/ui/chart-figure';
 import { describeParts, partRows } from '../../../utils/chartSummary';
-import { INITIAL_LESSONS } from '../../../data/lessonsData';
+import { INITIAL_LESSONS } from '../../academy/data/lessonsData';
 import { StockDetail, Holding, Order } from '../../../types';
 import { formatINR, formatPercent, formatIndianShort, formatNumberIndian } from '../../../utils/formatters';
 import { describePortfolioDay, formatSignedPercent } from '../utils/attribution';

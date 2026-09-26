@@ -1,4 +1,4 @@
-import type { Lesson } from '../types';
+import type { Lesson } from '../../../types';
 
 // Hindi learning editions keep the original module/answer IDs and XP contract.
 // Technical abbreviations remain in English so learners can recognise market screens.

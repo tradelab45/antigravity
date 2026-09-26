@@ -23,9 +23,9 @@ import {
   BarChart2,
   PieChart
 } from 'lucide-react';
-import { useSimulator } from '../context/SimulatorContext';
-import { Holding } from '../types';
-import { formatINR } from '../utils/formatters';
+import { useSimulator } from '../../../context/SimulatorContext';
+import { Holding } from '../../../types';
+import { formatINR } from '../../../utils/formatters';
 
 interface Message {
   id: string;

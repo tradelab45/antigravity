@@ -12,8 +12,8 @@ import {
   type QuestionResult,
   type StageExam as StageExamData,
 } from '../data/stageExams';
-import { StageCertificate } from './StageCertificate';
-import { useSimulator } from '../context/SimulatorContext';
+import { StageCertificate } from '../../../components/StageCertificate';
+import { useSimulator } from '../../../context/SimulatorContext';
 
 const attemptDate = (at: number) =>
   new Intl.DateTimeFormat('en-IN', {

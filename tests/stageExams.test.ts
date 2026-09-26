@@ -14,7 +14,7 @@ import {
   getStageExam,
   buildExamAttempt,
   type ExamAttempt,
-} from '../src/data/stageExams';
+} from '../src/modules/academy/data/stageExams';
 
 test('every stage has a bank larger than one paper', () => {
   assert.equal(STAGE_EXAMS.length, 6);

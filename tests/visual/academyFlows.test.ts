@@ -6,9 +6,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { chromium, type Browser, type Page } from 'playwright';
 import type { Server } from 'node:http';
-import { createAcademyService } from '../../src/server/academyService';
+import { createAcademyService } from '../../src/modules/academy/server/academyService';
 import { SESSION_COOKIE, issueSession, readSession } from '../../src/server/sessions';
-import { EXAM_LENGTH, getStageExam } from '../../src/data/stageExams';
+import { EXAM_LENGTH, getStageExam } from '../../src/modules/academy/data/stageExams';
 import { seedSession, auditContrast } from './contrastAudit';
 
 let server: Server, browser: Browser, base: string, directory: string;

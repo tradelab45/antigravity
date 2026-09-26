@@ -1,4 +1,4 @@
-import type { AppTabType } from '../components/Header';
+import type { AppTabType } from '../../../components/Header';
 
 /**
  * What to go and do once a lesson's checkpoint is passed.

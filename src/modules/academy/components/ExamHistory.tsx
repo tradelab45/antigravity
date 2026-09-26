@@ -4,8 +4,8 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'rec
 import { LEARNING_PATH } from '../data/learningPath';
 import { EXAM_PASS_MARK } from '../data/stageExams';
 import type { ExamAttempt } from '../utils/academyProgress';
-import { ChartFigure } from './ui/chart-figure';
-import { describeSeries } from '../utils/chartSummary';
+import { ChartFigure } from '../../../components/ui/chart-figure';
+import { describeSeries } from '../../../utils/chartSummary';
 
 async function certificateFile(attempt: ExamAttempt, name: string) {
   const canvas = document.createElement('canvas');

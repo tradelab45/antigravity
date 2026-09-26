@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Award, Trophy } from 'lucide-react';
 import { AchievementsView } from './AchievementsView';
-import { TradingChallengesView } from '../modules/trading-simulator/components/TradingChallengesView';
+import { TradingChallengesView } from '../../trading-simulator/components/TradingChallengesView';
 
 interface ProgressHubProps {
   initialSection?: 'challenges' | 'achievements';

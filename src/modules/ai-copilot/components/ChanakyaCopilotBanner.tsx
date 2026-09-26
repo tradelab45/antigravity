@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, X, ShieldAlert, Target, TrendingUp, CheckCircle, ArrowRight, Zap } from 'lucide-react';
-import { useSimulator } from '../context/SimulatorContext';
+import { useSimulator } from '../../../context/SimulatorContext';
 
 export const ChanakyaCopilotBanner: React.FC = () => {
   const { copilotFeedback, clearCopilotFeedback } = useSimulator();

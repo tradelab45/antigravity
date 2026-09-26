@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
-import { readJsonWithRecovery, writeJsonAtomic } from './jsonStore';
+import { readJsonWithRecovery, writeJsonAtomic } from '../../../server/jsonStore';
 import { getStageExam, EXAM_LENGTH, EXAM_PASS_MARK } from '../data/stageExams';
 import type { ExamAttempt } from '../utils/academyProgress';
 import { rateLimit } from 'express-rate-limit';

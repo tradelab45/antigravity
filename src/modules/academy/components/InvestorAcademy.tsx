@@ -25,12 +25,12 @@ import {
 } from 'lucide-react';
 import { INITIAL_LESSONS } from '../data/lessonsData';
 import { CASE_STUDIES_DATA, CaseStudy } from '../data/caseStudiesData';
-import { useSimulator } from '../context/SimulatorContext';
-import { Lesson, LessonQuizOption } from '../types';
-import { formatINR } from '../utils/formatters';
+import { useSimulator } from '../../../context/SimulatorContext';
+import { Lesson, LessonQuizOption } from '../../../types';
+import { formatINR } from '../../../utils/formatters';
 import { HistoricalEventsLab } from './HistoricalEventsLab';
-import { PortfolioConstructionLab } from '../modules/portfolio/components/PortfolioConstructionLab';
-import { TaxCentre } from '../modules/tax/components/TaxCentre';
+import { PortfolioConstructionLab } from '../../portfolio/components/PortfolioConstructionLab';
+import { TaxCentre } from '../../tax/components/TaxCentre';
 import { startPracticeTask } from './PracticeTaskBanner';
 import { getPracticeAction } from '../data/practiceActions';
 import { StageExam } from './StageExam';
@@ -46,9 +46,9 @@ import {
   type ExamMemory,
   type QuestionResult,
 } from '../data/stageExams';
-import { SectionSkipLinks } from './ui/section-skip-links';
-import type { AppTabType } from './Header';
-import { useAccessibility } from '../modules/accessibility/context/AccessibilityContext';
+import { SectionSkipLinks } from '../../../components/ui/section-skip-links';
+import type { AppTabType } from '../../../components/Header';
+import { useAccessibility } from '../../accessibility/context/AccessibilityContext';
 
 import { localizeLesson } from '../data/hindiLessons';
 import { readResume } from '../utils/academyProgress';
