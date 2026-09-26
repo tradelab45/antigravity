@@ -7,7 +7,8 @@ import path from 'node:path';
 import { chromium, type Browser, type Page } from 'playwright';
 import type { Server } from 'node:http';
 import { createAcademyService } from '../../src/server/academyService';
-import { getStageExam } from '../../src/data/stageExams';
+import { SESSION_COOKIE, issueSession, readSession } from '../../src/server/sessions';
+import { EXAM_LENGTH, getStageExam } from '../../src/data/stageExams';
 import { seedSession, auditContrast } from './contrastAudit';
 
 let server: Server, browser: Browser, base: string, directory: string;
@@ -16,9 +17,16 @@ const root = process.cwd();
 before(async () => {
   directory = mkdtempSync(path.join(os.tmpdir(), 'rr-academy-browser-'));
   mkdirSync(path.join(root, 'test-results'), { recursive: true });
-  const service = createAcademyService(path.join(directory, 'academy.json'));
+  // The Academy authenticates through the app's signed session, as server.ts wires it.
+  const service = createAcademyService(path.join(directory, 'academy.json'), (req) => {
+    const raw = req.headers.cookie?.split(';').map(part => part.trim()).find(part => part.startsWith(`${SESSION_COOKIE}=`));
+    return readSession(raw ? decodeURIComponent(raw.slice(SESSION_COOKIE.length + 1)) : null)?.userId ?? null;
+  });
   const app = express(); app.use(express.json());
-  app.post('/__test/session', (req, res) => { service.issueSession(req, res, userId); res.json({ ok: true }); });
+  app.post('/__test/session', (_req, res) => {
+    res.cookie(SESSION_COOKIE, issueSession(userId).token, { httpOnly: true, sameSite: 'lax', path: '/' });
+    res.json({ ok: true });
+  });
   app.use('/api/academy', service.router);
   app.post('/api/auth/login', (_req, res) => res.status(429).json({ message: 'Too many attempts. Please wait.' }));
   app.use('/api', (_req, res) => res.status(503).json({ success: false, message: 'Market API disabled in browser tests.' }));
@@ -75,8 +83,18 @@ test('failed and passed exams create one dated record each and export a certific
     await page.getByRole('button', { name: /Stage Exam/ }).click();
     const exam = getStageExam('beginner')!;
     for (let attemptIndex = 0; attemptIndex < 2; attemptIndex++) {
-      for (let i = 0; i < exam.questions.length; i++) {
-        const question = exam.questions[i];
+      // A paper is EXAM_LENGTH questions drawn from a larger bank and shuffled,
+      // so answer what is actually on the page rather than the bank in order.
+      await page.getByRole('button', { name: 'Submit paper' }).waitFor();
+      // Each question's own line, minus its number, matched exactly: one
+      // question's text can appear inside another's, so a substring match
+      // finds questions that are not on the paper.
+      const shown = new Set((await page.locator('ol > li > p:first-child').allTextContents())
+        .map(text => text.replace(/^\s*\d+\.\s*/, '').trim()));
+      const paper = exam.questions.filter(question => shown.has(question.question));
+      assert.equal(paper.length, EXAM_LENGTH, 'the paper on screen is one full paper');
+      for (let i = 0; i < paper.length; i++) {
+        const question = paper[i];
         const answer = attemptIndex === 0 && i < 7 ? (question.correctIndex + 1) % 4 : question.correctIndex;
         await page.locator('li').filter({ hasText: question.question }).getByRole('button', { name: question.options[answer], exact: true }).click();
       }

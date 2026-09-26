@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Command, Sparkles, Zap } from 'lucide-react';
+import { useModalDialog } from '../hooks/useModalDialog';
 
 interface KeyboardShortcutsModalProps {
   isOpen: boolean;
@@ -8,6 +9,12 @@ interface KeyboardShortcutsModalProps {
 }
 
 export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({ isOpen, onClose }) => {
+  const { ref: dialogRef, dialogProps } = useModalDialog({
+    onClose,
+    open: isOpen,
+    label: 'Keyboard shortcuts',
+  });
+
   if (!isOpen) return null;
 
   const shortcuts = [
@@ -26,7 +33,7 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({ 
   ];
 
   return (
-    <div id="shortcuts-modal-overlay" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+    <div id="shortcuts-modal-overlay" ref={dialogRef} {...dialogProps} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}

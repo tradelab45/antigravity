@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from 'express';
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { getStageExam, EXAM_LENGTH, EXAM_PASS_MARK } from '../data/stageExams';
@@ -10,12 +10,29 @@ interface Membership { groupId: string; name: string; kind: 'SCHOOL' | 'COLLEGE'
 interface AcademyRecord { attempts: ExamAttempt[]; membership?: Membership }
 type Database = Record<string, AcademyRecord>;
 
+/**
+ * Grades a submitted paper against the bank it was drawn from.
+ *
+ * A paper is EXAM_LENGTH questions drawn from a larger bank, so the answers
+ * cover a subset of the bank's questions rather than all of them. Requiring an
+ * answer for every question in the bank refused every paper once the banks
+ * grew past the paper length. Each answer must name a question in this stage's
+ * bank and one of that question's options; anything else rejects the attempt.
+ */
 export function gradeExam(stageId: string, answers: unknown): number | null {
   const exam = getStageExam(stageId);
   if (!exam || !answers || typeof answers !== 'object' || Array.isArray(answers)) return null;
-  const values = answers as Record<string, unknown>;
-  if (Object.keys(values).length !== EXAM_LENGTH || exam.questions.some(q => typeof values[q.id] !== 'string' || !q.options.includes(values[q.id] as string))) return null;
-  return exam.questions.reduce((score, q) => score + Number(values[q.id] === q.options[q.correctIndex]), 0);
+  const entries = Object.entries(answers as Record<string, unknown>);
+  if (entries.length !== EXAM_LENGTH) return null;
+
+  const bank = new Map(exam.questions.map(question => [question.id, question]));
+  let score = 0;
+  for (const [id, answer] of entries) {
+    const question = bank.get(id);
+    if (!question || typeof answer !== 'string' || !question.options.includes(answer)) return null;
+    if (answer === question.options[question.correctIndex]) score += 1;
+  }
+  return score;
 }
 
 export function rankCohort(db: Database, groupId: string, viewerId: string) {
@@ -36,27 +53,18 @@ export function rankCohort(db: Database, groupId: string, viewerId: string) {
   return { rows: ranked.slice(0, 50), total: rows.length, yourRank: ranked.find(row => row.isYou) || null };
 }
 
-export function createAcademyService(file: string) {
+/**
+ * The Academy's server side: synced exam attempts and school/college rankings.
+ *
+ * `resolveUserId` is the app's own session check. The service used to keep a
+ * second session store of its own, with its own cookie and its own logout
+ * route registered ahead of the app's — so signing out cleared the Academy
+ * cookie and answered before the real session was ever revoked. One identity
+ * system means a sign-out, a revoke-everywhere, a password change or a deleted
+ * account reaches the Academy too.
+ */
+export function createAcademyService(file: string, resolveUserId: (req: Request) => string | null) {
   const router = Router();
-  const sessions = new Map<string, { userId: string; expires: number }>();
-  const cookieName = 'rr_academy_session';
-  const cookieOptions = (req: Request) => ({ httpOnly: true, sameSite: 'lax' as const, secure: req.secure, path: '/api' });
-  const tokenFrom = (req: Request) => req.headers.cookie?.split(';').map(part => part.trim()).find(part => part.startsWith(`${cookieName}=`))?.slice(cookieName.length + 1);
-  const revoke = (req: Request) => { const token = tokenFrom(req); if (token) sessions.delete(token); };
-  const issueSession = (req: Request, res: Response, userId: string) => {
-    revoke(req);
-    for (const [key, session] of sessions) if (session.expires < Date.now()) sessions.delete(key);
-    if (sessions.size >= 10000) sessions.delete(sessions.keys().next().value!);
-    const token = randomBytes(32).toString('hex');
-    const maxAge = 7 * 24 * 60 * 60 * 1000;
-    sessions.set(token, { userId, expires: Date.now() + maxAge });
-    res.cookie(cookieName, token, { ...cookieOptions(req), maxAge });
-  };
-  const logout = (req: Request, res: Response) => {
-    revoke(req);
-    res.clearCookie(cookieName, cookieOptions(req));
-    res.json({ success: true });
-  };
   const read = (): Database => {
     if (!fs.existsSync(file)) return {};
     return JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -68,8 +76,12 @@ export function createAcademyService(file: string) {
   };
   router.use((_req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
   router.use((req, res, next) => {
-    const session = sessions.get(tokenFrom(req) || '');
-    if (!session || session.expires <= Date.now() || req.get('x-academy-user') !== session.userId) {
+    const userId = resolveUserId(req);
+    // The header is the account this tab believes it is signed in as. The
+    // session decides who the caller is; a mismatch means the tab is stale —
+    // another account signed in elsewhere — and is refused rather than
+    // silently writing to the other account.
+    if (!userId || req.get('x-academy-user') !== userId) {
       res.status(401).json({ message: 'Sign in again to sync exams or join your school/college leaderboard.' });
       return;
     }
@@ -80,7 +92,7 @@ export function createAcademyService(file: string) {
         return;
       }
     }
-    res.locals.userId = session.userId;
+    res.locals.userId = userId;
     next();
   });
   router.use(rateLimit({ windowMs: 15 * 60 * 1000, limit: 120, keyGenerator: (_req, res) => res.locals.userId, standardHeaders: 'draft-8', legacyHeaders: false, message: { message: 'Too many Academy requests. Please wait and try again.' } }));
@@ -145,5 +157,5 @@ export function createAcademyService(file: string) {
   router.use((_error: unknown, _req: Request, res: Response, _next: unknown) => {
     res.status(503).json({ message: 'Academy storage is temporarily unavailable. Your local progress is unchanged.' });
   });
-  return { router, issueSession, logout };
+  return { router };
 }

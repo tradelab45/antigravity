@@ -8,6 +8,8 @@ import yfPackage from "yahoo-finance2";
 import { UpstoxService } from './src/server/upstoxService';
 import { catalogPage, listedStockDetail } from './src/server/stockCatalog';
 import { createAuthLimiter } from './src/server/authRateLimit';
+import { configureTrustProxy } from './src/server/proxy';
+import { FALLBACK_GOOGLE_CLIENT_ID, isGoogleClientId } from './src/config/google';
 import { createAcademyService } from './src/server/academyService';
 import { TOP_100_INDIAN_COMPANIES } from "./src/data/indianCompanies";
 import { 
@@ -20,6 +22,35 @@ import {
   getScreenerData,
   type ScreenerChartResponse
 } from "./src/server/screenerService";
+import { clientKey, consume, reset as resetRateLimit, type RateLimitRule } from './src/server/rateLimit';
+import {
+  CODE_TTL_MS,
+  discardChallenge,
+  issueChallenge,
+  maskEmail,
+  reissueCode,
+  verifyChallenge,
+  type ChallengePurpose,
+} from './src/server/otp';
+import { deliverCode, deliveryMode, otpRequired } from './src/server/otpDelivery';
+import {
+  INITIAL_CAPITAL as INITIAL_LEDGER_CAPITAL,
+  emptyLedger,
+  executeOrder,
+  portfolioValue as computePortfolioValue,
+  sanitiseLedger,
+  type Ledger,
+} from './src/server/ledger';
+import {
+  SESSION_COOKIE,
+  SESSION_TTL_MS,
+  issueSession,
+  readSession,
+  revokeAllSessionsForUser,
+  revokeSession,
+  sessionCookieOptions,
+  sessionSecretIsPersistent,
+} from './src/server/sessions';
 
 dotenv.config();
 
@@ -38,12 +69,19 @@ app.get("/livez", (req, res) => {
 });
 
 app.use(express.json());
-const proxyHops = Number(process.env.TRUST_PROXY_HOPS || 0);
-if (Number.isInteger(proxyHops) && proxyHops > 0 && proxyHops <= 5) app.set('trust proxy', proxyHops);
-const academyService = createAcademyService(path.join(process.cwd(), 'data', 'academy.json'));
+// Who the caller is, when the app sits behind a hosting provider's proxy. See
+// src/server/proxy.ts: without it every visitor shared the proxy's address.
+configureTrustProxy(app);
+// The Academy authenticates through the same signed session as everything
+// else. It had a session store and a logout route of its own, and that route
+// was registered here, ahead of the real one: signing out answered from the
+// Academy's handler and the app's session was never revoked.
+const academyService = createAcademyService(
+  path.join(process.cwd(), 'data', 'academy.json'),
+  (req) => sessionUser(req)?.id ?? null,
+);
 app.use('/api/academy', academyService.router);
 app.use('/api/auth', (_req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
-app.post('/api/auth/logout', academyService.logout);
 
 // Lazy-safe Yahoo Finance client
 let yahooFinanceInstance: any = null;
@@ -2337,6 +2375,13 @@ app.get("/api/gemini/status", (_req, res) => {
 });
 
 app.post("/api/gemini/chat", async (req, res) => {
+  // These spend the operator's Gemini quota, and were reachable by anyone who
+  // could reach the server. They are features for a signed-in learner, so they
+  // now need a session and a cap.
+  if (!sessionUser(req)) return res.status(401).json({ error: "Sign in first." });
+  if (rateLimited(res, `ai:${clientKey(req.ip)}`, AI_LIMIT,
+    "You have used the AI coach a lot in the last hour. Try again later.")) return;
+
   const { message, context, portfolioContext, history = [] } = req.body;
   
   if (!message) {
@@ -2469,6 +2514,10 @@ ${combinedContext ? JSON.stringify(combinedContext) : 'None provided'}
 
 // Dedicated Portfolio Health Audit with Gemini 3.8 Flash
 app.post("/api/gemini/portfolio-audit", async (req, res) => {
+  if (!sessionUser(req)) return res.status(401).json({ error: "Sign in first." });
+  if (rateLimited(res, `ai:${clientKey(req.ip)}`, AI_LIMIT,
+    "You have used the AI coach a lot in the last hour. Try again later.")) return;
+
   const { holdings = [], cashBalance = 1000000, portfolioValue = 1000000 } = req.body;
   
   const auditPrompt = `Conduct a comprehensive Dalal Street Portfolio Audit for a student investor on RupeeRookie.
@@ -2526,6 +2575,10 @@ ${holdingsCount === 0
 
 // 5. Stock Deep AI Analysis for teens
 app.post("/api/gemini/analyze-stock", async (req, res) => {
+  if (!sessionUser(req)) return res.status(401).json({ error: "Sign in first." });
+  if (rateLimited(res, `ai:${clientKey(req.ip)}`, AI_LIMIT,
+    "You have used the AI coach a lot in the last hour. Try again later.")) return;
+
   const { stock } = req.body;
   if (!stock) {
     return res.status(400).json({ error: "Stock data is required" });
@@ -2665,19 +2718,44 @@ interface StoredUser {
   totalTrades?: number;
   isAdmin?: boolean;
   role?: 'ADMIN' | 'USER';
+  /** The class board this learner joined, uppercased. Absent means none. */
+  classCode?: string;
+  /**
+   * What this learner's browser last reported.
+   *
+   * Trades run entirely on the device — the server never sees an order — so
+   * these are reported figures, not measured ones. They are named `reported`
+   * so nothing downstream can mistake them for the server's own accounting,
+   * and the board says as much on screen.
+   */
+  reportedPortfolioValue?: number;
+  reportedTrades?: number;
+  reportedAt?: string;
 }
 
 const USERS_FILE = path.join(process.cwd(), "data", "users.json");
 /**
- * Password for the seeded demo account.
+ * Password for the seeded account — which is the owner's, since it carries
+ * the address in ADMIN_EMAILS.
  *
- * This was a hardcoded literal, and the seeded account uses the address in
- * ADMIN_EMAILS — so any fresh deployment shipped with the owner account
- * logged-in-able by anyone who read the source or the client bundle. With no
- * DEMO_ACCOUNT_PASSWORD configured it is now random per process, which leaves
- * the account present for display but not sign-in-able.
+ * It was a hardcoded literal, so every deployment shipped with the owner
+ * account open to anyone who read the source. It then became random per
+ * process unless DEMO_ACCOUNT_PASSWORD was set, and that locked the owner out
+ * for good: the random hash was written to users.json the first time anyone
+ * signed up, and a stored hash always won, so setting the variable afterwards
+ * changed nothing.
+ *
+ * OWNER_PASSWORD (or the older DEMO_ACCOUNT_PASSWORD) is now authoritative
+ * whenever it is set, over any stored hash — it is the operator's way back
+ * into the owner account. Without it the account keeps whatever password it
+ * has, or, having none, one nobody knows. Hashed once here rather than on
+ * every read of the user file.
  */
-const DEMO_PASSWORD = process.env.DEMO_ACCOUNT_PASSWORD || randomBytes(24).toString("hex");
+const CONFIGURED_OWNER_PASSWORD = (process.env.OWNER_PASSWORD || process.env.DEMO_ACCOUNT_PASSWORD || "").trim() || null;
+if (CONFIGURED_OWNER_PASSWORD && CONFIGURED_OWNER_PASSWORD.length < 12) {
+  console.warn("[auth] OWNER_PASSWORD is shorter than 12 characters. It protects an administrator account.");
+}
+const OWNER_PASSWORD_HASH = hashPassword(CONFIGURED_OWNER_PASSWORD || randomBytes(24).toString("hex"));
 
 const ADMIN_EMAILS = ["aaravvjain23@gmail.com"];
 const ADMIN_USERNAMES = ["aaravvjain23@gmail.com", "aarav", "aarav_trader"];
@@ -2737,8 +2815,9 @@ function loadUsers(): StoredUser[] {
       const data = fs.readFileSync(USERS_FILE, "utf-8");
       const users = JSON.parse(data) as StoredUser[];
       return users.map((user) => {
-        if (user.id === "usr_rookie_demo" && !user.passwordHash && !user.password) {
-          return { ...user, passwordHash: hashPassword(DEMO_PASSWORD), phone: "" };
+        if (user.id === "usr_rookie_demo" && (CONFIGURED_OWNER_PASSWORD || (!user.passwordHash && !user.password))) {
+          const { password: _legacy, ...rest } = user;
+          return { ...rest, passwordHash: OWNER_PASSWORD_HASH };
         }
         return user;
       });
@@ -2752,7 +2831,7 @@ function loadUsers(): StoredUser[] {
       fullName: "Aarav Jain",
       email: "aaravvjain23@gmail.com",
       username: "aarav_trader",
-      passwordHash: hashPassword(DEMO_PASSWORD),
+      passwordHash: OWNER_PASSWORD_HASH,
       phone: "",
       ageGroup: "16-18 (Teen Investor)",
       experienceLevel: "BEGINNER",
@@ -2942,8 +3021,152 @@ function saveTrades(trades: StoredTrade[]): void {
 }
 
 // User Signup
-app.post("/api/auth/signup", createAuthLimiter(5, 60 * 60 * 1000), async (req, res) => {
+/**
+ * Reads one cookie off the request.
+ *
+ * Written out rather than pulling in cookie-parser: the app needs exactly one
+ * cookie, and a dependency for that is not worth the supply chain.
+ */
+function readCookie(req: express.Request, name: string): string | null {
+  const header = req.headers.cookie;
+  if (!header) return null;
+  for (const part of header.split(';')) {
+    const index = part.indexOf('=');
+    if (index < 0) continue;
+    if (part.slice(0, index).trim() !== name) continue;
+    try {
+      return decodeURIComponent(part.slice(index + 1).trim());
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/** Signs the browser in: sets the session cookie and answers with the account. */
+function grantSession(
+  res: express.Response,
+  user: StoredUser,
+  extra: Record<string, unknown> = {},
+) {
+  const { token, expiresAt } = issueSession(user.id);
+  res.cookie(SESSION_COOKIE, token, sessionCookieOptions(expiresAt));
+  res.json({
+    success: true,
+    user: toSafeUser(user),
+    session: { expiresAt, verified: true },
+    ...extra,
+  });
+}
+
+/**
+ * The account behind the request's session cookie, or null.
+ *
+ * Routes that act on an account use this rather than a userId from the body:
+ * a body is whatever the caller typed, a session is something this server
+ * issued and can refuse.
+ */
+function sessionUser(req: express.Request): StoredUser | null {
+  const claims = readSession(readCookie(req, SESSION_COOKIE));
+  if (!claims) return null;
+  return loadUsers().find(u => u.id === claims.userId) || null;
+}
+
+/**
+ * Starts the verification step for a sign-in whose first factor has already
+ * passed, and answers the request.
+ *
+ * The account is deliberately not returned here. Until the code comes back the
+ * caller holds nothing but an opaque challenge id and a masked address, so a
+ * stolen password or a replayed Google credential is not by itself a session.
+ */
+async function beginVerification(
+  res: express.Response,
+  user: StoredUser,
+  purpose: ChallengePurpose,
+): Promise<void> {
+  const { challengeId, code, expiresAt } = issueChallenge(user.id, user.email, purpose);
+  const outcome = await deliverCode(user.email, code, expiresAt);
+
+  if (!outcome.delivered) {
+    // Fail closed. A code that could not be sent must not become an optional
+    // step, or the second factor is whatever the attacker prefers.
+    discardChallenge(challengeId);
+    res.status(503).json({
+      success: false,
+      message: outcome.message || "The verification code could not be sent. Try again shortly.",
+    });
+    return;
+  }
+
+  res.json({
+    success: true,
+    requiresVerification: true,
+    challengeId,
+    maskedEmail: maskEmail(user.email),
+    expiresInSeconds: Math.round(CODE_TTL_MS / 1000),
+    // Present only when OTP_DEV_ECHO is on outside production.
+    ...(outcome.devCode ? { devCode: outcome.devCode } : {}),
+  });
+}
+
+/**
+ * Throttles for the sign-in surface. Every one of these routes could be tried
+ * as fast as the server would answer, which is how a six-digit code or a weak
+ * password gets guessed.
+ *
+ * Each route is limited twice: once on the caller's address, and once on the
+ * account being targeted. The address rule stops one machine working through a
+ * list of accounts; the account rule stops a spread of addresses working on one
+ * account. A successful sign-in clears the account counter, so a person who
+ * mistypes a password four times and then gets it right is not left blocked.
+ */
+/** The AI routes spend the operator's quota, so they get a cap of their own. */
+const AI_LIMIT: RateLimitRule = { limit: 40, windowMs: 60 * 60_000 };
+
+// The address rules are sized for a classroom, not a person. A school or
+// college puts every learner behind one network address, so a rule that
+// assumed one person per address blocked the thirty-first student in the room
+// — and before the proxy fix, the whole site. What stops a password being
+// guessed is the per-account rule, which stays tight; the address rules are a
+// flood guard.
+const AUTH_LIMITS: Record<string, RateLimitRule> = {
+  loginIp: { limit: 200, windowMs: 15 * 60_000 },
+  loginAccount: { limit: 8, windowMs: 15 * 60_000 },
+  signupIp: { limit: 120, windowMs: 60 * 60_000 },
+  googleIp: { limit: 200, windowMs: 15 * 60_000 },
+  otpRequest: { limit: 60, windowMs: 15 * 60_000 },
+  otpVerify: { limit: 200, windowMs: 15 * 60_000 },
+  classJoin: { limit: 120, windowMs: 15 * 60_000 },
+};
+
+/**
+ * Applies one rule and answers the request itself when the caller is over it.
+ * Returns true when the request should stop here.
+ */
+function rateLimited(
+  res: express.Response,
+  key: string,
+  rule: RateLimitRule,
+  message: string,
+): boolean {
+  const verdict = consume(key, rule);
+  if (verdict.allowed) return false;
+  res.set("Retry-After", String(verdict.retryAfterSeconds));
+  res.status(429).json({
+    success: false,
+    message,
+    retryAfterSeconds: verdict.retryAfterSeconds,
+  });
+  return true;
+}
+
+app.post("/api/auth/signup", createAuthLimiter(150, 60 * 60 * 1000), async (req, res) => {
   try {
+    const caller = clientKey(req.ip);
+    if (rateLimited(res, `signup:ip:${caller}`, AUTH_LIMITS.signupIp,
+      "Too many accounts created from here. Try again later.")) return;
+
     const { fullName, email, username, password, phone, ageGroup, experienceLevel } = req.body;
     if (!fullName || !email || !username || !password) {
       return res.status(400).json({ success: false, message: "Full name, email, username, and password are required." });
@@ -3040,23 +3263,31 @@ app.post("/api/auth/signup", createAuthLimiter(5, 60 * 60 * 1000), async (req, r
       }
     }
 
-    academyService.issueSession(req, res, newUser.id);
-    res.json({ success: true, user: toSafeUser(newUser), message: "Account created successfully!" });
+    grantSession(res, newUser, { message: "Account created successfully!" });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message || "Failed to register user" });
   }
 });
 
 // User Login
-app.post("/api/auth/login", createAuthLimiter(10), (req, res) => {
+app.post("/api/auth/login", createAuthLimiter(300), async (req, res) => {
   try {
+    const caller = clientKey(req.ip);
+    if (rateLimited(res, `login:ip:${caller}`, AUTH_LIMITS.loginIp,
+      "Too many sign-in attempts from here. Try again later.")) return;
+
     const { identifier, password } = req.body;
     if (typeof identifier !== 'string' || identifier.length > 120 || typeof password !== 'string' || password.length > 128 || !identifier || !password) {
       return res.status(400).json({ success: false, message: "Email or username and password are required." });
     }
 
-    const users = loadUsers();
     const cleanId = identifier.toLowerCase().trim();
+    // Keyed on what was typed rather than on the resolved account, so the
+    // counter also covers attempts against an identifier that does not exist.
+    if (rateLimited(res, `login:id:${cleanId}`, AUTH_LIMITS.loginAccount,
+      "Too many sign-in attempts for this account. Try again later.")) return;
+
+    const users = loadUsers();
     const user = users.find(
       u => u.email.toLowerCase() === cleanId || 
            u.username.toLowerCase() === cleanId ||
@@ -3074,14 +3305,640 @@ app.post("/api/auth/login", createAuthLimiter(10), (req, res) => {
     user.lastLoginAt = new Date().toISOString();
     saveUsers(users);
 
-    academyService.issueSession(req, res, user.id);
-    res.json({ success: true, user: toSafeUser(user), message: `Welcome back, ${user.fullName}!` });
+    // The run of failures is over, so the account counter starts again.
+    resetRateLimit(`login:id:${cleanId}`);
+
+    if (otpRequired()) {
+      await beginVerification(res, user, "login");
+      return;
+    }
+
+    grantSession(res, user, { message: `Welcome back, ${user.fullName}!` });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message || "Login failed" });
   }
 });
 
+/**
+ * Exchanges a verification code for the account.
+ *
+ * Wrong codes are counted twice over: the challenge itself allows five before
+ * it is destroyed, and the caller's address is capped separately so a stream
+ * of fresh challenges cannot be used to walk the keyspace.
+ */
+app.post("/api/auth/otp/verify", (req, res) => {
+  try {
+    const caller = clientKey(req.ip);
+    if (rateLimited(res, `otp:verify:${caller}`, AUTH_LIMITS.otpVerify,
+      "Too many verification attempts. Try again later.")) return;
+
+    const { challengeId, code } = req.body;
+    if (!challengeId || typeof challengeId !== "string" || !code) {
+      return res.status(400).json({ success: false, message: "A verification code is required." });
+    }
+    if (!/^\d{4,8}$/.test(String(code).trim())) {
+      return res.status(400).json({ success: false, message: "That code does not look right." });
+    }
+
+    const result = verifyChallenge(challengeId, String(code));
+    if (!result.ok) {
+      const message =
+        result.reason === "expired" ? "That code has expired. Ask for a new one." :
+        result.reason === "exhausted" ? "Too many wrong codes. Start the sign-in again." :
+        result.reason === "unknown" ? "That sign-in is no longer pending. Start again." :
+        `That code is not right. ${result.attemptsLeft} attempt${result.attemptsLeft === 1 ? "" : "s"} left.`;
+      return res.status(401).json({ success: false, message, attemptsLeft: result.attemptsLeft });
+    }
+
+    const users = loadUsers();
+    const user = users.find(u => u.id === result.userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "That account no longer exists." });
+    }
+
+    user.lastLoginAt = new Date().toISOString();
+    saveUsers(users);
+
+    grantSession(res, user, { message: `Welcome back, ${user.fullName}!` });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || "Verification failed" });
+  }
+});
+
+/**
+ * Sends a fresh code for a sign-in already in progress. The old code stops
+ * working immediately, so a resend never leaves two live codes on one account.
+ */
+app.post("/api/auth/otp/resend", async (req, res) => {
+  try {
+    const caller = clientKey(req.ip);
+    if (rateLimited(res, `otp:resend:${caller}`, AUTH_LIMITS.otpRequest,
+      "Too many codes requested. Try again later.")) return;
+
+    const { challengeId } = req.body;
+    if (!challengeId || typeof challengeId !== "string") {
+      return res.status(400).json({ success: false, message: "That sign-in is no longer pending. Start again." });
+    }
+
+    const reissued = reissueCode(challengeId);
+    if (!reissued) {
+      return res.status(410).json({ success: false, message: "That sign-in is no longer pending. Start again." });
+    }
+
+    const outcome = await deliverCode(reissued.email, reissued.code, reissued.expiresAt);
+    if (!outcome.delivered) {
+      discardChallenge(challengeId);
+      return res.status(503).json({
+        success: false,
+        message: outcome.message || "The verification code could not be sent.",
+      });
+    }
+
+    res.json({
+      success: true,
+      maskedEmail: maskEmail(reissued.email),
+      expiresInSeconds: Math.round(CODE_TTL_MS / 1000),
+      ...(outcome.devCode ? { devCode: outcome.devCode } : {}),
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || "Could not resend the code" });
+  }
+});
+
+/** Abandons a pending sign-in, so its code cannot be used later. */
+app.post("/api/auth/otp/cancel", (req, res) => {
+  const { challengeId } = req.body;
+  if (challengeId && typeof challengeId === "string") discardChallenge(challengeId);
+  res.json({ success: true });
+});
+
+/**
+ * Class boards.
+ *
+ * A teacher hands out a code, learners join it, and the board lists who is in
+ * it with what their own browser reports. Nothing here is verified: the
+ * simulator executes trades on the device, so a figure can be edited by anyone
+ * willing to open developer tools. The board is for a class to see itself,
+ * not for deciding a prize, and the UI says so.
+ */
+const CLASS_CODE_PATTERN = /^[A-Z0-9-]{4,16}$/;
+
+const normaliseClassCode = (value: unknown): string | null => {
+  const code = String(value || "").trim().toUpperCase();
+  return CLASS_CODE_PATTERN.test(code) ? code : null;
+};
+
+/** First name plus a last initial: enough to find yourself, not a directory. */
+const boardDisplayName = (fullName: string): string => {
+  const parts = String(fullName || "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "Learner";
+  if (parts.length === 1) return parts[0].slice(0, 24);
+  return `${parts[0].slice(0, 20)} ${parts[parts.length - 1][0].toUpperCase()}.`;
+};
+
+app.post("/api/class/join", (req, res) => {
+  const caller = clientKey(req.ip);
+  if (rateLimited(res, `class:join:${caller}`, AUTH_LIMITS.classJoin,
+    "Too many attempts. Try again later.")) return;
+
+  // The account comes from the session, never from the body: a userId in a
+  // request is whatever the caller typed, so taking it on trust let anyone
+  // join, report for or remove any other learner.
+  const signedIn = sessionUser(req);
+  if (!signedIn) return res.status(401).json({ success: false, message: "Sign in first." });
+  if (isPublicDemo(signedIn)) {
+    return res.status(403).json({
+      success: false,
+      message: "The demo account is shared, so it can't join a class board. Sign up to join yours.",
+    });
+  }
+
+  const code = normaliseClassCode(req.body?.classCode);
+  if (!code) {
+    return res.status(400).json({
+      success: false,
+      message: "A class code is 4 to 16 letters, numbers or hyphens.",
+    });
+  }
+
+  const users = loadUsers();
+  const user = users.find(u => u.id === signedIn.id);
+  if (!user) return res.status(404).json({ success: false, message: "Account not found." });
+
+  user.classCode = code;
+  saveUsers(users);
+  res.json({ success: true, classCode: code, message: `Joined ${code}.` });
+});
+
+app.post("/api/class/leave", (req, res) => {
+  const signedIn = sessionUser(req);
+  if (!signedIn) return res.status(401).json({ success: false, message: "Sign in first." });
+
+  const users = loadUsers();
+  const user = users.find(u => u.id === signedIn.id);
+  if (!user) return res.status(404).json({ success: false, message: "Account not found." });
+
+  delete user.classCode;
+  delete user.reportedPortfolioValue;
+  delete user.reportedTrades;
+  delete user.reportedAt;
+  saveUsers(users);
+  res.json({ success: true, message: "Left the class board." });
+});
+
+/** The learner's own device reports where it has got to. */
+app.post("/api/class/report", (req, res) => {
+  // Per learner. Keyed on the address, one school's network shared sixty
+  // reports an hour between every student in it.
+  const signedIn = sessionUser(req);
+  if (signedIn && rateLimited(res, `class:report:${signedIn.id}`, { limit: 60, windowMs: 60 * 60_000 },
+    "Too many updates. Try again later.")) return;
+
+  if (!signedIn) return res.status(401).json({ success: false, message: "Sign in first." });
+
+  const { portfolioValue, totalTrades } = req.body || {};
+  const users = loadUsers();
+  const user = users.find(u => u.id === signedIn.id);
+  if (!user) return res.status(404).json({ success: false, message: "Account not found." });
+  if (!user.classCode) {
+    return res.status(409).json({ success: false, message: "Join a class board first." });
+  }
+
+  const value = Number(portfolioValue);
+  const trades = Number(totalTrades);
+  // Bounds rather than trust: a figure outside what the simulator can produce
+  // is refused, so the board cannot be decorated with an absurd number.
+  if (!Number.isFinite(value) || value < 0 || value > 1_000_000_000) {
+    return res.status(400).json({ success: false, message: "That portfolio value is out of range." });
+  }
+  if (!Number.isFinite(trades) || trades < 0 || trades > 100_000) {
+    return res.status(400).json({ success: false, message: "That trade count is out of range." });
+  }
+
+  user.reportedPortfolioValue = Math.round(value);
+  user.reportedTrades = Math.round(trades);
+  user.reportedAt = new Date().toISOString();
+  saveUsers(users);
+  res.json({ success: true });
+});
+
+app.get("/api/class/:code/board", (req, res) => {
+  const caller = clientKey(req.ip);
+  if (rateLimited(res, `class:board:${caller}`, { limit: 120, windowMs: 15 * 60_000 },
+    "Too many requests. Try again later.")) return;
+
+  const code = normaliseClassCode(req.params.code);
+  if (!code) return res.status(400).json({ success: false, message: "That is not a class code." });
+
+  // The server now holds the ledger, so a member who has traded through it has
+  // a figure this server computed rather than one their browser claimed. A
+  // member with no ledger — an older account, or one used only on a static
+  // build — still falls back to what they reported, and each row says which
+  // of the two it is.
+  const ledgers = loadLedgers();
+  const quotes = quoteMap();
+
+  const members = loadUsers()
+    .filter(u => u.classCode === code)
+    // No email, no username, no id: a code is not a key to a directory.
+    .map(u => {
+      const ledger = ledgers[u.id];
+      if (ledger) {
+        return {
+          name: boardDisplayName(u.fullName),
+          portfolioValue: computePortfolioValue(ledger, quotes),
+          trades: ledger.orders.length,
+          updatedAt: ledger.updatedAt,
+          verified: true,
+        };
+      }
+      return {
+        name: boardDisplayName(u.fullName),
+        portfolioValue: u.reportedPortfolioValue ?? null,
+        trades: u.reportedTrades ?? null,
+        updatedAt: u.reportedAt ?? null,
+        verified: false,
+      };
+    })
+    .sort((a, b) => (b.portfolioValue ?? -1) - (a.portfolioValue ?? -1));
+
+  res.json({
+    success: true,
+    classCode: code,
+    members,
+    // True only when every row came from a ledger this server executed.
+    verified: members.length > 0 && members.every(member => member.verified),
+    note: "Rows marked unverified were reported by a learner's own browser rather than executed here.",
+  });
+});
+
+/**
+ * Who the server thinks is signed in.
+ *
+ * The client renders from a cached copy for speed, then asks this. If the
+ * answer is no, the cached copy is dropped — the browser's opinion of who it
+ * is stops being the last word.
+ */
+app.get("/api/auth/session", (req, res) => {
+  const claims = readSession(readCookie(req, SESSION_COOKIE));
+  if (!claims) {
+    return res.status(401).json({ success: false, authenticated: false });
+  }
+
+  const user = loadUsers().find(u => u.id === claims.userId);
+  if (!user) {
+    // The account went away under a live session.
+    res.clearCookie(SESSION_COOKIE, { path: "/" });
+    return res.status(401).json({ success: false, authenticated: false });
+  }
+
+  res.json({
+    success: true,
+    authenticated: true,
+    user: toSafeUser(user),
+    session: {
+      expiresAt: claims.expiresAt,
+      verified: true,
+      // False when SESSION_SECRET is unset: the secret is then random per
+      // boot, so a restart signs everyone out. Worth surfacing to an operator.
+      durable: sessionSecretIsPersistent(),
+      ttlMs: SESSION_TTL_MS,
+    },
+  });
+});
+
+/**
+ * The shared practice account behind the landing page's demo button.
+ *
+ * The button used to sign in to xyz@gmail.com with the password "demo". That
+ * alias belonged to the seeded account, which is the owner's — administrator
+ * email and all — so the button could only ever have worked by publishing the
+ * owner's password, and once that password stopped being a literal it never
+ * worked at all.
+ *
+ * This account is separate. It has no password, because there is nothing to
+ * protect with one: anybody may use it, and the button says so. It is not an
+ * administrator, it cannot be deleted or have a password set, it cannot join a
+ * class board, and its address is on the reserved .invalid domain, so no
+ * Google account or mailbox can ever claim it.
+ */
+const PUBLIC_DEMO_ID = "usr_public_demo";
+const isPublicDemo = (user: { id?: string } | null | undefined) => user?.id === PUBLIC_DEMO_ID;
+
+app.post("/api/auth/demo", (req, res) => {
+  try {
+    const caller = clientKey(req.ip);
+    if (rateLimited(res, `demo:ip:${caller}`, AUTH_LIMITS.loginIp,
+      "Too many sign-ins from here. Try again later.")) return;
+
+    const users = loadUsers();
+    let demo = users.find(u => u.id === PUBLIC_DEMO_ID);
+    if (!demo) {
+      demo = {
+        id: PUBLIC_DEMO_ID,
+        fullName: "Demo Trader",
+        email: "demo@rupeerookie.invalid",
+        username: "demo_trader",
+        phone: "",
+        ageGroup: "13-17 (Teen)",
+        experienceLevel: "BEGINNER",
+        initialCapital: 1000000,
+        registeredAt: new Date().toISOString(),
+        lastLoginAt: new Date().toISOString(),
+        portfolioValue: 1000000,
+        totalTrades: 0,
+      };
+      users.push(demo);
+    }
+    demo.lastLoginAt = new Date().toISOString();
+    saveUsers(users);
+
+    grantSession(res, demo, {
+      message: "You're in the shared demo account. Sign up to keep your own portfolio.",
+      demo: true,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || "The demo is unavailable." });
+  }
+});
+
+/** Ends this session on the server, not only in the browser. */
+app.post("/api/auth/logout", (req, res) => {
+  revokeSession(readCookie(req, SESSION_COOKIE));
+  res.clearCookie(SESSION_COOKIE, { path: "/" });
+  res.json({ success: true });
+});
+
+/** Ends every session for the signed-in account, on every device. */
+app.post("/api/auth/logout-everywhere", (req, res) => {
+  const user = sessionUser(req);
+  if (!user) return res.status(401).json({ success: false, message: "Not signed in." });
+  // Everyone using the shared demo is signed in to the same account. Signing
+  // it out everywhere would sign out every other visitor too.
+  if (isPublicDemo(user)) {
+    revokeSession(readCookie(req, SESSION_COOKIE));
+    res.clearCookie(SESSION_COOKIE, { path: "/" });
+    return res.json({ success: true, message: "Signed out of the demo." });
+  }
+
+  revokeAllSessionsForUser(user.id);
+  res.clearCookie(SESSION_COOKIE, { path: "/" });
+  res.json({ success: true, message: "Signed out on every device." });
+});
+
+/**
+ * Deletes the signed-in account.
+ *
+ * The privacy centre explained what was held and offered no way to remove it.
+ * The account itself lives on the server, so only the server can delete it.
+ *
+ * Re-authentication is required, not just a live session: a borrowed, unlocked
+ * browser should not be able to destroy the account. An account with a
+ * password must supply it; one that only ever signed in through Google types
+ * the confirmation phrase instead, since there is no password to check.
+ */
+app.delete("/api/account", (req, res) => {
+  const caller = clientKey(req.ip);
+  if (rateLimited(res, `account:delete:${caller}`, AUTH_LIMITS.loginAccount,
+    "Too many attempts. Try again later.")) return;
+
+  const claims = readSession(readCookie(req, SESSION_COOKIE));
+  if (!claims) return res.status(401).json({ success: false, message: "Sign in first." });
+
+  const users = loadUsers();
+  const index = users.findIndex(u => u.id === claims.userId);
+  if (index < 0) {
+    res.clearCookie(SESSION_COOKIE, { path: "/" });
+    return res.status(404).json({ success: false, message: "That account no longer exists." });
+  }
+
+  const user = users[index];
+  if (isPublicDemo(user)) {
+    return res.status(403).json({ success: false, message: "The shared demo account can't be deleted." });
+  }
+  const { password, confirmation } = req.body || {};
+
+  if (user.passwordHash || user.password) {
+    if (!password || !verifyPassword(String(password), user)) {
+      return res.status(401).json({ success: false, message: "That password is not right." });
+    }
+  } else if (String(confirmation || "").trim().toUpperCase() !== "DELETE") {
+    return res.status(400).json({
+      success: false,
+      message: 'Type DELETE to confirm.',
+    });
+  }
+
+  users.splice(index, 1);
+  saveUsers(users);
+
+  // Every device, not just this one: the account is gone.
+  revokeAllSessionsForUser(user.id);
+  res.clearCookie(SESSION_COOKIE, { path: "/" });
+
+  res.json({
+    success: true,
+    message: "Your account and everything the server held for it has been deleted.",
+  });
+});
+
+/* =========================================================================
+   The trading ledger
+   Trades used to execute in the browser and live in localStorage, so the
+   server never knew what anyone held. It does now: it prices each order from
+   its own quote, checks the cash and the holding, and keeps the record.
+   ========================================================================= */
+const LEDGERS_FILE = path.join(process.cwd(), "data", "ledgers.json");
+
+function loadLedgers(): Record<string, Ledger> {
+  try {
+    if (!fs.existsSync(LEDGERS_FILE)) return {};
+    const parsed = JSON.parse(fs.readFileSync(LEDGERS_FILE, "utf-8"));
+    const out: Record<string, Ledger> = {};
+    for (const [userId, ledger] of Object.entries(parsed || {})) {
+      out[userId] = sanitiseLedger(ledger);
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+function saveLedgers(ledgers: Record<string, Ledger>): void {
+  try {
+    fs.mkdirSync(path.dirname(LEDGERS_FILE), { recursive: true });
+    fs.writeFileSync(LEDGERS_FILE, JSON.stringify(ledgers, null, 2));
+  } catch (err) {
+    console.error("[ledger] could not be written:", err);
+  }
+}
+
+function ledgerFor(userId: string): Ledger {
+  return loadLedgers()[userId] || emptyLedger();
+}
+
+/** The server's own quotes, which is what an order is priced from. */
+function quoteMap(): Record<string, number> {
+  const quotes: Record<string, number> = {};
+  for (const stock of currentStocks) {
+    if (Number.isFinite(stock.price) && stock.price > 0) quotes[stock.symbol] = stock.price;
+  }
+  return quotes;
+}
+
+app.get("/api/portfolio", (req, res) => {
+  const user = sessionUser(req);
+  if (!user) return res.status(401).json({ success: false, message: "Sign in first." });
+
+  const ledger = ledgerFor(user.id);
+  res.json({
+    success: true,
+    ledger,
+    portfolioValue: computePortfolioValue(ledger, quoteMap()),
+    verified: true,
+  });
+});
+
+/**
+ * Executes one market order.
+ *
+ * The price comes from `currentStocks`, never from the request: a client that
+ * could name its own price could buy at ₹1 and sell at ₹10,000. The user comes
+ * from the session cookie, never from the body, so one account cannot trade in
+ * another's ledger.
+ */
+app.post("/api/portfolio/execute", (req, res) => {
+  const user = sessionUser(req);
+  // Per learner. Keyed on the address, a class trading from one school network
+  // shared 240 orders an hour between all of them.
+  if (user && rateLimited(res, `trade:${user.id}`, { limit: 240, windowMs: 60 * 60_000 },
+    "Too many orders. Try again shortly.")) return;
+
+  if (!user) return res.status(401).json({ success: false, message: "Sign in first." });
+
+  const { symbol, quantity, side, product } = req.body || {};
+  const cleanSymbol = String(symbol || "").trim().toUpperCase();
+  const stock = currentStocks.find(s => s.symbol === cleanSymbol);
+  if (!stock) {
+    return res.status(404).json({ success: false, message: "That share is not in the simulator." });
+  }
+
+  const ledgers = loadLedgers();
+  const ledger = ledgers[user.id] || emptyLedger();
+
+  const result = executeOrder(ledger, {
+    symbol: cleanSymbol,
+    stockName: stock.name || cleanSymbol,
+    quantity: Number(quantity),
+    side: side === "SELL" ? "SELL" : "BUY",
+    product: product === "MIS" ? "MIS" : "CNC",
+    price: stock.price,
+  });
+
+  if (!result.ok || !result.ledger) {
+    return res.status(400).json({ success: false, message: result.message });
+  }
+
+  ledgers[user.id] = result.ledger;
+  saveLedgers(ledgers);
+
+  // Keep the account row in step, so anything reading it sees a measured
+  // figure rather than the signup constant it used to hold forever.
+  const users = loadUsers();
+  const account = users.find(u => u.id === user.id);
+  if (account) {
+    account.portfolioValue = computePortfolioValue(result.ledger, quoteMap());
+    account.totalTrades = result.ledger.orders.length;
+    saveUsers(users);
+  }
+
+  res.json({
+    success: true,
+    message: result.message,
+    order: result.order,
+    ledger: result.ledger,
+    portfolioValue: computePortfolioValue(result.ledger, quoteMap()),
+  });
+});
+
+/**
+ * What a reset displaced, kept briefly so the undo in the header can put it
+ * back. Without this the client would restore its own copy while the server
+ * kept the empty one, and the next sync would wipe it again — an undo that
+ * only appeared to work.
+ */
+const RESET_UNDO_WINDOW_MS = 60_000;
+const resetSnapshots = new Map<string, { ledger: Ledger; at: number }>();
+
+/** Puts the ledger back to the starting capital. */
+app.post("/api/portfolio/reset", (req, res) => {
+  const user = sessionUser(req);
+  if (!user) return res.status(401).json({ success: false, message: "Sign in first." });
+
+  const ledgers = loadLedgers();
+  const previous = ledgers[user.id];
+  if (previous) resetSnapshots.set(user.id, { ledger: previous, at: Date.now() });
+
+  ledgers[user.id] = emptyLedger();
+  saveLedgers(ledgers);
+
+  const users = loadUsers();
+  const account = users.find(u => u.id === user.id);
+  if (account) {
+    account.portfolioValue = INITIAL_LEDGER_CAPITAL;
+    account.totalTrades = 0;
+    saveUsers(users);
+  }
+
+  res.json({ success: true, ledger: ledgers[user.id], portfolioValue: INITIAL_LEDGER_CAPITAL });
+});
+
+/** Restores what the last reset displaced, while the window is still open. */
+app.post("/api/portfolio/reset/undo", (req, res) => {
+  const user = sessionUser(req);
+  if (!user) return res.status(401).json({ success: false, message: "Sign in first." });
+
+  const snapshot = resetSnapshots.get(user.id);
+  if (!snapshot || Date.now() - snapshot.at > RESET_UNDO_WINDOW_MS) {
+    resetSnapshots.delete(user.id);
+    return res.status(410).json({ success: false, message: "That reset can no longer be undone." });
+  }
+
+  const ledgers = loadLedgers();
+  ledgers[user.id] = snapshot.ledger;
+  saveLedgers(ledgers);
+  resetSnapshots.delete(user.id);
+
+  const value = computePortfolioValue(snapshot.ledger, quoteMap());
+  const users = loadUsers();
+  const account = users.find(u => u.id === user.id);
+  if (account) {
+    account.portfolioValue = value;
+    account.totalTrades = snapshot.ledger.orders.length;
+    saveUsers(users);
+  }
+
+  res.json({ success: true, ledger: snapshot.ledger, portfolioValue: value });
+});
+
+/** Lets the sign-in screen say up front that a code will be needed. */
+app.get("/api/auth/otp/status", (_req, res) => {
+  res.json({ required: otpRequired(), delivery: deliveryMode() });
+});
+
 // Helper to resolve current Google Client ID (re-reading from .env if updated)
+/**
+ * The Google client a credential must have been issued to.
+ *
+ * The browser obtains its credential from the client the page is configured
+ * with — the build-time VITE_GOOGLE_CLIENT_ID, or the shared fallback when
+ * neither is set. The server used to accept only GOOGLE_CLIENT_ID, so a
+ * deployment that set the browser's id but not the server's showed a working
+ * Google button whose every sign-in was then refused as "not configured". The
+ * server now checks against the same id the browser used, in the same order.
+ * The audience check in verifyGoogleCredential still binds the credential to
+ * that one client.
+ */
 function getGoogleClientId(): string | null {
   try {
     const envPath = path.join(process.cwd(), ".env");
@@ -3094,11 +3951,10 @@ function getGoogleClientId(): string | null {
     }
   } catch {}
 
-  const rawId = (process.env.GOOGLE_CLIENT_ID || "").trim();
-  if (rawId && rawId.includes("apps.googleusercontent.com") && !rawId.includes("YOUR_GOOGLE_CLIENT_ID")) {
-    return rawId;
+  for (const candidate of [process.env.GOOGLE_CLIENT_ID, process.env.VITE_GOOGLE_CLIENT_ID]) {
+    if (isGoogleClientId(candidate)) return candidate.trim();
   }
-  return null;
+  return FALLBACK_GOOGLE_CLIENT_ID;
 }
 
 // Google Sign-In: the client ID is public, so the browser reads it from here
@@ -3140,8 +3996,12 @@ function uniqueUsernameFromEmail(email: string, users: StoredUser[]): string {
 
 // Google Sign-In / Sign-Up: logs in an existing account (linking it by verified
 // email on first use) or creates a new one.
-app.post("/api/auth/google", createAuthLimiter(20), async (req, res) => {
+app.post("/api/auth/google", createAuthLimiter(300), async (req, res) => {
   try {
+    const caller = clientKey(req.ip);
+    if (rateLimited(res, `google:ip:${caller}`, AUTH_LIMITS.googleIp,
+      "Too many sign-in attempts from here. Try again later.")) return;
+
     const clientId = getGoogleClientId();
     if (!clientId) {
       return res.status(503).json({ success: false, message: "Google Sign-In is not configured on this server." });
@@ -3183,12 +4043,16 @@ app.post("/api/auth/google", createAuthLimiter(20), async (req, res) => {
     }
     saveUsers(users);
 
-    academyService.issueSession(req, res, user.id);
-    res.json({
-      success: true,
+    if (otpRequired()) {
+      // Google has proved the address belongs to a real mailbox, but not that
+      // whoever is at this browser can read it right now. The code does that.
+      await beginVerification(res, user, "google");
+      return;
+    }
+
+    grantSession(res, user, {
       isNew,
-      user: toSafeUser(user),
-      message: isNew ? "Account created with Google!" : `Welcome back, ${user.fullName}!`
+      message: isNew ? "Account created with Google!" : `Welcome back, ${user.fullName}!`,
     });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message || "Google sign-in failed" });
@@ -3534,11 +4398,18 @@ app.get("/api/admin/trades", requireAdminAuth, (req, res) => {
 // Record / Live Sync Trade from Trading App
 app.post("/api/trades", (req, res) => {
   try {
+    // The record is attributed to the session, not to whatever identity the
+    // body carried: this route accepted a userId, a name and an email from the
+    // caller, so anyone could write trade records in anyone's name.
+    const signedIn = sessionUser(req);
+    if (!signedIn) return res.status(401).json({ success: false, message: "Sign in first." });
+
+    const userId = signedIn.id;
+    const userName = signedIn.fullName;
+    const userEmail = signedIn.email;
+
     const { 
       orderId, 
-      userId, 
-      userName, 
-      userEmail, 
       symbol, 
       stockName, 
       type, 

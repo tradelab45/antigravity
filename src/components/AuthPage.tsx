@@ -34,12 +34,14 @@ import {
 import { useSimulator } from '../context/SimulatorContext';
 import { GoogleSignInButton, AuthOrDivider } from './GoogleSignInButton';
 import { AuthFormData, UserAccount } from '../types';
-import { AuthLaunchTransition } from './AuthLaunchTransition';
 import { SpotlightCard } from './ui/spotlight-card';
 import { ExpandableTabs } from './ui/expandable-tabs';
 import { RupeeSpatialBackground } from './ui/rupee-spatial-background';
 import { LiquidButton } from './ui/liquid-glass-button';
 import { LiquidGlassLogo } from './ui/LiquidGlassLogo';
+import { VerificationCodeForm } from './VerificationCodeForm';
+import { useModalDialog } from '../hooks/useModalDialog';
+import type { PendingVerification } from '../context/SimulatorContext';
 
 interface SampleStock {
   symbol: string;
@@ -130,7 +132,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
   initialMode = 'LOGIN',
   onBackToLanding,
 }) => {
-  const { loginUser, registerUser, loginWithGoogle, nseMarketInfo, marketIndices, stocks } = useSimulator();
+  const { loginUser, loginAsDemo, registerUser, loginWithGoogle, nseMarketInfo, marketIndices, stocks } = useSimulator();
 
   // Dynamically resolve live or context prices for sample stocks if available
   const sampleStocks: SampleStock[] = useMemo(() => {
@@ -178,6 +180,9 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
   const [quizAnswer, setQuizAnswer] = useState<number | null>(null);
   const [quizSubmitted, setQuizSubmitted] = useState<boolean>(false);
 
+  // A successful sign-in swaps this page for the app as soon as the context
+  // holds the account, which unmounts this and clears the timer. If that does
+  // not happen, reload rather than leave a signed-in visitor on the form.
   useEffect(() => {
     if (!launchState) return;
     const timer = window.setTimeout(() => window.location.reload(), 5000);
@@ -213,7 +218,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
   const handleQuickDemoLogin = async () => {
     setErrorMsg('');
     setLoading(true);
-    const res = await loginUser('xyz@gmail.com', 'demo');
+    const res = await loginAsDemo();
     if (res.success && res.user) {
       window.dispatchEvent(new CustomEvent('rr_auth_success', { detail: { kind: 'returning' } }));
       setLaunchState({ user: res.user, kind: 'returning' });
@@ -223,10 +228,23 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
     }
   };
 
+  // Set when the server holds a sign-in back for an emailed code.
+  const [pendingVerification, setPendingVerification] = useState<PendingVerification | null>(null);
+  const { ref: verifyDialogRef, dialogProps: verifyDialogProps } = useModalDialog({
+    onClose: () => setPendingVerification(null),
+    open: pendingVerification !== null,
+    label: 'Verify your sign-in',
+  });
+
   const handleGoogleCredential = async (credential: string) => {
     setErrorMsg('');
     setLoading(true);
     const res = await loginWithGoogle(credential);
+    if (res.verification) {
+      setLoading(false);
+      setPendingVerification(res.verification);
+      return;
+    }
     if (res.success && res.user) {
       const kind = res.isNew ? 'new' : 'returning';
       window.dispatchEvent(new CustomEvent('rr_auth_success', { detail: { kind } }));
@@ -250,6 +268,11 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
     setErrorMsg('');
     setLoading(true);
     const res = await loginUser(loginIdentifier.trim(), loginPassword);
+    if (res.verification) {
+      setLoading(false);
+      setPendingVerification(res.verification);
+      return;
+    }
     if (res.success && res.user) {
       window.dispatchEvent(new CustomEvent('rr_auth_success', { detail: { kind: 'returning' } }));
       setLaunchState({ user: res.user, kind: 'returning' });
@@ -364,16 +387,6 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
   const totalPortfolioWorth = playgroundCash + totalSimulatedHoldingsValue;
   const portfolioPnL = totalPortfolioWorth - 1000000;
 
-  if (launchState) {
-    return (
-      <AuthLaunchTransition
-        user={launchState.user}
-        kind={launchState.kind}
-        onEnter={() => window.location.reload()}
-      />
-    );
-  }
-
   return (
     <div className="min-h-screen bg-[#050906] text-slate-100 flex flex-col font-sans selection:bg-mint selection:text-slate-950 relative overflow-y-auto overflow-x-hidden">
       {/* 1. 3D SPATIAL GRAVITATIONAL RUPEE & ACCRETION VORTEX BACKGROUND */}
@@ -385,6 +398,31 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
       <div className="absolute bottom-[10%] left-1/3 w-[500px] h-[500px] bg-emerald-600/10 blur-[160px] pointer-events-none rounded-full" />
 
       <a href="#main-content" className="skip-link">Skip to sign in</a>
+
+      {/* The code step sits over the sign-in page rather than replacing it, so
+          cancelling drops straight back to the form that was filled in. */}
+      {pendingVerification && (
+        <div
+          ref={verifyDialogRef}
+          {...verifyDialogProps}
+          className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-md"
+        >
+          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+            <VerificationCodeForm
+              pending={pendingVerification}
+              onVerified={(user) => {
+                setPendingVerification(null);
+                window.dispatchEvent(new CustomEvent('rr_auth_success', { detail: { kind: 'returning' } }));
+                setLaunchState({ user, kind: 'returning' });
+              }}
+              onCancel={() => {
+                setPendingVerification(null);
+                setErrorMsg('');
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* 2. Top Ticker Bar with Back to Landing & Live NSE Status */}
       <div className="sticky top-0 bg-[#030604]/95 backdrop-blur-xl border-b border-white/10 text-white py-2 text-xs select-none z-30 shadow-md">
@@ -569,7 +607,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                       </span>
                     </div>
                     <div className="text-xs text-slate-400 mt-0.5">
-                      Ready demo pass: <strong className="text-slate-200">xyz@gmail.com</strong> (@rookie_trader)
+                      One practice account everyone shares — sign up to keep your own.
                     </div>
                   </div>
                 </div>

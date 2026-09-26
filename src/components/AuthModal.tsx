@@ -17,6 +17,8 @@ import {
 import { useSimulator } from '../context/SimulatorContext';
 import { AuthFormData } from '../types';
 import { GoogleSignInButton, AuthOrDivider } from './GoogleSignInButton';
+import { VerificationCodeForm } from './VerificationCodeForm';
+import type { PendingVerification } from '../context/SimulatorContext';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -27,6 +29,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const { currentUser, loginUser, registerUser, loginWithGoogle, logoutUser } = useSimulator();
   
   const [activeTab, setActiveTab] = useState<'login' | 'signup'>(currentUser ? 'login' : 'signup');
+  // Set when the server holds the sign-in back for an emailed code.
+  const [pendingVerification, setPendingVerification] = useState<PendingVerification | null>(null);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -62,6 +66,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     setLoading(true);
     const res = await loginWithGoogle(credential);
     setLoading(false);
+    if (res.verification) {
+      setPendingVerification(res.verification);
+      return;
+    }
     if (res.success) {
       setSuccessMsg(res.message);
       setTimeout(() => {
@@ -86,6 +94,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     setLoading(true);
     const res = await loginUser(loginIdentifier, loginPassword);
     setLoading(false);
+    if (res.verification) {
+      setPendingVerification(res.verification);
+      return;
+    }
     if (res.success) {
       setSuccessMsg(res.message);
       setTimeout(() => {
@@ -157,6 +169,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           </button>
         </div>
 
+        {/* The code step replaces the tabs entirely: the sign-in is half done,
+            and offering the form again would only invite starting over. */}
+        {pendingVerification ? (
+          <div className="px-6 py-6">
+            <VerificationCodeForm
+              pending={pendingVerification}
+              onVerified={(_user, message) => {
+                setPendingVerification(null);
+                setSuccessMsg(message);
+                setTimeout(() => onClose(), 1200);
+              }}
+              onCancel={() => {
+                setPendingVerification(null);
+                setErrorMsg('');
+              }}
+            />
+          </div>
+        ) : (
+        <>
         {/* Tab Selection */}
         {!currentUser ? (
           <div className="bg-slate-50 border-b border-slate-200 px-6 py-2.5 flex items-center gap-2">
@@ -468,6 +499,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             </div>
           )}
         </div>
+        </>
+        )}
       </motion.div>
     </div>,
     document.body

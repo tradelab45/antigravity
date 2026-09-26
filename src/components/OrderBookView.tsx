@@ -137,7 +137,7 @@ export const OrderBookView: React.FC<{ onSelectStock?: (symbol: string) => void 
       {/* Intraday MIS Advisory Banner */}
       {stats.activeMisHoldings > 0 && (
         <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/30 rounded-2xl p-4 flex items-start gap-3">
-          <div className="p-2 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 shrink-0">
+          <div className="p-2 rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-400 shrink-0">
             <Clock className="w-5 h-5" />
           </div>
           <div className="text-sm">

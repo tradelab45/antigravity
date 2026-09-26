@@ -34,7 +34,7 @@ import { TaxCentre } from './TaxCentre';
 import { startPracticeTask } from './PracticeTaskBanner';
 import { getPracticeAction } from '../data/practiceActions';
 import { StageExam } from './StageExam';
-import { getStageExam, EXAM_LENGTH, EXAM_PASS_MARK } from '../data/stageExams';
+import { getStageExam, EXAM_LENGTH, EXAM_PASS_MARK, EXAM_ATTEMPT_HISTORY, EXAM_SEEN_MEMORY, type ExamAttempt } from '../data/stageExams';
 import type { AppTabType } from './Header';
 import { useAccessibility } from '../context/AccessibilityContext';
 
@@ -325,6 +325,28 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
     localStorage.setItem(`${academyKey}:exams`, JSON.stringify(examScores));
   }, [academyKey, examScores]);
 
+  // Which question ids recent papers served, so the next draw can prefer the
+  // ones this learner has not met.
+  const [examSeen, setExamSeen] = useState<Record<string, string[]>>(() => {
+    try { return JSON.parse(localStorage.getItem(`${academyKey}:examSeen`) || '{}'); } catch { return {}; }
+  });
+
+  useEffect(() => {
+    localStorage.setItem(`${academyKey}:examSeen`, JSON.stringify(examSeen));
+  }, [academyKey, examSeen]);
+
+  const recordExamSeen = (stageId: string, questionIds: string[]) => {
+    setExamSeen((previous) => {
+      const merged = [...questionIds, ...(previous[stageId] ?? [])];
+      // Newest first, de-duplicated, and capped so the memory cannot grow
+      // until it covers the whole bank and defeats its own purpose.
+      const unique = merged.filter((id, index) => merged.indexOf(id) === index);
+      return { ...previous, [stageId]: unique.slice(0, EXAM_SEEN_MEMORY) };
+    });
+  };
+
+  // The server's grades are final, so a best score it has recorded counts
+  // even when this device never saw the attempt.
   useEffect(() => {
     setExamScores(previous => {
       const next = { ...previous };
@@ -332,6 +354,19 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
       return next;
     });
   }, [attempts]);
+
+  // Every attempt at this stage, newest first. There is one history — the
+  // synced one — and the exam panel reads its slice of it rather than keeping
+  // a second, device-only list that could disagree with the History tab.
+  const stageAttempts = useMemo<ExamAttempt[]>(
+    () =>
+      attempts
+        .filter((attempt) => attempt.stageId === activeStageId)
+        .map((attempt) => ({ score: attempt.score, at: Date.parse(attempt.completedAt) || 0 }))
+        .sort((a, b) => b.at - a.at)
+        .slice(0, EXAM_ATTEMPT_HISTORY),
+    [attempts, activeStageId],
+  );
 
   const recordExamScore = (stageId: string, score: number, answers: Record<string, string>) => {
     recordAttempt(stageId, score, answers);
@@ -903,6 +938,9 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
             passed={hasPassedExam(activeStageId)}
             bestScore={examScores[activeStageId] ?? null}
             key={activeStageId}
+            attempts={stageAttempts}
+            recentlySeen={examSeen[activeStageId] ?? []}
+            onQuestionsServed={(ids) => recordExamSeen(activeStageId, ids)}
             onRecordAttempt={(score, answers) => recordExamScore(activeStageId, score, answers)}
             onPass={(score) => {
               // The exam is worth XP in its own right, tracked like a lesson so

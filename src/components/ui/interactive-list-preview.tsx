@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { TrendingUp, TrendingDown, ArrowUpRight, ShieldCheck, Zap } from "lucide-react";
 import { cn } from "../../lib/utils";
-import { ShareBoxAreaChart } from "./area-charts-2";
+import { ShareBoxAreaChart } from "./share-box-area-chart";
 
 export interface ListPreviewItem {
   id: string;
@@ -98,7 +98,7 @@ export const InteractiveListPreview: React.FC<InteractiveListPreviewProps> = ({
                         {item.symbol}
                       </h5>
                       {item.badge && (
-                        <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-600 dark:text-amber-300 font-mono">
+                        <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 font-mono">
                           {item.badge}
                         </span>
                       )}

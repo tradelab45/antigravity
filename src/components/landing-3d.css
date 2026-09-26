@@ -180,8 +180,17 @@
   display: flex;
   gap: 6px;
   align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0 8px;
+  border-radius: 10px;
   font-size: 10px !important;
   color: var(--ink-muted);
+}
+
+.rr-motion:hover:not(:disabled) {
+  background: rgba(15, 23, 42, 0.05);
 }
 
 .rr-motion:disabled {
@@ -263,11 +272,13 @@
 
 .rr-scroll-cue {
   position: absolute;
-  bottom: 31px;
+  bottom: 23px;
   left: 5.5%;
   display: flex;
   gap: 13px;
   align-items: center;
+  min-height: 32px;
+  padding: 6px 0;
   font: 9px 'JetBrains Mono', monospace;
   letter-spacing: .13em;
   color: var(--ink-subtle);
@@ -281,7 +292,10 @@
 /* 3D Spatial Canvas */
 .rr-art {
   position: relative;
-  height: 520px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 520px;
   min-width: 0;
   perspective: 1200px;
   background: radial-gradient(ellipse at 50% 50%, rgba(124, 108, 255, 0.16), transparent 70%);
@@ -322,121 +336,177 @@
   pointer-events: none;
 }
 
-.rr-art-label {
-  position: absolute;
-  top: 6px;
-  right: 5%;
-  font: 9px 'JetBrains Mono', monospace;
-  letter-spacing: .2em;
-  color: var(--ink-subtle);
-  pointer-events: none;
-}
-
-.rr-art-coordinate {
-  pointer-events: none;
-}
-
-/* 3D Coin Architecture */
-.rr-coin-scroll {
-  position: absolute;
-  top: 80px;
-  left: calc(50% - 140px);
-  width: 280px;
-  height: 280px;
-}
-
-.rr-coin-tilt {
-  width: 100%;
-  height: 100%;
-  transform-style: preserve-3d;
-  transform: perspective(1200px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
-  transition: transform 0.15s cubic-bezier(0.2, 0, 0, 1);
-  cursor: pointer;
-}
-
-.rr-coin {
+/* Hero preview
+   Three cards from the app itself, offset so they read as a stack. It
+   replaced a spinning rupee coin. The tilt follows the pointer through the
+   same --tilt-x/--tilt-y the scene handler sets, damped to a third so the
+   cards stay legible, and is dropped wherever motion is. */
+.rr-preview {
   position: relative;
-  width: 100%;
-  height: 100%;
-  transform-style: preserve-3d;
-  transform: rotateY(-22deg) rotateX(12deg);
-  transition: transform 0.75s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 2;
+  margin: 0;
+  width: min(100%, 440px);
+  display: grid;
+  gap: 14px;
+  transform: rotateX(calc(var(--tilt-x, 0deg) * 0.3)) rotateY(calc(var(--tilt-y, 0deg) * 0.3));
+  transition: transform 0.2s ease-out;
 }
 
-.rr-coin.rr-coin-is-flipped {
-  transform: rotateY(158deg) rotateX(-12deg);
+.rr-preview-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 16px 18px;
+  box-shadow: 0 18px 40px -20px rgba(15, 23, 42, 0.32);
 }
 
-.rr-coin-edge, .rr-coin-face {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: #3f661b;
-  border: 2px solid #233e0c;
+.rr-preview-portfolio {
+  margin-right: 56px;
 }
 
-.rr-coin-face {
+.rr-preview-ticket {
+  margin-left: 56px;
+  border-color: rgba(91, 75, 214, 0.3);
+}
+
+.rr-preview-academy {
+  margin-right: 28px;
+}
+
+.rr-preview-eyebrow {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #f7ffdb 0%, #cbee7c 35%, #588022 100%);
-  box-shadow: 
-    inset 0 0 0 8px #dcf696,
-    inset 0 0 0 12px #6b882f60,
-    0 20px 45px -10px rgba(0, 0, 0, 0.75);
-  backface-visibility: hidden;
-  overflow: hidden;
+  gap: 6px;
+  margin: 0;
+  font: 700 11px 'JetBrains Mono', monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
 }
 
-.rr-coin-front {
-  transform: translateZ(22px);
+.rr-preview-eyebrow svg {
+  color: var(--lime);
+  flex-shrink: 0;
 }
 
-.rr-coin-back {
-  transform: rotateY(180deg) translateZ(22px);
+.rr-preview-tag {
+  margin-left: auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--lime-glow);
+  color: var(--lime);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
 }
 
-.rr-coin-symbol {
-  font-family: Georgia, serif;
-  font-size: 155px;
-  font-weight: 700;
-  color: #1e3810;
-  text-shadow: 2px 3px 0 #ebffbc, 0 0 16px rgba(255, 255, 255, 0.7);
-  line-height: 0.9;
-  transform: translateY(-8px);
-}
-
-.rr-coin-face small {
-  position: absolute;
-  bottom: 28px;
-  font: 7.5px 'JetBrains Mono', monospace;
-  letter-spacing: .18em;
+.rr-preview-figure {
+  margin: 6px 0 2px;
+  font-size: 34px;
   font-weight: 800;
-  color: #1e3810;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--ink);
 }
 
-.rr-coin-sunburst {
-  position: absolute;
-  inset: 12px;
-  border-radius: 50%;
-  background: repeating-conic-gradient(
-    from 0deg,
-    rgba(255, 255, 255, 0.25) 0deg 10deg,
-    transparent 10deg 20deg
-  );
-  pointer-events: none;
-  opacity: 0.75;
+.rr-preview-caption {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-muted);
 }
 
-.rr-coin-milling {
-  position: absolute;
-  top: 24px;
+.rr-preview-checks {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  color: var(--ink-strong);
+}
+
+.rr-preview-checks li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rr-preview-checks svg {
+  color: var(--lime);
+  flex-shrink: 0;
+}
+
+.rr-preview-order {
+  margin: 8px 0 10px;
+  font-size: 17px;
+  color: var(--ink);
+}
+
+.rr-preview-order strong {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 8px;
-  letter-spacing: 0.22em;
-  font-weight: 800;
-  color: #2b4916;
+}
+
+.rr-preview-rows {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.rr-preview-rows div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rr-preview-rows dt {
+  color: var(--ink-muted);
+}
+
+.rr-preview-rows dd {
+  margin: 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.rr-preview-rows .rr-preview-total {
+  margin-top: 2px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line-strong);
+}
+
+.rr-preview-total dt,
+.rr-preview-total dd {
+  font-weight: 700;
+  color: var(--lime);
+}
+
+.rr-preview-academy-title {
+  margin: 6px 0 10px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.rr-preview-stages {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 6px;
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+}
+
+.rr-preview-stages li {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.1);
+}
+
+.rr-preview-stages .rr-preview-stage-open {
+  background: var(--lime);
 }
 
 /* 3D Floating Badges */
@@ -521,36 +591,130 @@
   color: var(--ink);
 }
 
-.rr-star {
-  position: absolute;
-  color: var(--lime);
-  opacity: 0.8;
-  text-shadow: 0 0 16px rgba(0, 245, 155, 0.6);
-  pointer-events: none;
-}
-
-.rr-star-one {
-  top: 38px;
-  left: 36px;
-  font-size: 52px;
-}
-
-.rr-star-two {
-  right: 30px;
-  bottom: 60px;
-  font-size: 36px;
-}
-
-.rr-art-coordinate {
-  position: absolute;
-  bottom: 4px;
-  right: 4%;
-  font: 8px 'JetBrains Mono', monospace;
-  letter-spacing: .1em;
-  color: var(--ink-subtle);
-}
-
 /* Proof Strip */
+/* Live index bar
+   A thin band of real Indian index levels under the nav. The reserved height
+   keeps the hero from jumping when the first response lands. */
+.rr-index-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 26px;
+  min-height: 46px;
+  padding: 10px 5.5%;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.rr-index-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font: 8.5px 'JetBrains Mono', monospace;
+  letter-spacing: .14em;
+  font-weight: 700;
+  color: var(--lime);
+}
+
+.rr-index-bar ul {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 22px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rr-index-bar li {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px;
+}
+
+.rr-index-name {
+  color: var(--ink-subtle);
+  letter-spacing: .06em;
+}
+
+.rr-index-value {
+  color: var(--ink);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.rr-index-up { color: var(--lime); font-weight: 700; }
+.rr-index-down { color: #be123c; font-weight: 700; }
+
+.rr-index-breadth {
+  margin-left: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  color: var(--ink-muted);
+}
+
+/* How it works
+   Three steps in the order a new account meets them. */
+.rr-journey {
+  display: grid;
+  grid-template-columns: .85fr 1.15fr;
+  gap: 8%;
+  align-items: start;
+  background: var(--bg-surface);
+}
+
+.rr-journey-steps {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: none;
+}
+
+.rr-journey-steps li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas:
+    "step icon"
+    "step title"
+    "step body";
+  align-items: start;
+  gap: 4px 18px;
+  padding: 22px 24px;
+  border: 1px solid var(--line-strong);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.rr-journey-steps svg { grid-area: icon; }
+
+.rr-journey-step {
+  grid-area: step;
+  align-self: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -.06em;
+  color: rgba(4, 120, 87, 0.3);
+}
+
+.rr-journey-steps h3 {
+  grid-area: title;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  color: var(--ink);
+}
+
+.rr-journey-steps p {
+  grid-area: body;
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+
 .rr-proof-strip {
   padding: 22px 5.5%;
   display: flex;
@@ -607,8 +771,13 @@
   display: grid;
   grid-template-columns: .9fr 1.1fr;
   gap: 8%;
-  align-items: center;
+  align-items: start;
   background: var(--bg-deep);
+}
+
+.rr-playground > .rr-section-heading {
+  position: sticky;
+  top: 112px;
 }
 
 .rr-section-heading > p:not(.rr-eyebrow) {
@@ -717,12 +886,12 @@
   gap: 10px;
   font-size: 11.5px;
   min-height: 52px;
-  background: rgba(20, 25, 50, 0.72);
-  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid var(--line-strong);
   padding: 10px 12px;
   border-radius: 8px;
   line-height: 1.6;
-  color: var(--ink-muted);
+  color: var(--ink-strong);
 }
 
 .rr-experiment-insight svg {
@@ -790,13 +959,13 @@
 
 .rr-feature-body {
   display: grid;
-  grid-template-columns: .5fr 1fr;
-  gap: 45px;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 40px;
   align-items: center;
 }
 
 .rr-feature-number {
-  font-size: 160px;
+  font-size: clamp(88px, 9vw, 150px);
   letter-spacing: -12px;
   line-height: 1;
   color: rgba(0, 245, 155, 0.15);
@@ -815,8 +984,8 @@
   padding: 6px 11px;
   border-radius: 6px;
   font-size: 9.5px;
-  color: var(--ink-muted);
-  background: rgba(20, 25, 50, 0.55);
+  color: var(--ink-strong);
+  background: rgba(255, 255, 255, 0.82);
 }
 
 /* FAQ Section */
@@ -824,7 +993,13 @@
   display: grid;
   grid-template-columns: 1fr 1.25fr;
   gap: 50px;
+  align-items: start;
   background: var(--bg-surface);
+}
+
+.rr-faq > div:first-child {
+  position: sticky;
+  top: 112px;
 }
 
 .rr-faq details {
@@ -873,9 +1048,57 @@
   background: linear-gradient(135deg, #ffffff 0%, #eef2fb 52%, #e3e9f6 100%);
   border: 1px solid var(--line-strong);
   padding: 85px 7%;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr);
+  gap: 60px;
+  align-items: center;
+}
+
+.rr-final-cta > div:first-child {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+}
+
+/* The closing panel: what a new account actually gets, so the last screen
+   answers "what happens if I sign up" instead of leaving half the row empty. */
+.rr-cta-facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.rr-cta-facts > div {
+  background: rgba(255, 255, 255, 0.9);
+  padding: 22px 20px;
+}
+
+.rr-cta-facts dt {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ink-subtle);
+}
+
+.rr-cta-facts dd {
+  margin: 6px 0 0;
+  font-size: 23px;
+  font-weight: 700;
+  letter-spacing: -.03em;
+  color: var(--ink);
+}
+
+.rr-cta-facts p {
+  margin: 4px 0 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--ink-muted);
 }
 
 .rr-final-cta h2 {
@@ -942,15 +1165,7 @@
     font-size: 65px;
   }
   .rr-art {
-    height: 440px;
-  }
-  .rr-coin-scroll {
-    width: 230px;
-    height: 230px;
-    left: calc(50% - 115px);
-  }
-  .rr-coin-symbol {
-    font-size: 125px;
+    min-height: 440px;
   }
   .rr-section {
     padding: 75px 5%;
@@ -973,16 +1188,17 @@
     font-size: clamp(48px, 11vw, 72px);
   }
   .rr-art {
-    height: 380px;
+    min-height: 0;
     max-width: 440px;
     width: 100%;
     margin: 0 auto;
+    padding: 12px 0;
   }
-  .rr-coin-scroll {
-    top: 60px;
-    left: calc(50% - 110px);
-    width: 220px;
-    height: 220px;
+  .rr-preview-portfolio,
+  .rr-preview-ticket,
+  .rr-preview-academy {
+    margin-left: 0;
+    margin-right: 0;
   }
   .rr-proof-strip {
     display: grid;
@@ -1016,11 +1232,38 @@
     grid-template-columns: 1fr;
     gap: 10px;
   }
+  .rr-journey {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+  .rr-index-bar {
+    gap: 8px 16px;
+    padding: 10px 6%;
+  }
+  .rr-index-breadth {
+    margin-left: 0;
+  }
+  /* Single column: a sticky heading would ride down over the rows below it. */
+  .rr-playground > .rr-section-heading,
+  .rr-faq > div:first-child {
+    position: static;
+  }
+  .rr-final-cta {
+    grid-template-columns: 1fr;
+    gap: 34px;
+    padding: 64px 6%;
+  }
+}
+
+@media (max-width: 460px) {
+  .rr-cta-facts {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (pointer: coarse) {
-  .rr-coin-tilt {
-    transform: none !important;
+  .rr-preview {
+    transform: none;
   }
   .rr-ambient-spotlight {
     display: none !important;
@@ -1030,8 +1273,8 @@
   }
 }
 
-.rr-landing[data-motion="off"] .rr-coin-tilt {
-  transform: none !important;
+.rr-landing[data-motion="off"] .rr-preview {
+  transform: none;
 }
 
 .rr-landing[data-motion="off"] * {
@@ -1041,8 +1284,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rr-coin-tilt {
-    transform: none !important;
+  .rr-preview {
+    transform: none;
   }
   .rr-landing * {
     scroll-behavior: auto !important;
