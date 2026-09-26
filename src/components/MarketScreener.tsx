@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { quoteLabel } from '../utils/quoteState';
+import { quoteLabel } from '../modules/market-data/utils/quoteState';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Search, 

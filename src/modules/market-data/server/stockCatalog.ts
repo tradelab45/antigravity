@@ -1,4 +1,4 @@
-import type { StockDetail } from '../types';
+import type { StockDetail } from '../../../types';
 
 export interface ListedStock { symbol: string; name: string; instrumentKey: string }
 

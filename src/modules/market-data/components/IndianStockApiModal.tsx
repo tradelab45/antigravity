@@ -20,8 +20,8 @@ import {
   PlusCircle,
   BarChart2
 } from 'lucide-react';
-import { StockDetail } from '../types';
-import { useModalDialog } from '../hooks/useModalDialog';
+import { StockDetail } from '../../../types';
+import { useModalDialog } from '../../../hooks/useModalDialog';
 
 interface IndianStockApiModalProps {
   isOpen: boolean;

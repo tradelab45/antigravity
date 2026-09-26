@@ -1,4 +1,4 @@
-import { OptionContract } from '../types';
+import { OptionContract } from '../../../types';
 
 // Black-Scholes approximate Greeks & Pricing simulator for educational exploration
 export function generateOptionChain(

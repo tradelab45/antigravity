@@ -25,11 +25,11 @@ import {
   BroadcastAnnouncement
 } from '../types';
 import { INITIAL_BADGES } from '../data/lessonsData';
-import { TOP_100_INDIAN_COMPANIES } from '../data/indianCompanies';
-import { getNSEMarketTimeInfo, NSEMarketInfo } from '../utils/marketHours';
-import { enrichStockWithTechnicalsAndDuPont } from '../utils/technicalCalculator';
-import { computeMarketIndicesFromStocks } from '../utils/indexCalculator';
-import { mergeQuote } from '../utils/quoteState';
+import { TOP_100_INDIAN_COMPANIES } from '../modules/market-data/data/indianCompanies';
+import { getNSEMarketTimeInfo, NSEMarketInfo } from '../modules/market-data/utils/marketHours';
+import { enrichStockWithTechnicalsAndDuPont } from '../modules/market-data/utils/technicalCalculator';
+import { computeMarketIndicesFromStocks } from '../modules/market-data/utils/indexCalculator';
+import { mergeQuote } from '../modules/market-data/utils/quoteState';
 
 export const ADMIN_EMAILS = ['aaravvjain23@gmail.com'];
 export const ADMIN_USERNAMES = ['aaravvjain23@gmail.com', 'aarav', 'aarav_trader'];
@@ -1311,19 +1311,43 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // Instant real-time listener for stock updates across components/tabs
   useEffect(() => {
-    const stream = new EventSource('/api/market/stream');
-    stream.onmessage = (event) => {
+    let isMounted = true;
+    let stream: EventSource | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const connectStream = () => {
+      if (!isMounted) return;
       try {
-        const data = JSON.parse(event.data);
-        if (Array.isArray(data.stocks) && data.stocks.length > 0) {
-          window.dispatchEvent(new CustomEvent('rr_stocks_updated', { detail: { stocks: data.stocks } }));
-        }
-      } catch { /* Ignore incomplete stream messages; polling remains available. */ }
+        stream = new EventSource('/api/market/stream');
+        stream.onmessage = (event) => {
+          if (!isMounted) return;
+          try {
+            const data = JSON.parse(event.data);
+            if (Array.isArray(data.stocks) && data.stocks.length > 0) {
+              window.dispatchEvent(new CustomEvent('rr_stocks_updated', { detail: { stocks: data.stocks } }));
+            }
+          } catch { /* Ignore incomplete stream messages; polling remains available. */ }
+        };
+        stream.onerror = () => {
+          if (!isMounted) return;
+          setStocks(previous => previous.map(stock => stock.quoteStatus === 'live'
+            ? { ...stock, quoteStatus: 'delayed' } : stock));
+          if (stream) {
+            stream.close();
+            stream = null;
+          }
+          if (reconnectTimer) clearTimeout(reconnectTimer);
+          reconnectTimer = setTimeout(() => {
+            if (isMounted) connectStream();
+          }, 5000);
+        };
+      } catch {
+        // Fallback polling will handle updates
+      }
     };
-    stream.onerror = () => {
-      setStocks(previous => previous.map(stock => stock.quoteStatus === 'live'
-        ? { ...stock, quoteStatus: 'delayed' } : stock));
-    };
+
+    connectStream();
+
     const handleStockUpdate = (e: Event) => {
       const customEvent = e as CustomEvent<{ stocks: StockDetail[] }>;
       if (customEvent.detail?.stocks && Array.isArray(customEvent.detail.stocks)) {
@@ -1355,9 +1379,20 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     } catch {}
 
     return () => {
-      stream.close();
+      isMounted = false;
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      if (stream) {
+        stream.close();
+        stream = null;
+      }
       window.removeEventListener('rr_stocks_updated', handleStockUpdate);
-      bc?.close();
+      if (bc) {
+        bc.close();
+        bc = null;
+      }
     };
   }, []);
 
