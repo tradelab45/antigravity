@@ -30,12 +30,49 @@ export function usePwaState() {
   return useSyncExternalStore(listener => { listeners.add(listener); return () => { listeners.delete(listener); }; }, () => state);
 }
 
-export async function prepareOfflineAcademy() {
+const hasAccount = () => {
+  try {
+    return Boolean(localStorage.getItem('rr_current_user'));
+  } catch {
+    return false;
+  }
+};
+
+/** The browser's idle moment, or a short delay where there is no such API. */
+const whenIdle = () =>
+  new Promise<void>(resolve => {
+    const idle = (window as typeof window & {
+      requestIdleCallback?: (cb: () => void, options?: { timeout: number }) => number;
+    }).requestIdleCallback;
+    if (idle) idle(() => resolve(), { timeout: 4000 });
+    else window.setTimeout(resolve, 2000);
+  });
+
+let preparing: Promise<void> | null = null;
+
+/**
+ * Downloads the Academy and caches it for offline use.
+ *
+ * Only for somebody with an account to read the lessons with, and only once
+ * the browser is otherwise idle. Warming it unconditionally meant every
+ * signed-out visitor to the landing page downloaded the lessons and exam banks
+ * — about 209 KB — that they had no way to open, which is what splitting the
+ * bundle was for. `load`, `online` and a sign-in can all fire close together,
+ * so overlapping calls share one run.
+ */
+export function prepareOfflineAcademy(): Promise<void> {
+  if (!preparing) preparing = runPreparation().finally(() => { preparing = null; });
+  return preparing;
+}
+
+async function runPreparation() {
   if (!('serviceWorker' in navigator) || import.meta.env.DEV) { update({ offline: 'unavailable' }); return; }
+  if (!hasAccount()) return;
   update({ offline: 'preparing' });
   try {
     await navigator.serviceWorker.register('/sw.js');
     const registration = await navigator.serviceWorker.ready;
+    await whenIdle();
     await Promise.all([import('../../../components/InvestorAcademy'), import('../../../components/HomeDashboard')]);
     const urls = performance.getEntriesByType('resource').map(entry => entry.name).filter(value => {
       const url = new URL(value);

@@ -186,6 +186,7 @@ type ColorVariant =
   | "brand"
   | "chrome"
   | "graphite"
+  | "jade"
   | "error"
   | "gold"
   | "bronze";
@@ -238,6 +239,21 @@ const colorVariants: Record<
       "bg-[linear-gradient(180deg,#5a6472_0%,#39414f_16%,#232a36_46%,#1a202b_52%,#2b323f_60%,#454e5c_82%,#5f6977_100%)]",
     textColor: "text-white",
     textShadow: "[text-shadow:_0_-1px_0_rgb(10_14_22_/_90%)]",
+  },
+  /* Brand green in the same liquid-metal treatment as `chrome`: a specular
+     band across the middle of a deep emerald face. This is the primary action
+     on the light landing page, where `graphite` reads as a heavy black slab
+     and `chrome` cannot carry the brand on its own. */
+  jade: {
+    outer: "bg-gradient-to-b from-[#023d2c] to-[#7ee2bd]",
+    inner: "bg-gradient-to-b from-[#c8f7e6] via-[#023d2c] to-[#a9efd6]",
+    button:
+      // Every stop stays dark enough for white text: the lightest of them,
+      // #097c5f, measures 5.1:1. A brighter specular band would look better
+      // and read worse, so the metal highlight lives on the rim instead.
+      "bg-[linear-gradient(180deg,#097c5f_0%,#08694f_16%,#05513c_46%,#033a2b_52%,#056048_60%,#077356_82%,#097c5f_100%)]",
+    textColor: "text-white",
+    textShadow: "[text-shadow:_0_-1px_0_rgb(1_40_29_/_95%)]",
   },
   /* Violet primary action, so the main call to action carries more weight than
      the muted sage of `success`. */

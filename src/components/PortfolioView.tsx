@@ -41,6 +41,8 @@ import {
   Cell 
 } from 'recharts';
 import { useSimulator } from '../context/SimulatorContext';
+import { ChartFigure } from './ui/chart-figure';
+import { describeParts, partRows } from '../utils/chartSummary';
 import { INITIAL_LESSONS } from '../data/lessonsData';
 import { StockDetail, Holding, Order } from '../types';
 import { formatINR, formatPercent, formatIndianShort, formatNumberIndian } from '../utils/formatters';
@@ -1081,6 +1083,12 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ onSelectStock, onN
                 </p>
               </div>
 
+              <ChartFigure
+                title="Holdings by sector"
+                summary={describeParts('Holdings by sector', sectorData, formatINR)}
+                columns={['Sector', 'Value']}
+                rows={partRows(sectorData, formatINR)}
+              >
               <div className="h-52 w-full my-2">
                 {sectorData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
@@ -1111,6 +1119,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({ onSelectStock, onN
                   </div>
                 )}
               </div>
+              </ChartFigure>
 
               <div className="space-y-1 text-xs">
                 {sectorData.slice(0, 4).map((item, idx) => (
