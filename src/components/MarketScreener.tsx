@@ -42,7 +42,7 @@ import {
   Languages
 } from 'lucide-react';
 import { useSimulator } from '../context/SimulatorContext';
-import { useAccessibility } from '../context/AccessibilityContext';
+import { useAccessibility } from '../modules/accessibility/context/AccessibilityContext';
 import { StockDetail } from '../types';
 import { formatINR, formatPercent, formatIndianShort, formatNumberIndian, getDynamicMarketSessionBadge } from '../utils/formatters';
 import { ThematicBasketsModal, ANGEL_THEMATIC_BASKETS, ThematicBasket } from './ThematicBasketsModal';

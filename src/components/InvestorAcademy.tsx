@@ -48,7 +48,7 @@ import {
 } from '../data/stageExams';
 import { SectionSkipLinks } from './ui/section-skip-links';
 import type { AppTabType } from './Header';
-import { useAccessibility } from '../context/AccessibilityContext';
+import { useAccessibility } from '../modules/accessibility/context/AccessibilityContext';
 
 import { localizeLesson } from '../data/hindiLessons';
 import { readResume } from '../utils/academyProgress';

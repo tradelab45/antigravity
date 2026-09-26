@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { CheckCircle2, Languages, Moon, Palette, RotateCcw, Sun, Type, X } from 'lucide-react';
 import { useAccessibility } from '../context/AccessibilityContext';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme } from '../../../context/ThemeContext';
 
 const Toggle = ({ checked, onChange, label, description }: { checked: boolean; onChange: (value: boolean) => void; label: string; description: string }) => (
   <label className="flex min-h-14 cursor-pointer items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
