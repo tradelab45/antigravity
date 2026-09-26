@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { motion, useReducedMotion, useScroll, useTransform } from 'motion/react';
+import { motion, useReducedMotion, useScroll } from 'motion/react';
 import { 
   ArrowUpRight, ArrowRight, ArrowDown, BookOpen, RotateCcw, 
   ShieldCheck, Sparkles, Pause, Play, TrendingUp, TrendingDown,
@@ -12,7 +12,7 @@ import './landing-3d.css';
 import { MetalButton } from './ui/liquid-glass-button';
 import { GlowCard, SpotlightCard } from './ui/spotlight-card';
 import { MotionFooter } from './MotionFooter';
-import { SpatialCandlestickChart } from './ui/spatial-candlestick-chart';
+import { LandingHeroPreview } from './LandingHeroPreview';
 
 const money = (value: number) => 
   new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value);
@@ -27,6 +27,12 @@ interface PopularShare {
   glow: 'green' | 'blue' | 'purple' | 'orange' | 'red';
   marketCap: string;
   peRatio: string;
+  /**
+   * Where the price came from. The simulator seeds its list from a static
+   * table before the feed answers, so having a price is not the same as
+   * having a market price; only 'live' and 'delayed' came from a quote.
+   */
+  quoteStatus?: 'live' | 'delayed' | 'simulated' | 'unavailable';
 }
 
 const POPULAR_SHARES: PopularShare[] = [
@@ -110,8 +116,6 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
   const osReduced = useReducedMotion();
   const reduced = settings.reducedMotion || !!osReduced;
   const { scrollYProgress } = useScroll();
-  const coinTurn = useTransform(scrollYProgress, [0, 0.35], [-24, 28]);
-  const coinLift = useTransform(scrollYProgress, [0, 0.35], [0, 90]);
 
   const scene = useRef<HTMLDivElement>(null);
   const landingRef = useRef<HTMLDivElement>(null);
@@ -121,7 +125,6 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
   const [feature, setFeature] = useState(0);
   const [allocation, setAllocation] = useState(25);
   const [answer, setAnswer] = useState<number | null>(null);
-  const [coinFlipped, setCoinFlipped] = useState(false);
 
   // Directly derive live shares from SimulatorContext stocks so landing and signup pages are 100% in sync
   const liveShares = useMemo<PopularShare[]>(() => {
@@ -135,14 +138,11 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
           changePct: typeof match.changePercent === 'number' ? match.changePercent : share.changePct,
           peRatio: match.peRatio ? match.peRatio.toString() : share.peRatio,
           marketCap: match.marketCapCr ? `₹${(match.marketCapCr / 100000).toFixed(1)}L Cr` : share.marketCap,
+          quoteStatus: match.quoteStatus,
         };
       }
       return share;
     });
-  }, [stocks]);
-
-  const hasLivePrices = useMemo(() => {
-    return Boolean(stocks && stocks.length > 0);
   }, [stocks]);
 
   const selectedStock = useMemo<PopularShare>(() => {
@@ -390,23 +390,18 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
             </p>
           </div>
 
-          {/* 3D Spatial Canvas */}
-          <div className="rr-art" ref={scene} aria-label="3D Candlestick Graph & Moving Rupee Arena">
+          {/* What the app looks like: three cards, every figure real or labelled. */}
+          <div className="rr-art" ref={scene}>
             <div className="rr-grid-plane" />
             <div className="rr-orbit rr-orbit-one" />
             <div className="rr-orbit rr-orbit-two" />
             <div className="rr-orbit rr-orbit-three" />
 
-            <span className="rr-art-label">3D CANDLESTICKS · DALAL STREET ARENA</span>
-
-            {/* Interactive 3D Candlestick Graph & Rotating Rupee Symbol */}
-            <div className="absolute inset-0 flex items-center justify-center pt-8">
-              <SpatialCandlestickChart variant="hero" showRupee={true} showBadges={true} />
-            </div>
-
-            <div className="rr-star rr-star-one">✳</div>
-            <div className="rr-star rr-star-two">✳</div>
-            <span className="rr-art-coordinate">3D PERSPECTIVE: ACTIVE</span>
+            <LandingHeroPreview
+              share={selectedStock}
+              quoteStatus={selectedStock.quoteStatus}
+              reduced={reduced}
+            />
           </div>
 
           <a href="#rr-shares-box" className="rr-scroll-cue">
@@ -539,9 +534,9 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                                 ACTIVE
                               </span>
                             )}
-                            {hasLivePrices && (
+                            {(stock.quoteStatus === 'live' || stock.quoteStatus === 'delayed') && (
                               <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-mint border border-emerald-500/30">
-                                LIVE
+                                {stock.quoteStatus === 'live' ? 'LIVE' : 'DELAYED'}
                               </span>
                             )}
                           </div>

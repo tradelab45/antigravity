@@ -34,7 +34,6 @@ import {
 import { useSimulator } from '../context/SimulatorContext';
 import { GoogleSignInButton, AuthOrDivider } from './GoogleSignInButton';
 import { AuthFormData, UserAccount } from '../types';
-import { AuthLaunchTransition } from './AuthLaunchTransition';
 import { SpotlightCard } from './ui/spotlight-card';
 import { ExpandableTabs } from './ui/expandable-tabs';
 import { RupeeSpatialBackground } from './ui/rupee-spatial-background';
@@ -133,7 +132,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
   initialMode = 'LOGIN',
   onBackToLanding,
 }) => {
-  const { loginUser, registerUser, loginWithGoogle, nseMarketInfo, marketIndices, stocks } = useSimulator();
+  const { loginUser, loginAsDemo, registerUser, loginWithGoogle, nseMarketInfo, marketIndices, stocks } = useSimulator();
 
   // Dynamically resolve live or context prices for sample stocks if available
   const sampleStocks: SampleStock[] = useMemo(() => {
@@ -181,6 +180,9 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
   const [quizAnswer, setQuizAnswer] = useState<number | null>(null);
   const [quizSubmitted, setQuizSubmitted] = useState<boolean>(false);
 
+  // A successful sign-in swaps this page for the app as soon as the context
+  // holds the account, which unmounts this and clears the timer. If that does
+  // not happen, reload rather than leave a signed-in visitor on the form.
   useEffect(() => {
     if (!launchState) return;
     const timer = window.setTimeout(() => window.location.reload(), 5000);
@@ -216,7 +218,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
   const handleQuickDemoLogin = async () => {
     setErrorMsg('');
     setLoading(true);
-    const res = await loginUser('xyz@gmail.com', 'demo');
+    const res = await loginAsDemo();
     if (res.success && res.user) {
       window.dispatchEvent(new CustomEvent('rr_auth_success', { detail: { kind: 'returning' } }));
       setLaunchState({ user: res.user, kind: 'returning' });
@@ -384,16 +386,6 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
   }, 0);
   const totalPortfolioWorth = playgroundCash + totalSimulatedHoldingsValue;
   const portfolioPnL = totalPortfolioWorth - 1000000;
-
-  if (launchState) {
-    return (
-      <AuthLaunchTransition
-        user={launchState.user}
-        kind={launchState.kind}
-        onEnter={() => window.location.reload()}
-      />
-    );
-  }
 
   return (
     <div className="min-h-screen bg-[#050906] text-slate-100 flex flex-col font-sans selection:bg-mint selection:text-slate-950 relative overflow-y-auto overflow-x-hidden">
@@ -615,7 +607,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                       </span>
                     </div>
                     <div className="text-xs text-slate-400 mt-0.5">
-                      Ready demo pass: <strong className="text-slate-200">xyz@gmail.com</strong> (@rookie_trader)
+                      One practice account everyone shares — sign up to keep your own.
                     </div>
                   </div>
                 </div>
