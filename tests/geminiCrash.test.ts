@@ -24,7 +24,9 @@ before(async () => {
   process.on('unhandledRejection', onUnhandled);
   const app = express();
   app.use(express.json());
-  app.use(createAiCopilotRouter());
+  // A session, so the requests reach the handlers; without one they are
+  // refused before any of this code runs.
+  app.use(createAiCopilotRouter({ sessionUserId: () => 'usr_test' }));
   await new Promise<void>((resolve) => { server = app.listen(0, '127.0.0.1', () => resolve()); });
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 });

@@ -5,12 +5,16 @@
  * news feeds that are generated from them. The lazily-created Gemini client,
  * the model fallback chain, the rule-based replies used when no API key is
  * configured and the in-memory response caches all live here, because nothing
- * outside this module reads them. The router needs no injected state.
+ * outside this module reads them. The router is handed only the session lookup.
  */
 import express from "express";
 import { GoogleGenAI } from "@google/genai";
-import { rateLimit, ipKeyGenerator } from "express-rate-limit";
+import { rateLimit } from "express-rate-limit";
 import { asyncRoute, type AsyncHandler } from "../asyncRoute";
+
+/** Questions each signed-in account may ask the AI coach in a window. */
+const AI_LIMIT_PER_ACCOUNT = 40;
+const AI_WINDOW_MS = 60 * 60 * 1000;
 
 /** Longest single chat message or history turn sent to the model. */
 const MAX_TURN_CHARS = 4000;
@@ -64,30 +68,27 @@ export function createAiCopilotRouter(deps: AiCopilotRouterDeps = {}): express.R
 
   /**
    * Every POST to /api/gemini spends the server's GEMINI_API_KEY, with Google
-   * Search grounding, and needed no sign-in and had no limit, so anyone who
-   * found the endpoint had a free LLM on the owner's bill.
-   *
-   * A signed-in student is limited per account, so a class sharing one school
-   * IP does not share one allowance. Callers without a server session, which
-   * includes the local demo profile and offline accounts, are limited per IP
-   * with a smaller allowance. Signing in is not required, because that would
-   * switch Chanakya off for the demo pass entirely.
+   * Search grounding. They are features for a signed-in learner, so a request
+   * without a session is refused, as main already required. Each account is
+   * then limited on its own. main used to count the cap per address, so a
+   * whole class sharing one school connection shared forty questions an hour.
+   * The demo pass is one shared account and shares one allowance.
    */
   router.use("/api/gemini", (req, res, next) => {
+    if (req.method !== "POST") return next();
     const userId = deps.sessionUserId?.(req) || null;
-    res.locals.aiCaller = userId
-      ? { key: `user:${userId}`, limit: 60 }
-      : { key: `ip:${ipKeyGenerator(req.ip || "unknown")}`, limit: 30 };
+    if (!userId) return res.status(401).json({ error: "Sign in first." });
+    res.locals.aiCaller = `user:${userId}`;
     next();
   });
   router.use("/api/gemini", rateLimit({
-    windowMs: 15 * 60 * 1000,
-    limit: (_req, res) => res.locals.aiCaller.limit,
-    keyGenerator: (_req, res) => res.locals.aiCaller.key,
+    windowMs: AI_WINDOW_MS,
+    limit: AI_LIMIT_PER_ACCOUNT,
+    keyGenerator: (_req, res) => res.locals.aiCaller,
     skip: (req) => req.method !== "POST",
     standardHeaders: 'draft-8',
     legacyHeaders: false,
-    message: { error: "Chanakya needs a short break — too many questions in a few minutes. Please try again shortly." },
+    message: { error: "You have used the AI coach a lot in the last hour. Try again later." },
   }));
 
   // Initialize Gemini client lazily/safely

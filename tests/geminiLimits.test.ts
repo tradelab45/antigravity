@@ -33,24 +33,27 @@ const fullStock = {
   peRatio: 22.5, industryPe: 18.1, marketCapCr: 1659000, dividendYield: 0.4, popularBrands: ['Jio', 'Reliance Retail'],
 };
 
-test('an anonymous caller cannot spend the API key without limit', async () => {
-  const { chat, close } = await startApp();
+test('a caller without a session cannot spend the API key at all', async () => {
+  const { base, chat, close } = await startApp();
   try {
-    const statuses: number[] = [];
-    for (let i = 0; i < 32; i += 1) statuses.push((await chat({ message: `q${i}` })).status);
-    assert.ok(statuses.slice(0, 30).every((s) => s === 200), 'the anonymous allowance is served');
-    assert.equal(statuses[31], 429, `anonymous use is throttled, got ${statuses.join(',')}`);
+    assert.equal((await chat({ message: 'hi' })).status, 401, 'chat');
+    for (const path of ['/api/gemini/analyze-stock', '/api/gemini/portfolio-audit']) {
+      const res = await fetch(`${base}${path}`, {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ stock: fullStock, holdings: [] }),
+      });
+      assert.equal(res.status, 401, path);
+    }
   } finally { close(); }
 });
 
 test('each signed-in student has their own allowance, even on a shared school IP', async () => {
   const { chat, close } = await startApp();
   try {
-    let alice = 0;
-    for (let i = 0; i < 61; i += 1) alice = (await chat({ message: `q${i}` }, 'usr_alice')).status;
-    assert.equal(alice, 429, 'one student is throttled after their allowance');
+    const statuses: number[] = [];
+    for (let i = 0; i < 41; i += 1) statuses.push((await chat({ message: `q${i}` }, 'usr_alice')).status);
+    assert.ok(statuses.slice(0, 40).every((s) => s === 200), 'the allowance is served');
+    assert.equal(statuses[40], 429, 'one student is throttled after their allowance');
     assert.equal((await chat({ message: 'hi' }, 'usr_bob')).status, 200, 'a classmate on the same IP is unaffected');
-    assert.equal((await chat({ message: 'hi' })).status, 200, 'the anonymous bucket is separate too');
   } finally { close(); }
 });
 
@@ -58,9 +61,9 @@ test('the limit covers every Gemini endpoint, not just chat', async () => {
   const { base, close } = await startApp();
   try {
     let last = 0;
-    for (let i = 0; i < 31; i += 1) {
+    for (let i = 0; i < 41; i += 1) {
       last = (await fetch(`${base}/api/gemini/analyze-stock`, {
-        method: 'POST', headers: { 'content-type': 'application/json' },
+        method: 'POST', headers: { 'content-type': 'application/json', 'x-test-session': 'usr_alice' },
         body: JSON.stringify({ stock: fullStock }),
       })).status;
     }

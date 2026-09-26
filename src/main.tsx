@@ -2,7 +2,7 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
-import { prepareOfflineAcademy } from './utils/pwa';
+import { prepareOfflineAcademy } from './modules/pwa-platform/utils/pwa';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -13,3 +13,6 @@ createRoot(document.getElementById('root')!).render(
 
 window.addEventListener('load', () => void prepareOfflineAcademy());
 window.addEventListener('online', () => void prepareOfflineAcademy());
+// A visitor who signs in on this page load has an account now, so the lessons
+// are worth preparing — without waiting for the next visit.
+window.addEventListener('rr_auth_success', () => void prepareOfflineAcademy());
