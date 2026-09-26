@@ -7,6 +7,8 @@ import dotenv from "dotenv";
 import yfPackage from "yahoo-finance2";
 import { UpstoxService } from './src/server/upstoxService';
 import { catalogPage, listedStockDetail } from './src/server/stockCatalog';
+import { createAuthLimiter } from './src/server/authRateLimit';
+import { createAcademyService } from './src/server/academyService';
 import { TOP_100_INDIAN_COMPANIES } from "./src/data/indianCompanies";
 import { 
   fetchGoogleFinanceQuote, 
@@ -68,6 +70,18 @@ app.get("/livez", (req, res) => {
 });
 
 app.use(express.json());
+const proxyHops = Number(process.env.TRUST_PROXY_HOPS || 0);
+if (Number.isInteger(proxyHops) && proxyHops > 0 && proxyHops <= 5) app.set('trust proxy', proxyHops);
+// The Academy authenticates through the same signed session as everything
+// else. It had a session store and a logout route of its own, and that route
+// was registered here, ahead of the real one: signing out answered from the
+// Academy's handler and the app's session was never revoked.
+const academyService = createAcademyService(
+  path.join(process.cwd(), 'data', 'academy.json'),
+  (req) => sessionUser(req)?.id ?? null,
+);
+app.use('/api/academy', academyService.router);
+app.use('/api/auth', (_req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
 
 // Lazy-safe Yahoo Finance client
 let yahooFinanceInstance: any = null;
@@ -743,7 +757,7 @@ const initialCatalogLoad = loadStockPage(0, 100).catch(() => null);
 
 app.get('/api/stocks/catalog', async (req, res) => {
   const offset = Number(req.query.offset ?? 0);
-  const limit = Number(req.query.limit ?? 10);
+  const limit = Number(req.query.limit ?? 23);
   if (!Number.isInteger(offset) || offset < 0 || !Number.isInteger(limit) || limit < 1 || limit > 100) {
     return res.status(400).json({ success: false, error: 'Invalid catalog page' });
   }
@@ -3129,7 +3143,7 @@ function rateLimited(
   return true;
 }
 
-app.post("/api/auth/signup", async (req, res) => {
+app.post("/api/auth/signup", createAuthLimiter(5, 60 * 60 * 1000), async (req, res) => {
   try {
     const caller = clientKey(req.ip);
     if (rateLimited(res, `signup:ip:${caller}`, AUTH_LIMITS.signupIp,
@@ -3246,14 +3260,14 @@ app.post("/api/auth/signup", async (req, res) => {
 });
 
 // User Login
-app.post("/api/auth/login", async (req, res) => {
+app.post("/api/auth/login", createAuthLimiter(10), async (req, res) => {
   try {
     const caller = clientKey(req.ip);
     if (rateLimited(res, `login:ip:${caller}`, AUTH_LIMITS.loginIp,
       "Too many sign-in attempts from here. Try again later.")) return;
 
     const { identifier, password } = req.body;
-    if (!identifier || !password) {
+    if (typeof identifier !== 'string' || identifier.length > 120 || typeof password !== 'string' || password.length > 128 || !identifier || !password) {
       return res.status(400).json({ success: false, message: "Email or username and password are required." });
     }
 
@@ -4094,7 +4108,7 @@ function uniqueUsernameFromEmail(email: string, users: StoredUser[]): string {
 
 // Google Sign-In / Sign-Up: logs in an existing account (linking it by verified
 // email on first use) or creates a new one.
-app.post("/api/auth/google", async (req, res) => {
+app.post("/api/auth/google", createAuthLimiter(20), async (req, res) => {
   try {
     const caller = clientKey(req.ip);
     if (rateLimited(res, `google:ip:${caller}`, AUTH_LIMITS.googleIp,
@@ -4738,8 +4752,9 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 async function startServer() {
   const distPath = path.join(process.cwd(), "dist");
   const hasDist = fs.existsSync(path.join(distPath, "index.html"));
+  const isProduction = process.env.NODE_ENV === "production" || process.env.SERVE_DIST === "true";
 
-  if (process.env.NODE_ENV !== "production" && !hasDist) {
+  if (!isProduction) {
     try {
       const { createServer: createViteServer } = await import("vite");
       const vite = await createViteServer({
@@ -4749,6 +4764,17 @@ async function startServer() {
       app.use(vite.middlewares);
     } catch (err) {
       console.warn("Could not start Vite dev middleware:", err);
+      if (hasDist) {
+        app.use(express.static(distPath));
+        app.get("*", (req, res) => {
+          const indexPath = path.join(distPath, "index.html");
+          if (fs.existsSync(indexPath)) {
+            res.sendFile(indexPath);
+          } else {
+            res.status(200).send("RupeeRookie application starting...");
+          }
+        });
+      }
     }
   } else {
     app.use(express.static(distPath));
@@ -4766,22 +4792,38 @@ async function startServer() {
     console.log(`RupeeRookie Server running on http://0.0.0.0:${PORT}`);
   });
 
-  process.on("SIGTERM", () => {
+  const secondaryPort = PORT === 3005 ? 3006 : PORT === 3006 ? 3005 : null;
+  let secondaryServer: any = null;
+  if (secondaryPort) {
+    try {
+      secondaryServer = app.listen(secondaryPort, "0.0.0.0", () => {
+        console.log(`RupeeRookie Secondary Server running on http://0.0.0.0:${secondaryPort}`);
+      });
+      secondaryServer.on("error", (err: any) => {
+        if (err.code !== "EADDRINUSE") {
+          console.warn(`Could not bind secondary port ${secondaryPort}:`, err.message);
+        }
+      });
+    } catch {}
+  }
+
+  const cleanup = () => {
     upstoxFeed.stop();
+    try { server.close(); } catch {}
+    try { server.closeAllConnections(); } catch {}
+    try { secondaryServer?.close(); } catch {}
+    try { secondaryServer?.closeAllConnections(); } catch {}
+    process.exit(0);
+  };
+
+  process.on("SIGTERM", () => {
     console.log("SIGTERM received, closing HTTP server");
-    server.close(() => {
-      process.exit(0);
-    });
-    server.closeAllConnections();
+    cleanup();
   });
 
   process.on("SIGINT", () => {
-    upstoxFeed.stop();
     console.log("SIGINT received, closing HTTP server");
-    server.close(() => {
-      process.exit(0);
-    });
-    server.closeAllConnections();
+    cleanup();
   });
 }
 

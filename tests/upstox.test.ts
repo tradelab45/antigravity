@@ -142,16 +142,16 @@ test('closed-session quotes remain owned by Upstox after a minute', async (t) =>
   } finally { service.stop(); }
 });
 
-test('catalog pages preserve seed order and add 10 unique stocks beyond the first 100', () => {
+test('catalog pages preserve seed order and add 23 unique stocks beyond the first 100', () => {
   const listings = Array.from({ length: 150 }, (_, index) => ({ symbol: `S${index}`, name: `Stock ${index}`, instrumentKey: `NSE_EQ|${index}` }));
   const seeds = listings.slice(0, 77).map(stock => stock.symbol);
   const first = catalogPage(seeds, listings, 0, 100);
-  const second = catalogPage(seeds, listings, first.nextOffset, 10);
+  const second = catalogPage(seeds, listings, first.nextOffset, 23);
   assert.equal(first.items.length, 100);
-  assert.equal(second.items.length, 10);
-  assert.equal(second.nextOffset, 110);
-  assert.equal(new Set([...first.items, ...second.items].map(stock => stock.symbol)).size, 110);
-  assert.equal(catalogPage(seeds, listings, 146, 10).hasMore, false);
+  assert.equal(second.items.length, 23);
+  assert.equal(second.nextOffset, 123);
+  assert.equal(new Set([...first.items, ...second.items].map(stock => stock.symbol)).size, 123);
+  assert.equal(catalogPage(seeds, listings, 146, 23).hasMore, false);
   assert.equal(listedStockDetail(listings[0]).peRatio, 0);
 });
 

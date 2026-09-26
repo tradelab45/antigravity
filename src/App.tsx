@@ -488,7 +488,7 @@ function SimulatorApp() {
 
           {activeTab === 'academy' && (
             <motion.div key="academy" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
-              <InvestorAcademy setActiveTab={setActiveTab} />
+              <InvestorAcademy key={currentUser.id} setActiveTab={setActiveTab} />
             </motion.div>
           )}
 
