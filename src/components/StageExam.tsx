@@ -39,7 +39,7 @@ interface StageExamProps {
   /** Reports how the submitted paper went, question by question. */
   onPaperGraded: (results: QuestionResult[]) => void;
   onPass: (score: number) => void;
-  onRecordAttempt: (score: number) => void;
+  onRecordAttempt: (score: number, answers: Record<string, string>) => void;
 }
 
 /**
@@ -87,7 +87,7 @@ export const StageExam: React.FC<StageExamProps> = ({
   };
 
   const submit = () => {
-    if (answeredCount < questions.length) return;
+    if (isSubmitted || answeredCount < questions.length) return;
     const score = questions.reduce(
       (total, question) => total + (answers[question.id] === question.correctIndex ? 1 : 0),
       0,
@@ -101,7 +101,9 @@ export const StageExam: React.FC<StageExamProps> = ({
         correct: answers[question.id] === question.correctIndex,
       })),
     );
-    onRecordAttempt(score);
+    // The answers themselves go to the server, which grades them again: the
+    // score shown here is this browser's, the recorded one is the server's.
+    onRecordAttempt(score, Object.fromEntries(questions.map(question => [question.id, question.options[answers[question.id]]])));
     if (score >= EXAM_PASS_MARK) onPass(score);
   };
 

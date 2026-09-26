@@ -317,3 +317,15 @@ test('an unknown result is ignored rather than stored as a question', () => {
   ]);
   assert.deepEqual(Object.keys(memory.questions), ['ex-b-1']);
 });
+
+test('no bank asks the same question twice', () => {
+  // Growing the banks from 20 to 36 added five questions whose text repeated
+  // one already there under a different id. The draw works by id, so a paper
+  // could show a learner the identical question twice — and a test matching
+  // the paper against the bank counted one question as two.
+  for (const exam of STAGE_EXAMS) {
+    const texts = exam.questions.map((question) => question.question.trim().toLowerCase());
+    const repeated = texts.filter((text, index) => texts.indexOf(text) !== index);
+    assert.deepEqual(repeated, [], `${exam.stageId} repeats a question`);
+  }
+});
