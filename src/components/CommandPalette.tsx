@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import type { StockDetail } from '../types';
 import type { AppTabType } from './Header';
-import { CLIENT_KEYWORD_MAP } from '../constants/marketKeywords';
+import { CLIENT_KEYWORD_MAP } from '../modules/screener/constants/marketKeywords';
 import { useModalDialog } from '../hooks/useModalDialog';
 
 interface CommandPaletteProps {

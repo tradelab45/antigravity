@@ -9,10 +9,7 @@ import { configureTrustProxy } from './src/server/proxy';
 import { FALLBACK_GOOGLE_CLIENT_ID, isGoogleClientId } from './src/config/google';
 import { createAcademyService } from './src/server/academyService';
 import { createMarketDataRouter } from './src/server/routes/market-data';
-import { 
-  getScreenerData,
-  type ScreenerChartResponse
-} from "./src/server/screenerService";
+import { createScreenerRouter } from './src/server/routes/screener';
 import { clientKey, consume, reset as resetRateLimit, type RateLimitRule } from './src/server/rateLimit';
 import { readJson, updateJson, writeJsonAtomic } from './src/server/jsonStore';
 import {
@@ -121,31 +118,9 @@ function getGeminiClient(): GoogleGenAI | null {
 const marketData = createMarketDataRouter();
 app.use(marketData.router);
 
-// 2b. Direct Screener.in Company & Historical Dataset Endpoint
-app.get("/api/screener/:symbol", async (req, res) => {
-  const symbol = req.params.symbol.toUpperCase().replace('.NS', '').replace('.BO', '');
-  const stock = marketData.getStocks().find((s) => s.symbol === symbol);
-  try {
-    const screenerData = await getScreenerData(
-      symbol,
-      stock?.name,
-      stock?.price,
-      stock?.dayHigh,
-      stock?.dayLow,
-      stock?.previousClose
-    );
-    if (!screenerData) {
-      return res.status(404).json({ success: false, error: `Screener data not found for ${symbol}` });
-    }
-    res.json({
-      success: true,
-      symbol,
-      ...screenerData
-    });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message || "Failed to fetch from Screener.in" });
-  }
-});
+// Screener.in company data. The route lives in the screener module; it reads
+// the live stock list through the market-data getter rather than a snapshot.
+app.use(createScreenerRouter({ getStocks: () => marketData.getStocks() }));
 
 
 // In-memory caches to prevent quota exhaustion and reduce API latency

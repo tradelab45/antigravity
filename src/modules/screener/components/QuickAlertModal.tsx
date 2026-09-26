@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Bell, BookOpen, CheckCircle2, X } from 'lucide-react';
-import type { Alert, StockDetail } from '../types';
-import { useSimulator } from '../context/SimulatorContext';
-import { formatINR } from '../utils/formatters';
+import type { Alert, StockDetail } from '../../../types';
+import { useSimulator } from '../../../context/SimulatorContext';
+import { formatINR } from '../../../utils/formatters';
 
 interface QuickAlertModalProps { isOpen: boolean; onClose: () => void; stock: StockDetail | null; }
 type SmartKind = NonNullable<Alert['kind']>;

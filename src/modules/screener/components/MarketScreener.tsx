@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { quoteLabel } from '../modules/market-data/utils/quoteState';
+import { quoteLabel } from '../../market-data/utils/quoteState';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Search, 
@@ -41,18 +41,18 @@ import {
   Swords,
   Languages
 } from 'lucide-react';
-import { useSimulator } from '../context/SimulatorContext';
-import { useAccessibility } from '../modules/accessibility/context/AccessibilityContext';
-import { StockDetail } from '../types';
-import { formatINR, formatPercent, formatIndianShort, formatNumberIndian, getDynamicMarketSessionBadge } from '../utils/formatters';
-import { ThematicBasketsModal, ANGEL_THEMATIC_BASKETS, ThematicBasket } from '../modules/portfolio/components/ThematicBasketsModal';
+import { useSimulator } from '../../../context/SimulatorContext';
+import { useAccessibility } from '../../accessibility/context/AccessibilityContext';
+import { StockDetail } from '../../../types';
+import { formatINR, formatPercent, formatIndianShort, formatNumberIndian, getDynamicMarketSessionBadge } from '../../../utils/formatters';
+import { ThematicBasketsModal, ANGEL_THEMATIC_BASKETS, ThematicBasket } from '../../portfolio/components/ThematicBasketsModal';
 import { QuickAlertModal } from './QuickAlertModal';
-import { SpotlightCard } from './ui/spotlight-card';
-import { AnimatedSearchBar } from './ui/animated-search-bar';
-import { ExpandableTabs } from './ui/expandable-tabs';
-import { FilterTokenBar, FilterToken } from './ui/filter-token-bar';
-import { ThumbnailCarousel, CarouselSlideItem } from './ui/thumbnail-carousel';
-import { ShareBoxAreaChart } from './ui/share-box-area-chart';
+import { SpotlightCard } from '../../../components/ui/spotlight-card';
+import { AnimatedSearchBar } from '../../../components/ui/animated-search-bar';
+import { ExpandableTabs } from '../../../components/ui/expandable-tabs';
+import { FilterTokenBar, FilterToken } from '../../../components/ui/filter-token-bar';
+import { ThumbnailCarousel, CarouselSlideItem } from '../../../components/ui/thumbnail-carousel';
+import { ShareBoxAreaChart } from '../../../components/ui/share-box-area-chart';
 
 const getBenchmarkGradient = (id: string) => {
   switch (id) {
