@@ -5,7 +5,20 @@ import { isAuthApiRejection, validateUsername, validateEmail } from '../src/util
 test('a static host 404 is not a rejection, so the offline fallback can run', () => {
   assert.equal(isAuthApiRejection(404, 'text/html'), false);
   assert.equal(isAuthApiRejection(405, 'text/html'), false);
-  assert.equal(isAuthApiRejection(503, null), false);
+  assert.equal(isAuthApiRejection(404, null), false);
+});
+
+test('a fail-closed 503 from the API stays final and never reaches the offline branch', () => {
+  // Sent when a verification code cannot be delivered, and when Google sign-in
+  // has no client configured. Falling through would skip the server entirely.
+  assert.equal(isAuthApiRejection(503, 'application/json; charset=utf-8'), true);
+  assert.equal(isAuthApiRejection(404, 'application/json'), true, 'an API 404 is still the API answering');
+});
+
+test('an HTML error other than a missing route is a failure, not an offline host', () => {
+  assert.equal(isAuthApiRejection(502, 'text/html'), true);
+  assert.equal(isAuthApiRejection(503, null), true);
+  assert.equal(isAuthApiRejection(500, 'text/html'), true);
 });
 
 test('a real API validation error is a rejection', () => {

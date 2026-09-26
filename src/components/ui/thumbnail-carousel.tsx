@@ -225,13 +225,19 @@ export const ThumbnailCarousel: React.FC<ThumbnailCarouselProps> = ({
                 type="button"
                 onClick={() => goToSlide(i)}
                 aria-label={`Go to slide ${i + 1}`}
-                className={cn(
-                  "h-1.5 rounded-full transition-all cursor-pointer",
-                  i === currentIndex
-                    ? "w-6 bg-gradient-to-r from-indigo-600 to-violet-600"
-                    : "w-2 bg-slate-200 dark:bg-white/20 hover:bg-slate-300"
-                )}
-              />
+                aria-current={i === currentIndex ? 'true' : undefined}
+                className="group flex h-6 min-w-6 items-center justify-center px-1 cursor-pointer"
+              >
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "h-1.5 rounded-full transition-all",
+                    i === currentIndex
+                      ? "w-6 bg-gradient-to-r from-indigo-600 to-violet-600"
+                      : "w-2 bg-slate-200 dark:bg-white/20 group-hover:bg-slate-300"
+                  )}
+                />
+              </button>
             ))}
           </div>
         </div>

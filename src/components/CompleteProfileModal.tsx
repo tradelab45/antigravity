@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useSimulator } from '../context/SimulatorContext';
+import { useModalDialog } from '../hooks/useModalDialog';
 
 interface CompleteProfileModalProps {
   isOpen: boolean;
@@ -133,19 +134,20 @@ export const CompleteProfileModal: React.FC<CompleteProfileModalProps> = ({ isOp
     }, 1600);
   };
 
-  React.useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  const { ref: dialogRef, dialogProps } = useModalDialog({
+    onClose,
+    open: isOpen,
+    label: 'Complete your profile',
+  });
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-md overflow-hidden">
+    <div
+      ref={dialogRef}
+      {...dialogProps}
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-md overflow-hidden"
+    >
       <motion.div 
         initial={{ opacity: 0, scale: 0.94, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}

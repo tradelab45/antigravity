@@ -32,11 +32,12 @@ import {
   CartesianGrid,
   Legend
 } from 'recharts';
-import { useSimulator } from '../context/SimulatorContext';
+import { useSimulator } from '../../../context/SimulatorContext';
 import { generateOptionChain } from '../utils/optionsCalculator';
-import { playOrderFilledSound } from '../utils/soundEffects';
-import { formatINR } from '../utils/formatters';
-import { OptionContract } from '../types';
+import { playOrderFilledSound } from '../../../utils/soundEffects';
+import { formatINR } from '../../../utils/formatters';
+import { OptionContract } from '../../../types';
+import { useModalDialog } from '../../../hooks/useModalDialog';
 
 interface OptionsChainModalProps {
   isOpen: boolean;
@@ -139,6 +140,12 @@ export const OptionsChainModal: React.FC<OptionsChainModalProps> = ({ isOpen, on
     };
   }, [selectedContract, lotSize, lotCount]);
 
+  const { ref: dialogRef, dialogProps } = useModalDialog({
+    onClose,
+    open: isOpen,
+    label: 'Index options chain',
+  });
+
   if (!isOpen) return null;
 
   const handlePlaceOptionTrade = () => {
@@ -164,7 +171,7 @@ export const OptionsChainModal: React.FC<OptionsChainModalProps> = ({ isOpen, on
   };
 
   return (
-    <div id="options-chain-modal" className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/70 backdrop-blur-xs overflow-y-auto">
+    <div id="options-chain-modal" ref={dialogRef} {...dialogProps} className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/70 backdrop-blur-xs overflow-y-auto">
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}

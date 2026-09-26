@@ -1,4 +1,4 @@
-import { StockDetail, MarketIndices } from '../types';
+import { StockDetail, MarketIndices } from '../../../types';
 
 /**
  * Computes live, factually accurate market benchmark indices (NIFTY 50, BSE SENSEX, NIFTY BANK, NIFTY IT)

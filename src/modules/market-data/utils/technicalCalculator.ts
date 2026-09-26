@@ -1,4 +1,4 @@
-import { StockDetail } from '../types';
+import { StockDetail } from '../../../types';
 
 export function calculateDuPontAnalysis(stock: StockDetail) {
   const roe = stock.roe || 14.5;

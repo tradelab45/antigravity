@@ -1,6 +1,8 @@
 import React, { useRef } from 'react';
 import { Download, FileJson, LockKeyhole, Smartphone, UploadCloud, Upload, ShieldCheck, RefreshCw } from 'lucide-react';
 import { useSimulator } from '../context/SimulatorContext';
+import { ChangePasswordPanel } from './ChangePasswordPanel';
+import { DeleteAccountPanel } from './DeleteAccountPanel';
 
 function downloadFile(filename: string, content: string, type: string) {
   const blob = new Blob([content], { type });
@@ -37,10 +39,10 @@ export function DataPrivacyCenter() {
     reader.onload = (event) => {
       const content = event.target?.result as string;
       if (content) {
+        // A successful restore announces itself, including what it could
+        // not change, so only a failure needs saying here.
         const result = restorePortfolioBackup(content);
-        if (result.success) {
-          notifyUser('Portfolio Restored! 🎉', result.message, 'SUCCESS');
-        } else {
+        if (!result.success) {
           notifyUser('Restore Failed ⚠️', result.message, 'WARNING');
         }
       }
@@ -57,7 +59,7 @@ export function DataPrivacyCenter() {
       </div>
       <h1 className="mt-3 text-2xl font-black sm:text-3xl">Your learning record belongs to you</h1>
       <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-300">
-        Screenshots, journal notes, trade plans, watchlist notes and Academy progress stay in this browser on this device. They are not cloud-synced unless a future cloud-sync option is clearly enabled by you.
+        Screenshots, journal notes, trade plans, watchlist notes and Academy progress stay in this browser on this device. Your account and your practice portfolio (cash, holdings and orders) are held on the RupeeRookie server, and joining a class board also sends it the figures that board shows. Nothing else is cloud-synced unless a future option is clearly enabled by you.
       </p>
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <button type="button" onClick={exportAll} className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-white px-4 text-xs font-black text-slate-950 hover:bg-slate-100 transition-colors cursor-pointer">
@@ -82,7 +84,7 @@ export function DataPrivacyCenter() {
           </span>
           <h2 className="mt-1 text-lg font-black text-slate-900 dark:text-white">Portfolio Backup & 1-Click Restore</h2>
           <p className="mt-1 text-xs text-slate-600 dark:text-slate-300 max-w-xl">
-            Export a full JSON snapshot of your virtual cash balance, executed trades, open holdings, watchlist, and achievements. Import anytime to instantly recover your exact trading state.
+            Export a JSON snapshot of your virtual cash balance, executed trades, open holdings, watchlist and achievements. On an account the server keeps, importing restores the watchlist and leaves cash, holdings and orders as the server has them. On a device with no server behind it, importing restores everything.
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -129,5 +131,7 @@ export function DataPrivacyCenter() {
         <p className="mt-1 text-xs leading-relaxed">RupeeRookie does not silently upload screenshots or private notes. A future sync feature must show exactly what is shared and ask for explicit consent.</p>
       </div>
     </section>
+    <ChangePasswordPanel />
+    <DeleteAccountPanel />
   </div>;
 }

@@ -252,7 +252,7 @@ export interface Alert {
   symbol: string;
   targetPrice?: number;
   type: 'ABOVE' | 'BELOW';
-  kind?: 'PRICE' | 'EARNINGS' | 'WEEK_52' | '52W_HIGH' | 'EMA_200' | 'SUPPORT_BREAK' | 'MOVE_PERCENT' | 'PE_CHANGE' | 'SECTOR_CONCENTRATION' | 'DRAWDOWN';
+  kind?: 'PRICE' | 'EARNINGS' | 'WEEK_52' | 'MOVE_PERCENT' | 'PE_CHANGE' | 'SECTOR_CONCENTRATION' | 'DRAWDOWN';
   threshold?: number;
   eventDate?: string;
   reason?: string;

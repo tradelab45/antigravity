@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { quoteLabel } from '../utils/quoteState';
+import { quoteLabel } from '../modules/market-data/utils/quoteState';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Search, 
@@ -42,6 +42,7 @@ import {
   Languages
 } from 'lucide-react';
 import { useSimulator } from '../context/SimulatorContext';
+import { useAccessibility } from '../context/AccessibilityContext';
 import { StockDetail } from '../types';
 import { formatINR, formatPercent, formatIndianShort, formatNumberIndian, getDynamicMarketSessionBadge } from '../utils/formatters';
 import { ThematicBasketsModal, ANGEL_THEMATIC_BASKETS, ThematicBasket } from './ThematicBasketsModal';
@@ -51,7 +52,7 @@ import { AnimatedSearchBar } from './ui/animated-search-bar';
 import { ExpandableTabs } from './ui/expandable-tabs';
 import { FilterTokenBar, FilterToken } from './ui/filter-token-bar';
 import { ThumbnailCarousel, CarouselSlideItem } from './ui/thumbnail-carousel';
-import { ShareBoxAreaChart } from './ui/area-charts-2';
+import { ShareBoxAreaChart } from './ui/share-box-area-chart';
 
 const getBenchmarkGradient = (id: string) => {
   switch (id) {
@@ -125,17 +126,12 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
   const [loadingCatalog, setLoadingCatalog] = useState(false);
   const catalogBusy = useRef(false);
 
-  const [isHindiMode, setIsHindiMode] = useState<boolean>(() => {
-    try { return localStorage.getItem('rr_lang_hindi') === 'true'; } catch { return false; }
-  });
-
-  const toggleHindiMode = () => {
-    setIsHindiMode(prev => {
-      const next = !prev;
-      try { localStorage.setItem('rr_lang_hindi', String(next)); } catch {}
-      return next;
-    });
-  };
+  // A shortcut to the app's own language setting. It used to keep a flag of
+  // its own that changed nothing but this button's label, so "Hindi Active"
+  // was shown over an English screen.
+  const { settings: accessibilitySettings, updateSetting } = useAccessibility();
+  const isHindiMode = accessibilitySettings.learningLanguage === 'HINDI';
+  const toggleHindiMode = () => updateSetting('learningLanguage', isHindiMode ? 'ENGLISH' : 'HINDI');
 
   const marketSession = getDynamicMarketSessionBadge();
 
@@ -680,10 +676,11 @@ export const MarketScreener: React.FC<MarketScreenerProps> = ({ onSelectStock, o
                 ? 'bg-amber-500 text-slate-950 border-amber-400 font-black' 
                 : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 font-bold'
             }`}
-            title="Toggle Hindi/English terms (Bhav, Labh/Hani, Tiraskrit)"
+            aria-pressed={isHindiMode}
+            title="Switch the app between English and Hindi"
           >
             <Languages className="w-3.5 h-3.5" />
-            <span>{isHindiMode ? '🌐 हिंदी (Hindi Active)' : '🌐 English / हिंदी'}</span>
+            <span>{isHindiMode ? '🌐 हिंदी' : '🌐 English / हिंदी'}</span>
           </button>
 
           {/* Quick-action button: Head-to-Head Stock Battle */}
@@ -1930,8 +1927,6 @@ const StockRowItem: React.FC<StockCardItemProps> = ({
             {formatINR(stock.price)}
           </span>
           <span 
-            aria-live="polite"
-            aria-atomic="true"
             className={`mt-0.5 block font-mono text-[11px] font-bold ${moveClass}`}
           >
             {isUp ? '+' : ''}{stock.change.toFixed(2)} ({isUp ? '+' : ''}{stock.changePercent.toFixed(2)}%)
@@ -2078,17 +2073,17 @@ const StockCardItem: React.FC<StockCardItemProps> = ({
                   NSE
                 </span>
                 {stock.psuStatus && (
-                  <span className="text-[9px] font-black bg-blue-100 dark:bg-blue-500/20 text-blue-900 dark:text-blue-300 border border-blue-300 dark:border-blue-500/40 px-1.5 py-0.5 rounded-md">
+                  <span className="text-[9px] font-black bg-blue-100 text-blue-800 border border-blue-300 dark:bg-blue-500/20 dark:text-blue-300 dark:border-blue-500/40 px-1.5 py-0.5 rounded-md">
                     🏛️ {stock.psuStatus}
                   </span>
                 )}
                 {isBreakout && (
-                  <span className="text-[9px] font-black bg-emerald-500/20 text-mint border border-emerald-500/40 px-1.5 py-0.5 rounded-md">
+                  <span className="text-[9px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-500/20 dark:text-mint dark:border-emerald-500/40 px-1.5 py-0.5 rounded-md">
                     🔥 Breakout
                   </span>
                 )}
                 {isNear52Low && (
-                  <span className="text-[9px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/40 px-1.5 py-0.5 rounded-md">
+                  <span className="text-[9px] font-black bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/40 px-1.5 py-0.5 rounded-md">
                     🏷️ Sale
                   </span>
                 )}
@@ -2133,7 +2128,7 @@ const StockCardItem: React.FC<StockCardItemProps> = ({
           )}
         </div>
 
-        {/* Price & Today's Change with aria-live */}
+        {/* Price & Today's Change */}
         <div className="mt-3.5 flex items-baseline justify-between">
           <div>
             <span className="text-2xl font-black text-white tracking-tight font-mono">
@@ -2141,8 +2136,6 @@ const StockCardItem: React.FC<StockCardItemProps> = ({
             </span>
           </div>
           <div 
-            aria-live="polite"
-            aria-atomic="true"
             className={`flex items-center text-xs font-black px-2.5 py-1 rounded-xl shadow-2xs font-mono ${
               isUp ? 'bg-emerald-500/20 text-[#047857] dark:text-emerald-400 border border-emerald-500/40' : 'bg-rose-500/20 text-[#be123c] dark:text-rose-400 border border-rose-500/40'
             }`}
@@ -2213,7 +2206,7 @@ const StockCardItem: React.FC<StockCardItemProps> = ({
 
           <div 
             className="bg-white/5 p-2.5 rounded-xl border border-white/10 cursor-help"
-            title="Explain Like I'm 16: DuPont Breakdown separates luck from skill: is profit coming from high margins, fast inventory turns, or debt? RoE shows how many paise of pure profit the company generates for every ₹1 of shareholder money."
+            title="Explain Like I'm 16: market capitalisation is the share price multiplied by the number of shares. It tells you how big the company is, not whether it is cheap."
           >
             <span className="text-slate-400 font-semibold flex items-center gap-1 text-[10px] uppercase font-mono">
               <abbr className="no-underline">Market Cap</abbr>

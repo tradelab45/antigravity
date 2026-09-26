@@ -1,21 +1,24 @@
 /**
- * Decides whether a non-2xx auth response is an authoritative rejection from
- * our own API, or just the absence of a backend.
+ * Decides whether a non-2xx auth response is an answer from this app's API,
+ * or just the absence of a backend.
  *
- * Signup and login both fall back to a local/offline registry when the API
- * cannot be reached, which is how the static deployments (Netlify, Vercel,
- * Hostinger) work at all. A blanket `if (!res.ok) return error` makes that
- * fallback unreachable: a static host answers POST /api/auth/signup with a
- * 404/405 and an HTML body, which is not a rejection of the user's details.
+ * Signup falls back to a local, offline registry when there is no API at all,
+ * which is how a purely static deployment works. A static host answers
+ * POST /api/auth/signup with an HTML 404, or a 405 for the POST, and that is
+ * not a rejection of anyone's details.
  *
- * Only treat the response as a rejection when the API actually answered —
- * a JSON body, or a rate-limit status we recognise.
+ * Anything with a JSON body is the API answering, whatever the status, and is
+ * final. That includes the 503 the server sends when a verification code
+ * cannot be delivered and sign-in fails closed, and the 503 for Google sign-in
+ * with no client configured. Treating those as "no backend" would let the
+ * browser skip the server's refusal and sign itself in offline, which is the
+ * one thing the offline branch must never do. An HTML error that is not a 404
+ * or 405, such as a proxy's 502, also stays a failure rather than quietly
+ * moving someone to an offline account.
  */
 export const isAuthApiRejection = (status: number, contentType: string | null): boolean => {
-  if (status === 429) return true;
-  // Routing-level misses mean "no backend here", never "bad credentials".
-  if (status === 404 || status === 405 || status === 501 || status === 502 || status === 503) return false;
-  return (contentType || '').toLowerCase().includes('application/json');
+  if ((contentType || '').toLowerCase().includes('application/json')) return true;
+  return !(status === 404 || status === 405);
 };
 
 /** Server-side username rule, mirrored client-side so signup fails fast and locally. */

@@ -21,7 +21,7 @@ import {
   SlidersHorizontal,
   ExternalLink
 } from 'lucide-react';
-import { formatINR } from '../utils/formatters';
+import { formatINR } from '../../../utils/formatters';
 
 export interface GraphNode {
   id: string;

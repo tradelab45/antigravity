@@ -33,6 +33,8 @@ import {
   Cell 
 } from 'recharts';
 import { formatINR, formatPercent, formatIndianShort, formatNumberIndian } from '../utils/formatters';
+import { ChartFigure } from './ui/chart-figure';
+import { describeSeries, seriesRows } from '../utils/chartSummary';
 import { GrowthSnowballAreaChart } from './ui/area-charts-2';
 
 type CalcMode = 'SIP' | 'LUMPSUM' | 'STEP_UP' | 'GOAL';
@@ -534,7 +536,8 @@ export const CompoundCalculator: React.FC = () => {
                 <button
                   key={p.label}
                   onClick={() => setAnnualReturn(p.rate)}
-                  className={`text-[10px] px-2 py-0.5 rounded-lg font-bold transition-all cursor-pointer ${
+                  aria-pressed={annualReturn === p.rate}
+                  className={`text-[10px] min-h-6 px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
                     annualReturn === p.rate
                       ? 'bg-slate-900 text-white'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -668,12 +671,32 @@ export const CompoundCalculator: React.FC = () => {
           </div>
 
           {/* Visual Exponential Snowball Chart - 21st.dev @sean0205 Area Chart 2 */}
-          <GrowthSnowballAreaChart
-            data={chartData}
-            adjustInflation={adjustInflation}
-            multiplier={results.multiplier}
-            height={280}
-          />
+          <ChartFigure
+            title="Projected corpus, year by year"
+            summary={describeSeries(
+              adjustInflation ? 'Projected corpus in today\u2019s money' : 'Projected corpus',
+              chartData.map((point) => ({
+                label: point.year,
+                value: adjustInflation ? point.realValue : point.wealth,
+              })),
+              (value) => formatINR(value, false),
+            )}
+            columns={['Year', adjustInflation ? 'In today\u2019s money' : 'Corpus']}
+            rows={seriesRows(
+              chartData.map((point) => ({
+                label: point.year,
+                value: adjustInflation ? point.realValue : point.wealth,
+              })),
+              (value) => formatINR(value, false),
+            )}
+          >
+            <GrowthSnowballAreaChart
+              data={chartData}
+              adjustInflation={adjustInflation}
+              multiplier={results.multiplier}
+              height={280}
+            />
+          </ChartFigure>
 
         </div>
 
@@ -757,7 +780,7 @@ export const CompoundCalculator: React.FC = () => {
 
           <button
             onClick={() => setShowFullSchedule(!showFullSchedule)}
-            className="text-xs font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer"
+            className="inline-flex min-h-6 items-center rounded-lg px-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer"
           >
             {showFullSchedule ? 'Show First 5 Years' : `View All ${years} Years →`}
           </button>

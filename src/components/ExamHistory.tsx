@@ -4,6 +4,8 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'rec
 import { LEARNING_PATH } from '../data/learningPath';
 import { EXAM_PASS_MARK } from '../data/stageExams';
 import type { ExamAttempt } from '../utils/academyProgress';
+import { ChartFigure } from './ui/chart-figure';
+import { describeSeries } from '../utils/chartSummary';
 
 async function certificateFile(attempt: ExamAttempt, name: string) {
   const canvas = document.createElement('canvas');
@@ -69,12 +71,27 @@ export function ExamHistory({ attempts, name, notice, onSync }: { attempts: Exam
     </div>
     <p className="mt-2 text-xs text-slate-600 dark:text-slate-300" role="status">{notice}</p>
     {!filtered.length ? <p className="py-6 text-sm">No recorded attempts yet. Earlier best scores are preserved; new attempts appear here with their dates.</p> : <>
-      {latest.length > 1 && <div className="mt-4 h-40 w-full" role="img" aria-label="Score trend for the latest 20 attempts; exact scores are listed below">
-        <ResponsiveContainer width="100%" height="100%"><LineChart data={latest.map((item, i) => ({ attempt: i + 1, score: item.score }))}>
-          <XAxis dataKey="attempt" tick={{ fill: '#64748b', fontSize: 12 }} /><YAxis domain={[0, 20]} width={28} tick={{ fill: '#64748b', fontSize: 12 }} /><Tooltip />
-          <Line type="linear" dataKey="score" stroke="#047857" strokeWidth={3} isAnimationActive={false} />
-        </LineChart></ResponsiveContainer>
-      </div>}
+      {latest.length > 1 && (
+        // The summary is built from the attempts the line plots, so it says
+        // which way the scores went rather than only that a trend exists. The
+        // exact scores are in the table below, so the figure offers no second
+        // copy of them.
+        <ChartFigure
+          title="Score trend for the latest attempts"
+          summary={describeSeries(
+            `Exam scores out of ${latest[0]?.total ?? 20}`,
+            latest.map((item, i) => ({ label: `attempt ${i + 1}`, value: item.score })),
+          )}
+          className="mt-4"
+        >
+          <div className="h-40 w-full">
+            <ResponsiveContainer width="100%" height="100%"><LineChart data={latest.map((item, i) => ({ attempt: i + 1, score: item.score }))}>
+              <XAxis dataKey="attempt" tick={{ fill: '#64748b', fontSize: 12 }} /><YAxis domain={[0, 20]} width={28} tick={{ fill: '#64748b', fontSize: 12 }} /><Tooltip />
+              <Line type="linear" dataKey="score" stroke="#047857" strokeWidth={3} isAnimationActive={false} />
+            </LineChart></ResponsiveContainer>
+          </div>
+        </ChartFigure>
+      )}
       <label className="mt-4 block text-xs font-semibold">Name on certificate
         <input value={certificateName} maxLength={70} onChange={e => setCertificateName(e.target.value)} autoComplete="off" className="mt-1 block w-full max-w-md rounded border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-900" />
       </label>
