@@ -3432,12 +3432,17 @@ function generateRealisticChartSeries(
               </div>
             </div>
 
-            {/* MIS Protection Alert Callout */}
+            {/* Intraday leverage warning. This used to promise an automatic
+                stop-loss that "guaranteed capital cannot drop below zero". No
+                such guard exists: the ledger blocks a fifth of the value as
+                margin and settles the whole loss on exit, so a loss can exceed
+                the margin. Telling a learner leverage is protected teaches the
+                opposite of the lesson. */}
             {productType === 'MIS' && (
               <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 text-[11px] text-amber-900 dark:text-amber-300 flex items-start gap-2">
-                <ShieldCheck className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+                <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" aria-hidden="true" />
                 <div>
-                  <strong>Automatic Protective Stop-Loss Active:</strong> Leveraged 5x intraday positions have hard stop-loss risk guards attached to guarantee capital cannot drop below zero.
+                  <strong>Intraday, 5× leverage:</strong> only a fifth of the order value is blocked as margin, so a loss can be larger than the cash set aside. Nothing closes the position early unless you set a stop-loss; open intraday positions are squared off at 3:20pm.
                 </div>
               </div>
             )}
