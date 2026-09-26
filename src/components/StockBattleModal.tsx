@@ -21,6 +21,7 @@ import { useSimulator } from '../context/SimulatorContext';
 import { formatINR, formatPercent } from '../utils/formatters';
 import { playOrderFilledSound, playSuccessChime } from '../utils/soundEffects';
 import type { StockDetail } from '../types';
+import { useModalDialog } from '../hooks/useModalDialog';
 
 interface StockBattleModalProps {
   isOpen: boolean;
@@ -172,11 +173,21 @@ export const StockBattleModal: React.FC<StockBattleModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
+  const { ref: dialogRef, dialogProps } = useModalDialog({
+    onClose,
+    open: isOpen,
+    label: 'One versus one stock battle',
+    // The component binds Escape itself.
+    closeOnEscape: false,
+  });
+
   if (!isOpen) return null;
 
   return (
     <div
       id="stock-battle-modal"
+      ref={dialogRef}
+      {...dialogProps}
       className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-md overflow-hidden"
       onClick={onClose}
     >

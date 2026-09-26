@@ -15,8 +15,12 @@ import {
   UserCheck
 } from 'lucide-react';
 import { useSimulator } from '../context/SimulatorContext';
+import { checkPassword } from '../utils/passwordPolicy';
+import { PasswordResetPanel } from './PasswordResetPanel';
 import { AuthFormData } from '../types';
 import { GoogleSignInButton, AuthOrDivider } from './GoogleSignInButton';
+import { VerificationCodeForm } from './VerificationCodeForm';
+import type { PendingVerification } from '../context/SimulatorContext';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -27,11 +31,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const { currentUser, loginUser, registerUser, loginWithGoogle, logoutUser } = useSimulator();
   
   const [activeTab, setActiveTab] = useState<'login' | 'signup'>(currentUser ? 'login' : 'signup');
+  // Set when the server holds the sign-in back for an emailed code.
+  const [pendingVerification, setPendingVerification] = useState<PendingVerification | null>(null);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
   // Login form state
+  // Shown in place of the sign-in form while a password is being recovered.
+  const [recovering, setRecovering] = useState(false);
   const [loginIdentifier, setLoginIdentifier] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
 
@@ -62,6 +70,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     setLoading(true);
     const res = await loginWithGoogle(credential);
     setLoading(false);
+    if (res.verification) {
+      setPendingVerification(res.verification);
+      return;
+    }
     if (res.success) {
       setSuccessMsg(res.message);
       setTimeout(() => {
@@ -86,6 +98,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     setLoading(true);
     const res = await loginUser(loginIdentifier, loginPassword);
     setLoading(false);
+    if (res.verification) {
+      setPendingVerification(res.verification);
+      return;
+    }
     if (res.success) {
       setSuccessMsg(res.message);
       setTimeout(() => {
@@ -102,8 +118,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
       setErrorMsg('Please fill in your Full Name, Email, and Username');
       return;
     }
-    if (!formData.password || formData.password.length < 8) {
-      setErrorMsg('Create a password with at least 8 characters');
+    // The same rule the server applies, so the form says what is wrong
+    // before the round trip rather than after it.
+    const strength = checkPassword(formData.password, {
+      fullName: formData.fullName,
+      username: formData.username,
+      email: formData.email,
+    });
+    if (!strength.ok) {
+      setErrorMsg(strength.message);
       return;
     }
     setErrorMsg('');
@@ -157,6 +180,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           </button>
         </div>
 
+        {/* The code step replaces the tabs entirely: the sign-in is half done,
+            and offering the form again would only invite starting over. */}
+        {pendingVerification ? (
+          <div className="px-6 py-6">
+            <VerificationCodeForm
+              pending={pendingVerification}
+              onVerified={(_user, message) => {
+                setPendingVerification(null);
+                setSuccessMsg(message);
+                setTimeout(() => onClose(), 1200);
+              }}
+              onCancel={() => {
+                setPendingVerification(null);
+                setErrorMsg('');
+              }}
+            />
+          </div>
+        ) : (
+        <>
         {/* Tab Selection */}
         {!currentUser ? (
           <div className="bg-slate-50 border-b border-slate-200 px-6 py-2.5 flex items-center gap-2">
@@ -368,8 +410,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             </form>
           )}
 
+          {/* Recovering a forgotten password, in place of the sign-in form. */}
+          {!currentUser && activeTab === 'login' && recovering && (
+            <PasswordResetPanel
+              tone="light"
+              initialIdentifier={loginIdentifier}
+              onCancel={() => setRecovering(false)}
+              onDone={(message) => {
+                setRecovering(false);
+                setLoginPassword('');
+                setErrorMsg('');
+                setSuccessMsg(message);
+              }}
+            />
+          )}
+
           {/* SIGNIN FORM */}
-          {!currentUser && activeTab === 'login' && (
+          {!currentUser && activeTab === 'login' && !recovering && (
             <form onSubmit={handleLoginSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-900 mb-1">
@@ -414,6 +471,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 {loading ? 'Authenticating...' : 'Sign In to Rupee Rookie'}
                 <ArrowRight className="w-4 h-4" />
               </button>
+
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => { setRecovering(true); setErrorMsg(''); setSuccessMsg(''); }}
+                  className="min-h-11 text-xs font-bold text-slate-700 hover:underline cursor-pointer"
+                >
+                  Forgot your password?
+                </button>
+              </div>
             </form>
           )}
 
@@ -468,6 +535,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             </div>
           )}
         </div>
+        </>
+        )}
       </motion.div>
     </div>,
     document.body

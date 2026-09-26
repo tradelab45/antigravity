@@ -20,7 +20,6 @@ import type { StockDetail } from './types';
 
 const Header = lazy(() => import('./components/Header').then((module) => ({ default: module.Header })));
 const AuthPage = lazy(() => import('./components/AuthPage').then((module) => ({ default: module.AuthPage })));
-const AuthLaunchTransition = lazy(() => import('./components/AuthLaunchTransition').then((module) => ({ default: module.AuthLaunchTransition })));
 const LandingPage = lazy(() => {
   const isClassic = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('classic') === 'true';
   return isClassic
@@ -169,7 +168,7 @@ function AdminAccessDenied({ onSwitchToApp, onUnlock }: { onSwitchToApp: () => v
 }
 
 function SimulatorApp() {
-  const { currentUser, stocks, broadcastAnnouncement, dismissBroadcast } = useSimulator();
+  const { currentUser, stocks, broadcastAnnouncement, dismissBroadcast, notifyUser } = useSimulator();
   const [isPortalAdmin, setIsPortalAdmin] = useState<boolean>(checkIsAdminPortal);
   const [adminBypassAuth, setAdminBypassAuth] = useState(false);
 
@@ -306,6 +305,27 @@ function SimulatorApp() {
     }
   }, [currentUser]);
 
+  // Signing in lands straight in the app. It used to stop on a full-screen
+  // spinning coin — confetti, a countdown and a reload — for about four and a
+  // half seconds every time, before anyone could see their own portfolio. The
+  // greeting is now a message in the corner, and the walkthrough a new
+  // account needs opens at once instead of after the coin had finished.
+  useEffect(() => {
+    if (!authLaunchState || !currentUser) return;
+    const firstName = (currentUser.fullName || '').trim().split(/\s+/)[0] || 'there';
+    if (authLaunchState.kind === 'new') {
+      notifyUser(
+        `Welcome, ${firstName}`,
+        'Your ₹10,00,000 practice capital is ready. The short tour shows where everything is.',
+        'SUCCESS',
+      );
+    } else {
+      notifyUser(`Welcome back, ${firstName}`, 'Everything is where you left it.', 'SUCCESS');
+    }
+    localStorage.removeItem('rr_auth_entry');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLaunchState, currentUser?.id]);
+
   useEffect(() => {
     if (!currentUser) return;
     const url = new URL(window.location.href);
@@ -330,7 +350,7 @@ function SimulatorApp() {
       const sessionGuidedKey = `rr_guided_session_${currentUser.id}`;
       const hasGuidedThisSession = sessionStorage.getItem(sessionGuidedKey);
 
-      if (!hasGuidedThisSession || authLaunchState) {
+      if (!hasGuidedThisSession || authLaunchState?.kind === 'new') {
         sessionStorage.setItem(sessionGuidedKey, 'true');
         const timer = setTimeout(() => {
           setIsWalkthroughOpen(true);
@@ -394,22 +414,6 @@ function SimulatorApp() {
         </Suspense>
         <ToastNotifier />
       </>
-    );
-  }
-
-  // 3D Spinning & Wobbling Coin Post-Login Loading Experience
-  if (authLaunchState) {
-    return (
-      <Suspense fallback={<PageLoadingState />}>
-        <AuthLaunchTransition
-          user={currentUser}
-          kind={authLaunchState.kind}
-          onEnter={() => {
-            localStorage.removeItem('rr_auth_entry');
-            setAuthLaunchState(null);
-          }}
-        />
-      </Suspense>
     );
   }
 

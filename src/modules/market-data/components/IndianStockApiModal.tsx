@@ -21,6 +21,7 @@ import {
   BarChart2
 } from 'lucide-react';
 import { StockDetail } from '../../../types';
+import { useModalDialog } from '../../../hooks/useModalDialog';
 
 interface IndianStockApiModalProps {
   isOpen: boolean;
@@ -94,10 +95,16 @@ export const IndianStockApiModal: React.FC<IndianStockApiModalProps> = ({
     setTimeout(() => setCopiedCode(null), 2000);
   };
 
+  const { ref: dialogRef, dialogProps } = useModalDialog({
+    onClose,
+    open: isOpen,
+    label: 'Indian stock market data source',
+  });
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-white/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto">
+    <div ref={dialogRef} {...dialogProps} className="fixed inset-0 z-50 bg-white/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto">
       <motion.div 
         initial={{ opacity: 0, scale: 0.96, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
