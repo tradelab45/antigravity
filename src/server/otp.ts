@@ -19,7 +19,13 @@ export const CODE_TTL_MS = 10 * 60_000;
 /** Wrong guesses allowed before the challenge is destroyed. */
 export const MAX_ATTEMPTS = 5;
 
-export type ChallengePurpose = 'login' | 'google';
+/**
+ * Why a code was issued. `reset` is kept apart from the sign-in purposes on
+ * purpose: a code emailed to prove someone can read the inbox is allowed to
+ * set a new password, and nothing else. Exchanging it for a session directly
+ * would turn the recovery flow into a second way in.
+ */
+export type ChallengePurpose = 'login' | 'google' | 'reset';
 
 interface Challenge {
   userId: string;
@@ -166,6 +172,34 @@ export function verifyChallenge(
     return { ok: false, reason: 'exhausted', attemptsLeft: 0 };
   }
   return { ok: false, reason: 'mismatch', attemptsLeft };
+}
+
+export interface PendingChallenge {
+  userId: string;
+  email: string;
+  purpose: ChallengePurpose;
+}
+
+/**
+ * Who a pending challenge belongs to and what it is for, without spending it.
+ *
+ * `verifyChallenge` destroys the challenge the moment the code is right, so
+ * everything a route can refuse on has to be settled before the code is
+ * checked. Without this, a reset code offered to the sign-in route was
+ * refused and burnt together, and a new password that failed the strength
+ * rule cost the person the code they had just typed correctly.
+ */
+export function peekChallenge(
+  challengeId: string,
+  now: number = Date.now(),
+): PendingChallenge | null {
+  const challenge = challenges.get(challengeId);
+  if (!challenge) return null;
+  if (challenge.expiresAt <= now) {
+    challenges.delete(challengeId);
+    return null;
+  }
+  return { userId: challenge.userId, email: challenge.email, purpose: challenge.purpose };
 }
 
 /** Drops a pending challenge, for a cancelled sign-in. */

@@ -26,6 +26,7 @@ import { clientKey, consume, reset as resetRateLimit, type RateLimitRule } from 
 import { readJson, updateJson, writeJsonAtomic } from './src/server/jsonStore';
 import {
   CODE_TTL_MS,
+  peekChallenge,
   discardChallenge,
   issueChallenge,
   maskEmail,
@@ -34,14 +35,30 @@ import {
   type ChallengePurpose,
 } from './src/server/otp';
 import { deliverCode, deliveryMode, otpRequired } from './src/server/otpDelivery';
+import { checkPassword } from './src/utils/passwordPolicy';
 import {
   INITIAL_CAPITAL as INITIAL_LEDGER_CAPITAL,
   emptyLedger,
   executeOrder,
+  orderPage,
   portfolioValue as computePortfolioValue,
   sanitiseLedger,
+  squareOffIntraday,
+  syncView,
   type Ledger,
+  type LedgerOrder,
 } from './src/server/ledger';
+import {
+  DEFAULT_CLASS_DAYS,
+  createRoom,
+  extendRoom,
+  generateClassCode,
+  memberHandle,
+  normaliseClassCode,
+  roomExpired,
+  sanitiseRooms,
+  type ClassRoom,
+} from './src/server/classRooms';
 import {
   SESSION_COOKIE,
   SESSION_TTL_MS,
@@ -49,6 +66,7 @@ import {
   readSession,
   revokeAllSessionsForUser,
   revokeSession,
+  rotateSessionsForUser,
   sessionCookieOptions,
   sessionSecretIsPersistent,
 } from './src/server/sessions';
@@ -3047,8 +3065,9 @@ function grantSession(
   res: express.Response,
   user: StoredUser,
   extra: Record<string, unknown> = {},
+  issued: { token: string; expiresAt: number } = issueSession(user.id),
 ) {
-  const { token, expiresAt } = issueSession(user.id);
+  const { token, expiresAt } = issued;
   res.cookie(SESSION_COOKIE, token, sessionCookieOptions(expiresAt));
   res.json({
     success: true,
@@ -3137,6 +3156,11 @@ const AUTH_LIMITS: Record<string, RateLimitRule> = {
   otpRequest: { limit: 60, windowMs: 15 * 60_000 },
   otpVerify: { limit: 200, windowMs: 15 * 60_000 },
   classJoin: { limit: 120, windowMs: 15 * 60_000 },
+  // A reset code is an email to someone's inbox, so the account rule is the
+  // one that stops a person being flooded; the address rule, like the others,
+  // allows for a classroom behind one address.
+  passwordResetIp: { limit: 60, windowMs: 60 * 60_000 },
+  passwordResetAccount: { limit: 5, windowMs: 60 * 60_000 },
 };
 
 /**
@@ -3182,8 +3206,16 @@ app.post("/api/auth/signup", createAuthLimiter(150, 60 * 60 * 1000), async (req,
     if (!/^[a-z0-9_]{3,30}$/.test(cleanUsername)) {
       return res.status(400).json({ success: false, message: "Username must be 3–30 characters using letters, numbers, or underscores." });
     }
-    if (cleanPassword.length < 8 || cleanPassword.length > 128) {
-      return res.status(400).json({ success: false, message: "Password must be between 8 and 128 characters." });
+    // A length rule alone let `password` and `12345678` through. The policy
+    // also refuses the account's own name, username and email, which are the
+    // first guesses anyone trying this account already has.
+    const strength = checkPassword(cleanPassword, {
+      fullName: cleanFullName,
+      username: cleanUsername,
+      email: cleanEmail,
+    });
+    if (!strength.ok) {
+      return res.status(400).json({ success: false, message: strength.message });
     }
 
     const users = loadUsers();
@@ -3339,6 +3371,16 @@ app.post("/api/auth/otp/verify", (req, res) => {
       return res.status(400).json({ success: false, message: "That code does not look right." });
     }
 
+    // Checked before the code is, because verifying consumes the challenge:
+    // a reset code offered here would otherwise be refused and destroyed at
+    // once, and the person would have to start the reset over.
+    if (peekChallenge(challengeId)?.purpose === "reset") {
+      return res.status(400).json({
+        success: false,
+        message: "That code is for resetting a password, not for signing in.",
+      });
+    }
+
     const result = verifyChallenge(challengeId, String(code));
     if (!result.ok) {
       const message =
@@ -3420,12 +3462,38 @@ app.post("/api/auth/otp/cancel", (req, res) => {
  * willing to open developer tools. The board is for a class to see itself,
  * not for deciding a prize, and the UI says so.
  */
-const CLASS_CODE_PATTERN = /^[A-Z0-9-]{4,16}$/;
+const CLASSES_FILE = path.join(process.cwd(), "data", "classes.json");
 
-const normaliseClassCode = (value: unknown): string | null => {
-  const code = String(value || "").trim().toUpperCase();
-  return CLASS_CODE_PATTERN.test(code) ? code : null;
-};
+/**
+ * Boards created through /api/class/create, keyed by code.
+ *
+ * A code that predates this file has no entry and keeps working exactly as it
+ * did — anyone with it can join, and nobody can manage it. Inventing an owner
+ * for such a board would hand control to whichever learner happened to join
+ * first, so it stays unmanaged until a teacher creates a fresh code.
+ */
+// Through the same store as the ledgers. Written straight over the file, a
+// crash mid-write left it unparseable, the read answered {} and the next save
+// made that permanent: every teacher's board gone at once.
+function loadRooms(): Record<string, ClassRoom> {
+  try {
+    return sanitiseRooms(readJson<unknown>(CLASSES_FILE, {}));
+  } catch (err) {
+    console.error("[classes] could not be read:", err);
+    return {};
+  }
+}
+
+function saveRooms(rooms: Record<string, ClassRoom>): void {
+  try {
+    writeJsonAtomic(CLASSES_FILE, rooms);
+  } catch (err) {
+    console.error("[classes] could not be written:", err);
+  }
+}
+
+/** The board's record, or null for a code nobody created here. */
+const roomFor = (code: string): ClassRoom | null => loadRooms()[code] || null;
 
 /** First name plus a last initial: enough to find yourself, not a directory. */
 const boardDisplayName = (fullName: string): string => {
@@ -3464,9 +3532,104 @@ app.post("/api/class/join", (req, res) => {
   const user = users.find(u => u.id === signedIn.id);
   if (!user) return res.status(404).json({ success: false, message: "Account not found." });
 
+  // A board created here has a door. One that predates the registry does not,
+  // and keeps letting anyone in, because that is what it has always done.
+  const room = roomFor(code);
+  if (room) {
+    if (roomExpired(room)) {
+      return res.status(410).json({
+        success: false,
+        message: "That class board has finished. Ask your teacher for this year's code.",
+      });
+    }
+    if (room.removed.includes(memberHandle(room, user.id))) {
+      return res.status(403).json({
+        success: false,
+        message: "Your teacher removed you from that board. Ask them to let you back in.",
+      });
+    }
+  }
+
   user.classCode = code;
   saveUsers(users);
-  res.json({ success: true, classCode: code, message: `Joined ${code}.` });
+  res.json({ success: true, classCode: code, managed: Boolean(room), message: `Joined ${code}.` });
+});
+
+/**
+ * Creates a class board a teacher owns.
+ *
+ * Owning one is what makes the controls possible: removing somebody who
+ * should not be on it, and an end date so that next year's class does not
+ * inherit last year's board. A code already in use cannot be claimed — the
+ * learners on it did not agree to be managed by whoever asked first.
+ */
+app.post("/api/class/create", (req, res) => {
+  const caller = clientKey(req.ip);
+  if (rateLimited(res, `class:create:${caller}`, AUTH_LIMITS.otpRequest,
+    "Too many boards created from here. Try again later.")) return;
+
+  const owner = sessionUser(req);
+  if (!owner) return res.status(401).json({ success: false, message: "Sign in first." });
+  // Every visitor on the shared demo is the same account, so a board it
+  // created would be owned by all of them: any of them could remove its
+  // students or delete it.
+  if (isPublicDemo(owner)) {
+    return res.status(403).json({
+      success: false,
+      message: "The demo account is shared, so it can't own a class board. Sign up to create one.",
+    });
+  }
+
+  const rooms = loadRooms();
+  const requested = req.body?.classCode ? normaliseClassCode(req.body.classCode) : null;
+  if (req.body?.classCode && !requested) {
+    return res.status(400).json({
+      success: false,
+      message: "A class code is 4 to 16 letters, numbers or hyphens.",
+    });
+  }
+
+  const users = loadUsers();
+  const inUse = (code: string) =>
+    Boolean(rooms[code]) || users.some(u => u.classCode === code);
+
+  let code = requested;
+  if (code) {
+    if (inUse(code)) {
+      return res.status(409).json({
+        success: false,
+        message: `${code} is already in use. Choose another code.`,
+      });
+    }
+  } else {
+    // A generated code has to be one nobody is using, and the loop has to end
+    // even in the unlikely case that it keeps colliding.
+    for (let attempt = 0; attempt < 20 && !code; attempt += 1) {
+      const candidate = generateClassCode();
+      if (!inUse(candidate)) code = candidate;
+    }
+    if (!code) {
+      return res.status(503).json({ success: false, message: "Could not find a free code. Try again." });
+    }
+  }
+
+  const room = createRoom(code, owner.id, Number(req.body?.days) || DEFAULT_CLASS_DAYS);
+  rooms[code] = room;
+  saveRooms(rooms);
+
+  // The teacher joins their own board, so they appear on it like everyone else.
+  const account = users.find(u => u.id === owner.id);
+  if (account) {
+    account.classCode = code;
+    saveUsers(users);
+  }
+
+  res.json({
+    success: true,
+    classCode: code,
+    expiresAt: room.expiresAt,
+    message: `Class board ${code} is open. Share the code with your class.`,
+  });
 });
 
 app.post("/api/class/leave", (req, res) => {
@@ -3536,15 +3699,22 @@ app.get("/api/class/:code/board", (req, res) => {
   // of the two it is.
   const ledgers = loadLedgers();
   const quotes = quoteMap();
+  const room = roomFor(code);
+  const viewer = sessionUser(req);
+  const isOwner = Boolean(room && viewer && room.ownerId === viewer.id);
 
   const members = loadUsers()
     .filter(u => u.classCode === code)
-    // No email, no username, no id: a code is not a key to a directory.
+    // No email, no username, no id: a code is not a key to a directory. The
+    // handle is meaningless off this board and is what the owner removes by,
+    // so managing a board never needs an account id on the wire.
     .map(u => {
+      const handle = room ? memberHandle(room, u.id) : undefined;
       const ledger = ledgers[u.id];
       if (ledger) {
         return {
           name: boardDisplayName(u.fullName),
+          handle,
           portfolioValue: computePortfolioValue(ledger, quotes),
           trades: ledger.orders.length,
           updatedAt: ledger.updatedAt,
@@ -3553,6 +3723,7 @@ app.get("/api/class/:code/board", (req, res) => {
       }
       return {
         name: boardDisplayName(u.fullName),
+        handle,
         portfolioValue: u.reportedPortfolioValue ?? null,
         trades: u.reportedTrades ?? null,
         updatedAt: u.reportedAt ?? null,
@@ -3568,7 +3739,140 @@ app.get("/api/class/:code/board", (req, res) => {
     // True only when every row came from a ledger this server executed.
     verified: members.length > 0 && members.every(member => member.verified),
     note: "Rows marked unverified were reported by a learner's own browser rather than executed here.",
+    // A board nobody created here has no owner and no end date, and the UI
+    // says as much rather than implying a teacher is holding it.
+    managed: Boolean(room),
+    owner: isOwner,
+    expiresAt: room?.expiresAt ?? null,
+    expired: room ? roomExpired(room) : false,
   });
+});
+
+/** Everything only the teacher who created the board may do. */
+function ownedRoom(req: express.Request, res: express.Response): ClassRoom | null {
+  const code = normaliseClassCode(req.params.code);
+  if (!code) {
+    res.status(400).json({ success: false, message: "That is not a class code." });
+    return null;
+  }
+
+  const user = sessionUser(req);
+  if (!user) {
+    res.status(401).json({ success: false, message: "Sign in first." });
+    return null;
+  }
+
+  const room = loadRooms()[code];
+  if (!room) {
+    res.status(404).json({
+      success: false,
+      message: "That board was not created here, so it has no teacher controls.",
+    });
+    return null;
+  }
+  // Checked against the session, never against anything in the request: an
+  // ownerId in a body is whatever the caller typed.
+  if (room.ownerId !== user.id) {
+    res.status(403).json({ success: false, message: "Only the teacher who created this board can do that." });
+    return null;
+  }
+  return room;
+}
+
+/**
+ * Removes a member, by the handle the board published for them.
+ *
+ * They stay removed: rejoining with the code is refused until the teacher
+ * readmits them, or the board would only be as closed as the learner's
+ * patience.
+ */
+app.post("/api/class/:code/remove", (req, res) => {
+  const room = ownedRoom(req, res);
+  if (!room) return;
+
+  const handle = String(req.body?.handle || "").trim();
+  if (!/^[a-f0-9]{12}$/.test(handle)) {
+    return res.status(400).json({ success: false, message: "That is not a member of this board." });
+  }
+  if (handle === memberHandle(room, room.ownerId)) {
+    return res.status(400).json({ success: false, message: "You cannot remove yourself from your own board." });
+  }
+
+  const users = loadUsers();
+  const member = users.find(u => u.classCode === room.code && memberHandle(room, u.id) === handle);
+  if (!member) {
+    return res.status(404).json({ success: false, message: "That learner is not on this board." });
+  }
+
+  delete member.classCode;
+  delete member.reportedPortfolioValue;
+  delete member.reportedTrades;
+  delete member.reportedAt;
+  saveUsers(users);
+
+  const rooms = loadRooms();
+  const stored = rooms[room.code];
+  if (stored && !stored.removed.includes(handle)) {
+    stored.removed.push(handle);
+    saveRooms(rooms);
+  }
+
+  res.json({ success: true, message: "Removed from the board." });
+});
+
+/** Lets a removed learner back in. */
+app.post("/api/class/:code/readmit", (req, res) => {
+  const room = ownedRoom(req, res);
+  if (!room) return;
+
+  const handle = String(req.body?.handle || "").trim();
+  const rooms = loadRooms();
+  const stored = rooms[room.code];
+  if (!stored) return res.status(404).json({ success: false, message: "That board no longer exists." });
+
+  stored.removed = stored.removed.filter(entry => entry !== handle);
+  saveRooms(rooms);
+  res.json({ success: true, message: "They can join the board again with the code." });
+});
+
+/** Pushes the end date out, for a board that is still being used. */
+app.post("/api/class/:code/extend", (req, res) => {
+  const room = ownedRoom(req, res);
+  if (!room) return;
+
+  const rooms = loadRooms();
+  rooms[room.code] = extendRoom(room, Number(req.body?.days) || DEFAULT_CLASS_DAYS);
+  saveRooms(rooms);
+  res.json({ success: true, expiresAt: rooms[room.code].expiresAt, message: "The board stays open." });
+});
+
+/**
+ * Closes the board for good.
+ *
+ * Everyone on it is taken off, because a board nobody can join and nobody can
+ * manage would otherwise sit on thirty accounts forever.
+ */
+app.delete("/api/class/:code", (req, res) => {
+  const room = ownedRoom(req, res);
+  if (!room) return;
+
+  const users = loadUsers();
+  let touched = 0;
+  for (const user of users) {
+    if (user.classCode !== room.code) continue;
+    delete user.classCode;
+    delete user.reportedPortfolioValue;
+    delete user.reportedTrades;
+    delete user.reportedAt;
+    touched += 1;
+  }
+  if (touched > 0) saveUsers(users);
+
+  const rooms = loadRooms();
+  delete rooms[room.code];
+  saveRooms(rooms);
+
+  res.json({ success: true, message: `Class board ${room.code} is closed.`, removed: touched });
 });
 
 /**
@@ -3683,6 +3987,211 @@ app.post("/api/auth/logout-everywhere", (req, res) => {
   revokeAllSessionsForUser(user.id);
   res.clearCookie(SESSION_COOKIE, { path: "/" });
   res.json({ success: true, message: "Signed out on every device." });
+});
+
+/**
+ * Step one of a password reset: emails a code to the account's address.
+ *
+ * Forgetting a password used to mean starting a second account, which left
+ * the first one's portfolio and Academy progress stranded. Recovery rests on
+ * the same thing every other reset does — that the person can read the inbox
+ * the account was registered with.
+ *
+ * The answer says plainly whether the identifier is known. That discloses
+ * nothing the sign-up form does not already: it refuses a duplicate email or
+ * username by name. A uniform reply here would guard nothing while leaving a
+ * student who mistyped their username waiting for a code that is not coming.
+ * The rate limits are what actually make walking a list of addresses useless.
+ */
+app.post("/api/auth/password/forgot", async (req, res) => {
+  try {
+    const caller = clientKey(req.ip);
+    if (rateLimited(res, `reset:ip:${caller}`, AUTH_LIMITS.passwordResetIp,
+      "Too many reset codes requested from here. Try again later.")) return;
+
+    const { identifier } = req.body;
+    if (!identifier || typeof identifier !== "string") {
+      return res.status(400).json({ success: false, message: "Enter your email address or username." });
+    }
+
+    const cleanId = identifier.toLowerCase().trim().slice(0, 120);
+    if (rateLimited(res, `reset:id:${cleanId}`, AUTH_LIMITS.passwordResetAccount,
+      "Too many reset codes requested for this account. Try again later.")) return;
+
+    const user = loadUsers().find(
+      u => u.email.toLowerCase() === cleanId || u.username.toLowerCase() === cleanId,
+    );
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "No account uses that email address or username.",
+      });
+    }
+
+    const { challengeId, code, expiresAt } = issueChallenge(user.id, user.email, "reset");
+    const outcome = await deliverCode(user.email, code, expiresAt);
+    if (!outcome.delivered) {
+      // Same rule as the sign-in code: a code that could not be sent must not
+      // become an optional step.
+      discardChallenge(challengeId);
+      return res.status(503).json({
+        success: false,
+        message: outcome.message || "The reset code could not be sent. Try again shortly.",
+      });
+    }
+
+    res.json({
+      success: true,
+      challengeId,
+      maskedEmail: maskEmail(user.email),
+      expiresInSeconds: Math.round(CODE_TTL_MS / 1000),
+      ...(outcome.devCode ? { devCode: outcome.devCode } : {}),
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || "Could not start the reset." });
+  }
+});
+
+/**
+ * Step two: the code plus the new password.
+ *
+ * Every session for the account goes, on every device, and no new one is
+ * issued here. Whoever knew the old password may still be holding a session,
+ * and a reset that left it alive would change nothing for the person who was
+ * locked out. They sign in again with the new password, which also puts them
+ * through the emailed code when codes are required.
+ */
+app.post("/api/auth/password/reset", (req, res) => {
+  try {
+    const caller = clientKey(req.ip);
+    if (rateLimited(res, `reset:verify:${caller}`, AUTH_LIMITS.otpVerify,
+      "Too many attempts. Try again later.")) return;
+
+    const { challengeId, code, password } = req.body;
+    if (!challengeId || typeof challengeId !== "string" || !code) {
+      return res.status(400).json({ success: false, message: "That reset is no longer pending. Start again." });
+    }
+    if (!/^\d{4,8}$/.test(String(code).trim())) {
+      return res.status(400).json({ success: false, message: "That code does not look right." });
+    }
+
+    // Everything that can be refused is settled before the code is checked,
+    // because checking a correct code consumes the challenge. A new password
+    // that failed the strength rule used to cost the person the code as well,
+    // and the reset had to be started again from the email.
+    const pending = peekChallenge(challengeId);
+    if (!pending) {
+      return res.status(410).json({ success: false, message: "That reset is no longer pending. Start again." });
+    }
+    if (pending.purpose !== "reset") {
+      return res.status(400).json({ success: false, message: "That code is not a reset code." });
+    }
+
+    const users = loadUsers();
+    const user = users.find(u => u.id === pending.userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "That account no longer exists." });
+    }
+
+    const strength = checkPassword(String(password || ""), {
+      fullName: user.fullName,
+      username: user.username,
+      email: user.email,
+    });
+    if (!strength.ok) {
+      return res.status(400).json({ success: false, message: strength.message });
+    }
+
+    const result = verifyChallenge(challengeId, String(code));
+    if (!result.ok) {
+      const message =
+        result.reason === "expired" ? "That code has expired. Ask for a new one." :
+        result.reason === "exhausted" ? "Too many wrong codes. Start the reset again." :
+        result.reason === "unknown" ? "That reset is no longer pending. Start again." :
+        `That code is not right. ${result.attemptsLeft} attempt${result.attemptsLeft === 1 ? "" : "s"} left.`;
+      return res.status(401).json({ success: false, message, attemptsLeft: result.attemptsLeft });
+    }
+
+    user.passwordHash = hashPassword(String(password));
+    delete user.password;
+    saveUsers(users);
+
+    revokeAllSessionsForUser(user.id);
+    res.clearCookie(SESSION_COOKIE, { path: "/" });
+    res.json({
+      success: true,
+      message: "Password changed. Every device has been signed out — sign in with the new one.",
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || "The password could not be changed." });
+  }
+});
+
+/**
+ * Changing the password from inside the app.
+ *
+ * The old password is required even though the session already proves who is
+ * asking, for the same reason deleting the account requires it: a borrowed
+ * unlocked browser has a session. An account that only ever signed in through
+ * Google has no old password to give and is setting its first one.
+ *
+ * Every other device is signed out, because the point of changing a password
+ * is usually that someone else knew it. This browser keeps its session — it is
+ * the one that just proved it knows the password.
+ */
+app.post("/api/auth/password/change", (req, res) => {
+  try {
+    const caller = clientKey(req.ip);
+    if (rateLimited(res, `password:change:${caller}`, AUTH_LIMITS.loginAccount,
+      "Too many attempts. Try again later.")) return;
+
+    const signedIn = sessionUser(req);
+    if (!signedIn) return res.status(401).json({ success: false, message: "Sign in first." });
+    // The shared demo has no password, so this route would let any visitor set
+    // one without knowing a current password, and then sign every other
+    // visitor out of it.
+    if (isPublicDemo(signedIn)) {
+      return res.status(403).json({
+        success: false,
+        message: "The demo account is shared, so its password can't be set. Sign up to get your own.",
+      });
+    }
+
+    const { currentPassword, newPassword } = req.body;
+    const users = loadUsers();
+    const user = users.find(u => u.id === signedIn.id);
+    if (!user) return res.status(404).json({ success: false, message: "That account no longer exists." });
+
+    const hasPassword = Boolean(user.passwordHash || user.password);
+    if (hasPassword && !verifyPassword(String(currentPassword || ""), user)) {
+      return res.status(401).json({ success: false, message: "That is not your current password." });
+    }
+
+    const strength = checkPassword(String(newPassword || ""), {
+      fullName: user.fullName,
+      username: user.username,
+      email: user.email,
+    });
+    if (!strength.ok) {
+      return res.status(400).json({ success: false, message: strength.message });
+    }
+    if (hasPassword && verifyPassword(String(newPassword), user)) {
+      return res.status(400).json({ success: false, message: "That is already your password." });
+    }
+
+    user.passwordHash = hashPassword(String(newPassword));
+    delete user.password;
+    saveUsers(users);
+
+    const issued = rotateSessionsForUser(user.id);
+    grantSession(res, user, {
+      message: hasPassword
+        ? "Password changed. Every other device has been signed out."
+        : "Password set. You can now sign in without Google.",
+    }, issued);
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || "The password could not be changed." });
+  }
 });
 
 /**
@@ -3817,17 +4326,54 @@ function quoteMap(): Record<string, number> {
   return quotes;
 }
 
+/**
+ * Closes any intraday position whose session has ended, and writes the result.
+ *
+ * Called wherever a ledger is read or traded on, because a square-off is a
+ * fact about the clock: nobody is going to ask for it, and a position left
+ * open is one still enjoying five times leverage days after the session it
+ * was taken in.
+ */
+function settleIntraday(userId: string): { ledger: Ledger; closed: LedgerOrder[] } {
+  const quotes = quoteMap();
+  // Most reads find nothing due, and they stay reads. Only a square-off that
+  // is actually owed takes the write lock, and it is worked out again inside
+  // it, from the ledger as it stands at that moment.
+  if (squareOffIntraday(ledgerFor(userId), quotes).closed.length === 0) {
+    return { ledger: ledgerFor(userId), closed: [] };
+  }
+  return updateLedgers((ledgers) => {
+    const settled = squareOffIntraday(ledgers[userId] || emptyLedger(), quotes);
+    if (settled.closed.length > 0) ledgers[userId] = settled.ledger;
+    return settled;
+  });
+}
+
 app.get("/api/portfolio", (req, res) => {
   const user = sessionUser(req);
   if (!user) return res.status(401).json({ success: false, message: "Sign in first." });
 
-  const ledger = ledgerFor(user.id);
+  const { ledger, closed } = settleIntraday(user.id);
   res.json({
     success: true,
-    ledger,
+    ledger: syncView(ledger),
     portfolioValue: computePortfolioValue(ledger, quoteMap()),
+    // Named so the browser can say what happened while nobody was looking,
+    // rather than a position simply vanishing between two visits.
+    squaredOff: closed,
     verified: true,
   });
+});
+
+/**
+ * A page of the order history, for scrolling back past what a sync carries.
+ */
+app.get("/api/portfolio/orders", (req, res) => {
+  const user = sessionUser(req);
+  if (!user) return res.status(401).json({ success: false, message: "Sign in first." });
+
+  const page = orderPage(ledgerFor(user.id), Number(req.query.offset), Number(req.query.limit));
+  res.json({ success: true, ...page });
 });
 
 /**
@@ -3854,8 +4400,13 @@ app.post("/api/portfolio/execute", (req, res) => {
     return res.status(404).json({ success: false, message: "That share is not in the simulator." });
   }
 
+  // Any stale intraday position is closed before this order is priced, so a
+  // buy is checked against the cash the learner actually has. Both happen in
+  // one write: settling first and trading in a second write would let another
+  // request land in between.
   const result = updateLedgers((ledgers) => {
-    const outcome = executeOrder(ledgers[user.id] || emptyLedger(), {
+    const settled = squareOffIntraday(ledgers[user.id] || emptyLedger(), quoteMap());
+    const outcome = executeOrder(settled.ledger, {
       symbol: cleanSymbol,
       stockName: stock.name || cleanSymbol,
       quantity: Number(quantity),
@@ -3863,8 +4414,10 @@ app.post("/api/portfolio/execute", (req, res) => {
       product: product === "MIS" ? "MIS" : "CNC",
       price: stock.price,
     });
+    // A square-off that was due stands whether or not the new order does.
     if (outcome.ok && outcome.ledger) ledgers[user.id] = outcome.ledger;
-    return outcome;
+    else if (settled.closed.length > 0) ledgers[user.id] = settled.ledger;
+    return { ...outcome, closed: settled.closed };
   });
 
   if (!result.ok || !result.ledger) {
@@ -3885,8 +4438,9 @@ app.post("/api/portfolio/execute", (req, res) => {
     success: true,
     message: result.message,
     order: result.order,
-    ledger: result.ledger,
+    ledger: syncView(result.ledger),
     portfolioValue: computePortfolioValue(result.ledger, quoteMap()),
+    squaredOff: result.closed,
   });
 });
 
@@ -3919,7 +4473,7 @@ app.post("/api/portfolio/reset", (req, res) => {
     saveUsers(users);
   }
 
-  res.json({ success: true, ledger: fresh, portfolioValue: INITIAL_LEDGER_CAPITAL });
+  res.json({ success: true, ledger: syncView(fresh), portfolioValue: INITIAL_LEDGER_CAPITAL });
 });
 
 /** Restores what the last reset displaced, while the window is still open. */
@@ -3947,7 +4501,7 @@ app.post("/api/portfolio/reset/undo", (req, res) => {
     saveUsers(users);
   }
 
-  res.json({ success: true, ledger: snapshot.ledger, portfolioValue: value });
+  res.json({ success: true, ledger: syncView(snapshot.ledger), portfolioValue: value });
 });
 
 /** Lets the sign-in screen say up front that a code will be needed. */

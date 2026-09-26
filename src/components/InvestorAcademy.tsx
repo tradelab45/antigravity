@@ -34,7 +34,18 @@ import { TaxCentre } from './TaxCentre';
 import { startPracticeTask } from './PracticeTaskBanner';
 import { getPracticeAction } from '../data/practiceActions';
 import { StageExam } from './StageExam';
-import { getStageExam, EXAM_LENGTH, EXAM_PASS_MARK, EXAM_ATTEMPT_HISTORY, EXAM_SEEN_MEMORY, type ExamAttempt } from '../data/stageExams';
+import {
+  getStageExam,
+  EXAM_LENGTH,
+  EXAM_PASS_MARK,
+  EXAM_ATTEMPT_HISTORY,
+  emptyExamMemory,
+  memoryFromSeenIds,
+  recordPaper,
+  type ExamAttempt,
+  type ExamMemory,
+  type QuestionResult,
+} from '../data/stageExams';
 import type { AppTabType } from './Header';
 import { useAccessibility } from '../context/AccessibilityContext';
 
@@ -325,24 +336,37 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
     localStorage.setItem(`${academyKey}:exams`, JSON.stringify(examScores));
   }, [academyKey, examScores]);
 
-  // Which question ids recent papers served, so the next draw can prefer the
-  // ones this learner has not met.
-  const [examSeen, setExamSeen] = useState<Record<string, string[]>>(() => {
-    try { return JSON.parse(localStorage.getItem(`${academyKey}:examSeen`) || '{}'); } catch { return {}; }
+  // How each stage's questions have gone for this learner, so the next paper
+  // can bring back what they got wrong and rest what they did not.
+  const [examMemory, setExamMemory] = useState<Record<string, ExamMemory>>(() => {
+    try {
+      const stored = localStorage.getItem(`${academyKey}:examMemory`);
+      if (stored) return JSON.parse(stored);
+      // The older store remembered only which ids had been served. Carry it
+      // over rather than starting a returning learner back on repeats.
+      const legacy: Record<string, string[]> = JSON.parse(
+        localStorage.getItem(`${academyKey}:examSeen`) || '{}',
+      );
+      return Object.fromEntries(
+        Object.entries(legacy).map(([stageId, ids]) => [
+          stageId,
+          memoryFromSeenIds(Array.isArray(ids) ? ids : []),
+        ]),
+      );
+    } catch {
+      return {};
+    }
   });
 
   useEffect(() => {
-    localStorage.setItem(`${academyKey}:examSeen`, JSON.stringify(examSeen));
-  }, [academyKey, examSeen]);
+    localStorage.setItem(`${academyKey}:examMemory`, JSON.stringify(examMemory));
+  }, [academyKey, examMemory]);
 
-  const recordExamSeen = (stageId: string, questionIds: string[]) => {
-    setExamSeen((previous) => {
-      const merged = [...questionIds, ...(previous[stageId] ?? [])];
-      // Newest first, de-duplicated, and capped so the memory cannot grow
-      // until it covers the whole bank and defeats its own purpose.
-      const unique = merged.filter((id, index) => merged.indexOf(id) === index);
-      return { ...previous, [stageId]: unique.slice(0, EXAM_SEEN_MEMORY) };
-    });
+  const recordExamPaper = (stageId: string, results: QuestionResult[]) => {
+    setExamMemory((previous) => ({
+      ...previous,
+      [stageId]: recordPaper(previous[stageId] ?? emptyExamMemory(), results),
+    }));
   };
 
   // The server's grades are final, so a best score it has recorded counts
@@ -939,8 +963,8 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
             bestScore={examScores[activeStageId] ?? null}
             key={activeStageId}
             attempts={stageAttempts}
-            recentlySeen={examSeen[activeStageId] ?? []}
-            onQuestionsServed={(ids) => recordExamSeen(activeStageId, ids)}
+            memory={examMemory[activeStageId] ?? emptyExamMemory()}
+            onPaperGraded={(results) => recordExamPaper(activeStageId, results)}
             onRecordAttempt={(score, answers) => recordExamScore(activeStageId, score, answers)}
             onPass={(score) => {
               // The exam is worth XP in its own right, tracked like a lesson so

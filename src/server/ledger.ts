@@ -38,6 +38,11 @@ export interface LedgerOrder {
   timestamp: string;
   status: 'EXECUTED';
   realizedPnL?: number;
+  /**
+   * Why the position closed, when it was not the learner who closed it. The
+   * trade review already reads this field on locally executed orders.
+   */
+  exitReason?: 'SQUARE_OFF';
 }
 
 export interface Ledger {
@@ -50,8 +55,34 @@ export interface Ledger {
 
 export const INITIAL_CAPITAL = 1_000_000;
 
-/** Orders kept per account. A learner's whole history is not needed to trade. */
-export const MAX_ORDERS = 500;
+/** Intraday leverage. A fifth of the value is blocked as margin. */
+export const MIS_LEVERAGE = 5;
+
+/**
+ * When the exchange closes intraday positions, in IST. NSE squares off around
+ * 3:20pm; the app has told learners that in the order ticket since long before
+ * anything did it.
+ */
+export const SQUARE_OFF_IST_HOUR = 15;
+export const SQUARE_OFF_IST_MINUTE = 20;
+
+/** IST is UTC+5:30 all year — no daylight saving to account for. */
+const IST_OFFSET_MS = 5.5 * 60 * 60_000;
+
+/**
+ * Orders kept per account.
+ *
+ * The cap used to be 500 and that was also everything there was: order 501
+ * deleted order 1 for good. In an app whose point is reviewing your own
+ * trades, a term's early trades quietly disappearing is the wrong thing to
+ * lose. The file now keeps four times as many, and a ledger sent to a browser
+ * still carries only the most recent page of them — the rest are asked for
+ * through /api/portfolio/orders when someone actually scrolls back.
+ */
+export const MAX_STORED_ORDERS = 2_000;
+
+/** How many orders travel with a ledger. The browser pages back for older. */
+export const MAX_SYNCED_ORDERS = 500;
 
 export function emptyLedger(now: string = new Date().toISOString()): Ledger {
   return { cashBalance: INITIAL_CAPITAL, holdings: {}, orders: [], updatedAt: now };
@@ -117,8 +148,24 @@ export function executeOrder(
   };
 
   if (side === 'BUY') {
+    // One position per share, so a symbol cannot be held as delivery and as
+    // intraday at once. Without this the later buy rewrote the holding's
+    // product: buying a share intraday that was already held in delivery
+    // turned the whole holding intraday, and the 3:20pm square-off then sold
+    // shares that had been bought to keep. A real broker keeps the two
+    // positions apart; this simulator keeps one, and says so rather than
+    // quietly converting the older one.
+    if (existing && existing.productType !== product) {
+      const held = existing.productType === 'MIS' ? 'an intraday' : 'a delivery';
+      const wanted = product === 'MIS' ? 'intraday' : 'delivery';
+      return {
+        ok: false,
+        message: `You already hold ${existing.quantity} ${symbol} as ${held} position. This simulator keeps one position per share, so close it before buying ${symbol} as ${wanted}.`,
+      };
+    }
+
     // MIS gives five times leverage, so a fifth of the value is blocked.
-    const margin = product === 'MIS' ? round(turnover / 5) : turnover;
+    const margin = product === 'MIS' ? round(turnover / MIS_LEVERAGE) : turnover;
     if (margin > ledger.cashBalance) {
       return {
         ok: false,
@@ -146,7 +193,7 @@ export function executeOrder(
             buyDate: existing?.buyDate || timestamp,
           },
         },
-        orders: [order, ...ledger.orders].slice(0, MAX_ORDERS),
+        orders: [order, ...ledger.orders].slice(0, MAX_STORED_ORDERS),
         updatedAt: timestamp,
       },
     };
@@ -161,6 +208,14 @@ export function executeOrder(
 
   const costOfSold = round(existing.avgBuyPrice * quantity);
   order.realizedPnL = round(turnover - costOfSold);
+
+  // Only the margin was taken from the cash balance on an intraday buy, so
+  // only the margin comes back. Returning the whole sale value credited four
+  // fifths of a position that was never paid for: a break-even round trip in
+  // 10 shares at ₹1,000 handed the learner ₹8,000 out of nowhere, and the
+  // server's copy then replaced the browser's correct figure.
+  const marginRefund =
+    existing.productType === 'MIS' ? round(costOfSold / MIS_LEVERAGE) : costOfSold;
 
   const remaining = existing.quantity - quantity;
   const holdings = { ...ledger.holdings };
@@ -179,12 +234,89 @@ export function executeOrder(
     message: `Sold ${quantity} ${symbol} at ₹${order.price}.`,
     order,
     ledger: {
-      cashBalance: round(ledger.cashBalance + turnover),
+      cashBalance: round(ledger.cashBalance + marginRefund + order.realizedPnL),
       holdings,
-      orders: [order, ...ledger.orders].slice(0, MAX_ORDERS),
+      orders: [order, ...ledger.orders].slice(0, MAX_STORED_ORDERS),
       updatedAt: timestamp,
     },
   };
+}
+
+/**
+ * The instant an intraday position taken at `takenAt` must be closed.
+ *
+ * Worked in IST rather than the server's zone, because the rule belongs to
+ * the exchange, not to wherever this happens to be running.
+ */
+export function squareOffDeadline(takenAt: string | number | Date): number {
+  const taken = new Date(takenAt);
+  if (Number.isNaN(taken.getTime())) return Number.POSITIVE_INFINITY;
+
+  // Shift into IST, read the calendar day there, then shift back.
+  const ist = new Date(taken.getTime() + IST_OFFSET_MS);
+  const midnightIst = Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate());
+  const closeIst = midnightIst + SQUARE_OFF_IST_HOUR * 60 * 60_000 + SQUARE_OFF_IST_MINUTE * 60_000;
+  return closeIst - IST_OFFSET_MS;
+}
+
+export interface SquareOffResult {
+  ledger: Ledger;
+  /** The orders the square-off placed, newest first. Empty when nothing was due. */
+  closed: LedgerOrder[];
+}
+
+/**
+ * Closes intraday positions whose session has ended.
+ *
+ * The order ticket has always said "auto square-off occurs at 3:20 PM IST",
+ * and nothing did it: a MIS position bought on Monday was still open on
+ * Friday, still on five times leverage, which is the opposite of what the
+ * product is. A learner could hold ₹50 lakh of stock against ₹10 lakh of
+ * practice cash indefinitely and never meet the thing that makes intraday
+ * trading intraday.
+ *
+ * Each position is closed at the quote the server holds, or at its own
+ * average cost when there is no quote — never at a made-up price, so a
+ * square-off cannot invent a profit or a loss that the market did not give.
+ */
+export function squareOffIntraday(
+  ledger: Ledger,
+  quotes: Record<string, number> = {},
+  now: Date = new Date(),
+): SquareOffResult {
+  const due = Object.values(ledger.holdings).filter(
+    (holding) =>
+      holding.productType === 'MIS' && squareOffDeadline(holding.buyDate) <= now.getTime(),
+  );
+  if (due.length === 0) return { ledger, closed: [] };
+
+  let working = ledger;
+  const closed: LedgerOrder[] = [];
+
+  for (const holding of due) {
+    const quote = quotes[holding.symbol];
+    const price = Number.isFinite(quote) && quote > 0 ? quote : holding.avgBuyPrice;
+    const result = executeOrder(
+      working,
+      {
+        symbol: holding.symbol,
+        stockName: holding.symbol,
+        quantity: holding.quantity,
+        side: 'SELL',
+        product: 'MIS',
+        price,
+      },
+      now,
+    );
+    // A refusal here would mean the ledger disagrees with itself, so the
+    // position is left alone rather than half closed.
+    if (!result.ok) continue;
+    working = result.ledger;
+    result.order.exitReason = 'SQUARE_OFF';
+    closed.push(result.order);
+  }
+
+  return { ledger: working, closed };
 }
 
 /**
@@ -200,6 +332,48 @@ export function portfolioValue(ledger: Ledger, quotes: Record<string, number>): 
     return total + price * holding.quantity;
   }, 0);
   return round(ledger.cashBalance + invested);
+}
+
+export interface LedgerSyncView extends Ledger {
+  /** How many orders the server holds, of which `orders` is the newest page. */
+  orderCount: number;
+}
+
+/**
+ * The ledger as a browser receives it: the newest page of orders, and a count
+ * of how many there are in total.
+ *
+ * Sending two thousand orders on every sync would cost a slow connection more
+ * than the whole rest of the payload, and nothing on screen shows more than a
+ * screenful at a time.
+ */
+export function syncView(ledger: Ledger): LedgerSyncView {
+  return {
+    ...ledger,
+    orders: ledger.orders.slice(0, MAX_SYNCED_ORDERS),
+    orderCount: ledger.orders.length,
+  };
+}
+
+/**
+ * One page of the order history, newest first.
+ *
+ * `offset` counts from the newest order, so page two of a hundred is
+ * offset 100 — the same numbers the caller already has on screen.
+ */
+export function orderPage(
+  ledger: Ledger,
+  offset: number = 0,
+  limit: number = 100,
+): { orders: LedgerOrder[]; offset: number; limit: number; total: number } {
+  const start = Number.isFinite(offset) && offset > 0 ? Math.floor(offset) : 0;
+  const size = Number.isFinite(limit) && limit > 0 ? Math.min(Math.floor(limit), 200) : 100;
+  return {
+    orders: ledger.orders.slice(start, start + size),
+    offset: start,
+    limit: size,
+    total: ledger.orders.length,
+  };
 }
 
 /**
@@ -232,7 +406,7 @@ export function sanitiseLedger(raw: unknown): Ledger {
   return {
     cashBalance: Number.isFinite(cash) && cash >= 0 ? round(cash) : INITIAL_CAPITAL,
     holdings,
-    orders: Array.isArray(candidate.orders) ? candidate.orders.slice(0, MAX_ORDERS) : [],
+    orders: Array.isArray(candidate.orders) ? candidate.orders.slice(0, MAX_STORED_ORDERS) : [],
     updatedAt:
       typeof candidate.updatedAt === 'string' ? candidate.updatedAt : new Date().toISOString(),
   };
