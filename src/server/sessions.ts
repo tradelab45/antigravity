@@ -1,4 +1,6 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
+import fs from 'fs';
+import path from 'path';
 
 /**
  * Server-issued sessions.
@@ -21,22 +23,71 @@ import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
 
 const TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
+/** Where a generated secret is kept when SESSION_SECRET is not set. */
+const SECRET_FILE = path.join(process.cwd(), 'data', 'session-secret');
+
 /**
- * Without SESSION_SECRET a random secret is generated per boot, so sessions do
- * not survive a restart. That is the safe direction to fail in: a predictable
- * fallback secret would let anyone mint a token for any account.
+ * A secret generated on first boot and kept on disk, shared by every process
+ * that reads the same data directory.
+ *
+ * Without SESSION_SECRET the secret used to be random per process. On a host
+ * that runs more than one process, or restarts often, a session signed by one
+ * process was refused by the next: someone signed in, the page reloaded onto a
+ * different process, and they were signed straight back out. The file is
+ * created exclusively, so two processes starting together agree on whichever
+ * wrote first, and it is readable by its owner only — it sits beside
+ * users.json, behind the same boundary as the password hashes.
+ *
+ * If the file cannot be written, the process falls back to a secret of its
+ * own, which is the old behaviour and still never a predictable one.
  */
+function persistedSecret(): string | null {
+  try {
+    const existing = fs.readFileSync(SECRET_FILE, 'utf-8').trim();
+    if (existing.length >= 32) return existing;
+  } catch {
+    // Not written yet.
+  }
+
+  const fresh = randomBytes(48).toString('hex');
+  try {
+    fs.mkdirSync(path.dirname(SECRET_FILE), { recursive: true });
+    fs.writeFileSync(SECRET_FILE, fresh, { encoding: 'utf-8', mode: 0o600, flag: 'wx' });
+    return fresh;
+  } catch {
+    // Another process won the race, or the directory is read-only.
+    try {
+      const winner = fs.readFileSync(SECRET_FILE, 'utf-8').trim();
+      if (winner.length >= 32) return winner;
+    } catch {
+      // Nothing to agree on.
+    }
+  }
+  return null;
+}
+
+let secretSource: 'configured' | 'file' | 'process' = 'process';
+
 const SECRET = (() => {
   const configured = (process.env.SESSION_SECRET || '').trim();
-  if (configured.length >= 32) return configured;
+  if (configured.length >= 32) {
+    secretSource = 'configured';
+    return configured;
+  }
   if (configured.length > 0) {
     console.warn('[sessions] SESSION_SECRET is shorter than 32 characters; ignoring it.');
   }
+  const stored = persistedSecret();
+  if (stored) {
+    secretSource = 'file';
+    return stored;
+  }
+  console.warn('[sessions] No SESSION_SECRET and no writable data directory; sessions end when this process does.');
   return randomBytes(48).toString('hex');
 })();
 
-export const sessionSecretIsPersistent = (): boolean =>
-  (process.env.SESSION_SECRET || '').trim().length >= 32;
+/** True when sessions survive a restart: a configured secret or one kept on disk. */
+export const sessionSecretIsPersistent = (): boolean => secretSource !== 'process';
 
 /** Token ids revoked by an explicit sign-out. */
 const revokedTokens = new Set<string>();

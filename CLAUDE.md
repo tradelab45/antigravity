@@ -114,9 +114,12 @@ cannot be extended and a user id cannot be swapped. `localStorage` still holds
 a copy of the account, but **only as a cache so the app can paint** —
 `/api/auth/session` is asked straight afterwards and on a timer, and a "no"
 drops the cache. `sessionVerified` is false when there is no backend to ask, so
-the rest of the app can tell an unverified identity from a checked one. Set
-`SESSION_SECRET`, or the secret is random per boot and a restart signs everyone
-out.
+the rest of the app can tell an unverified identity from a checked one.
+Without `SESSION_SECRET` the server generates a secret once and keeps it in
+`data/session-secret` (mode 0600, created exclusively so processes starting
+together agree). A secret per process used to sign people out whenever a
+reload landed on a different process or the host restarted. Only a read-only
+data directory falls back to that now, and it says so in the log.
 
 **Identity comes from the session, never from the body.** A `userId`, name or
 email in a request is whatever the caller typed. Any route that acts on an
