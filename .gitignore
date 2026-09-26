@@ -17,6 +17,8 @@ data/trades.json.bak
 data/ledgers.json
 data/ledgers.json.tmp
 data/ledgers.json.bak
+# The generated session signing secret, when SESSION_SECRET is not set.
+data/session-secret
 # Synced exam attempts and school/college rankings.
 data/academy.json
 data/academy.json.tmp

@@ -74,57 +74,6 @@ export function playOrderFilledSound(): void {
 }
 
 /**
- * 2. 3D Coin Landing Clink: Heavy brass metallic contact with subtle resonant ring
- */
-export function playCoinLandingSound(): void {
-  if (!isSoundEnabled()) return;
-  const ctx = getAudioContext();
-  if (!ctx) return;
-
-  try {
-    const now = ctx.currentTime;
-
-    // Contact thud
-    const thudGain = ctx.createGain();
-    thudGain.gain.setValueAtTime(0.35, now);
-    thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
-    thudGain.connect(ctx.destination);
-
-    const thudOsc = ctx.createOscillator();
-    thudOsc.type = 'sine';
-    thudOsc.frequency.setValueAtTime(280, now);
-    thudOsc.frequency.exponentialRampToValueAtTime(80, now + 0.12);
-    thudOsc.connect(thudGain);
-    thudOsc.start(now);
-    thudOsc.stop(now + 0.12);
-
-    // Brass coin ping (Metallic ring ~2100Hz + ~3200Hz)
-    const ringGain = ctx.createGain();
-    ringGain.gain.setValueAtTime(0.22, now + 0.02);
-    ringGain.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
-    ringGain.connect(ctx.destination);
-
-    const ringOsc1 = ctx.createOscillator();
-    ringOsc1.type = 'sine';
-    ringOsc1.frequency.setValueAtTime(2093, now + 0.02);
-
-    const ringOsc2 = ctx.createOscillator();
-    ringOsc2.type = 'sine';
-    ringOsc2.frequency.setValueAtTime(3135.96, now + 0.02);
-
-    ringOsc1.connect(ringGain);
-    ringOsc2.connect(ringGain);
-
-    ringOsc1.start(now + 0.02);
-    ringOsc2.start(now + 0.02);
-    ringOsc1.stop(now + 0.7);
-    ringOsc2.stop(now + 0.7);
-  } catch {
-    // Fail silently
-  }
-}
-
-/**
  * 3. Stop-Loss Triggered Sound: Cautionary descending dual-tone
  */
 export function playStopLossTriggeredSound(): void {
