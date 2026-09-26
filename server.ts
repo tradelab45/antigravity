@@ -39,9 +39,13 @@ import {
   INITIAL_CAPITAL as INITIAL_LEDGER_CAPITAL,
   emptyLedger,
   executeOrder,
+  orderPage,
   portfolioValue as computePortfolioValue,
   sanitiseLedger,
+  squareOffIntraday,
+  syncView,
   type Ledger,
+  type LedgerOrder,
 } from './src/server/ledger';
 import {
   SESSION_COOKIE,
@@ -4018,17 +4022,50 @@ function quoteMap(): Record<string, number> {
   return quotes;
 }
 
+/**
+ * Closes any intraday position whose session has ended, and writes the result.
+ *
+ * Called wherever a ledger is read or traded on, because a square-off is a
+ * fact about the clock: nobody is going to ask for it, and a position left
+ * open is one still enjoying five times leverage days after the session it
+ * was taken in.
+ */
+function settleIntraday(userId: string): { ledger: Ledger; closed: LedgerOrder[] } {
+  const ledgers = loadLedgers();
+  const current = ledgers[userId] || emptyLedger();
+  const { ledger, closed } = squareOffIntraday(current, quoteMap());
+  if (closed.length > 0) {
+    ledgers[userId] = ledger;
+    saveLedgers(ledgers);
+  }
+  return { ledger, closed };
+}
+
 app.get("/api/portfolio", (req, res) => {
   const user = sessionUser(req);
   if (!user) return res.status(401).json({ success: false, message: "Sign in first." });
 
-  const ledger = ledgerFor(user.id);
+  const { ledger, closed } = settleIntraday(user.id);
   res.json({
     success: true,
-    ledger,
+    ledger: syncView(ledger),
     portfolioValue: computePortfolioValue(ledger, quoteMap()),
+    // Named so the browser can say what happened while nobody was looking,
+    // rather than a position simply vanishing between two visits.
+    squaredOff: closed,
     verified: true,
   });
+});
+
+/**
+ * A page of the order history, for scrolling back past what a sync carries.
+ */
+app.get("/api/portfolio/orders", (req, res) => {
+  const user = sessionUser(req);
+  if (!user) return res.status(401).json({ success: false, message: "Sign in first." });
+
+  const page = orderPage(ledgerFor(user.id), Number(req.query.offset), Number(req.query.limit));
+  res.json({ success: true, ...page });
 });
 
 /**
@@ -4054,6 +4091,10 @@ app.post("/api/portfolio/execute", (req, res) => {
   if (!stock) {
     return res.status(404).json({ success: false, message: "That share is not in the simulator." });
   }
+
+  // Any stale intraday position is closed before this order is priced, so a
+  // buy is checked against the cash the learner actually has.
+  const closed = settleIntraday(user.id).closed;
 
   const ledgers = loadLedgers();
   const ledger = ledgers[user.id] || emptyLedger();
@@ -4088,8 +4129,9 @@ app.post("/api/portfolio/execute", (req, res) => {
     success: true,
     message: result.message,
     order: result.order,
-    ledger: result.ledger,
+    ledger: syncView(result.ledger),
     portfolioValue: computePortfolioValue(result.ledger, quoteMap()),
+    squaredOff: closed,
   });
 });
 
@@ -4122,7 +4164,7 @@ app.post("/api/portfolio/reset", (req, res) => {
     saveUsers(users);
   }
 
-  res.json({ success: true, ledger: ledgers[user.id], portfolioValue: INITIAL_LEDGER_CAPITAL });
+  res.json({ success: true, ledger: syncView(ledgers[user.id]), portfolioValue: INITIAL_LEDGER_CAPITAL });
 });
 
 /** Restores what the last reset displaced, while the window is still open. */
@@ -4150,7 +4192,7 @@ app.post("/api/portfolio/reset/undo", (req, res) => {
     saveUsers(users);
   }
 
-  res.json({ success: true, ledger: snapshot.ledger, portfolioValue: value });
+  res.json({ success: true, ledger: syncView(snapshot.ledger), portfolioValue: value });
 });
 
 /** Lets the sign-in screen say up front that a code will be needed. */
