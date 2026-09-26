@@ -4,6 +4,7 @@ import {
   CODE_LENGTH,
   CODE_TTL_MS,
   MAX_ATTEMPTS,
+  peekChallenge,
   clearChallenges,
   discardChallenge,
   generateCode,
@@ -145,4 +146,28 @@ test('the masked address shows the inbox without publishing it', () => {
   assert.ok(masked.endsWith('@example.com'), 'the domain is kept');
   assert.ok(!masked.includes('aaravtest'), 'the local part is not printed');
   assert.equal(maskEmail('nonsense'), '•••');
+});
+
+test('a challenge can be read without being spent', () => {
+  const { challengeId, code } = issueChallenge('usr_1', 'a@example.com', 'reset');
+
+  assert.deepEqual(peekChallenge(challengeId), {
+    userId: 'usr_1',
+    email: 'a@example.com',
+    purpose: 'reset',
+  });
+  assert.ok(peekChallenge(challengeId), 'reading it twice does not consume it');
+  assert.equal(
+    verifyChallenge(challengeId, code).ok,
+    true,
+    'the code still works after the challenge was read',
+  );
+});
+
+test('an unknown or expired challenge reads as nothing', () => {
+  const now = 1_700_000_000_000;
+  const { challengeId } = issueChallenge('usr_1', 'a@example.com', 'login', now);
+
+  assert.equal(peekChallenge('not-a-challenge'), null);
+  assert.equal(peekChallenge(challengeId, now + CODE_TTL_MS + 1), null);
 });

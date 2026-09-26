@@ -204,6 +204,10 @@ interface SimulatorContextType {
   resetSimulator: () => void;
   /** Puts back what the last reset wiped, while the window is still open. */
   undoLastReset: () => boolean;
+  /** How many executed orders the server holds, or null with no server. */
+  serverOrderCount: number | null;
+  /** Fetches the next page of older orders. Resolves with how many arrived. */
+  loadOlderOrders: () => Promise<number>;
   /** Epoch ms the undo offer lapses at, or null when there is nothing to undo. */
   resetUndoExpiresAt: number | null;
   portfolioValue: number;
@@ -1768,14 +1772,78 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
    * wins. That is what makes a portfolio something the server can vouch for
    * rather than a number this browser asserts.
    */
+  /** What the server says the whole history is, of which `orders` is a page. */
+  const [serverOrderCount, setServerOrderCount] = useState<number | null>(null);
+
+  /**
+   * Says what the exchange closed while nobody was watching.
+   *
+   * An intraday position that simply disappeared between two visits would
+   * look like a bug or a theft. It is neither — it is the rule the ticket
+   * has always described — so it is named, with the price it went at.
+   */
+  const announceSquareOff = (closed: unknown) => {
+    if (!Array.isArray(closed) || closed.length === 0) return;
+    const summary = closed
+      .map((order: any) => `${order.quantity} ${order.symbol} at ₹${order.price}`)
+      .join(', ');
+    notifyUser(
+      'Intraday positions squared off',
+      `The exchange closes MIS positions at 3:20 PM IST. Closed: ${summary}.`,
+      'WARNING',
+    );
+  };
+
+  /**
+   * Fetches the next page of older orders from the server.
+   *
+   * The history used to stop at whatever the last sync carried, which is why
+   * a term's early trades looked deleted. Paging asks for them only when
+   * somebody scrolls back for them.
+   */
+  const loadOlderOrders = async (): Promise<number> => {
+    if (sessionVerified !== true) return 0;
+    const have = orders.filter((order) => order.status === 'EXECUTED').length;
+
+    try {
+      const res = await fetch(`/api/portfolio/orders?offset=${have}&limit=100`);
+      const contentType = res.headers.get('content-type') || '';
+      if (!res.ok || !contentType.includes('application/json')) return 0;
+      const data = await res.json();
+      const page: Order[] = Array.isArray(data.orders) ? data.orders : [];
+      if (typeof data.total === 'number') setServerOrderCount(data.total);
+      if (page.length === 0) return 0;
+
+      setOrders((previous) => {
+        const known = new Set(previous.map((order) => order.id));
+        const additions = page.filter((order) => !known.has(order.id));
+        return [...previous, ...additions];
+      });
+      return page.length;
+    } catch {
+      return 0;
+    }
+  };
+
   const adoptServerLedger = (ledger: {
     cashBalance: number;
     holdings: Record<string, Holding>;
     orders: Order[];
+    orderCount?: number;
   }) => {
     if (!ledger || typeof ledger.cashBalance !== 'number') return;
     setCashBalance(ledger.cashBalance);
     setHoldings(ledger.holdings || {});
+    // A sync carries the newest page of orders. The count is what the whole
+    // history is, so the order book can offer the rest instead of pretending
+    // the page is everything.
+    setServerOrderCount(
+      typeof ledger.orderCount === 'number'
+        ? ledger.orderCount
+        : Array.isArray(ledger.orders)
+          ? ledger.orders.length
+          : null,
+    );
     setOrders((previous) => {
       const fromServer = Array.isArray(ledger.orders) ? ledger.orders : [];
       // Anything the server does not execute — GTT, bracket legs, options —
@@ -1796,7 +1864,9 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const contentType = res.headers.get('content-type') || '';
         if (!res.ok || !contentType.includes('application/json')) return;
         const data = await res.json();
-        if (!cancelled && data.success && data.ledger) adoptServerLedger(data.ledger);
+        if (cancelled || !data.success || !data.ledger) return;
+        adoptServerLedger(data.ledger);
+        announceSquareOff(data.squaredOff);
       } catch {
         // Nothing to adopt; the local copy stands.
       }
@@ -1834,6 +1904,7 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
         if (data.ledger) {
           adoptServerLedger(data.ledger);
+          announceSquareOff(data.squaredOff);
           return;
         }
         if (!res.ok) {
@@ -1847,7 +1918,10 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           const refreshed = await fetch('/api/portfolio').catch(() => null);
           if (refreshed?.ok) {
             const fresh = await refreshed.json().catch(() => null);
-            if (fresh?.ledger) adoptServerLedger(fresh.ledger);
+            if (fresh?.ledger) {
+              adoptServerLedger(fresh.ledger);
+              announceSquareOff(fresh.squaredOff);
+            }
           }
         }
       })
@@ -1869,6 +1943,20 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (!stock) return { success: false, message: 'Stock not found' };
     if (!Number.isFinite(stock.price) || stock.price <= 0) return { success: false, message: 'A market quote is not available yet.' };
     if (quantity <= 0 || !Number.isInteger(quantity)) return { success: false, message: 'Please enter a valid quantity of shares (whole number)' };
+
+    // One position per share. Buying intraday a share already held for
+    // delivery used to rewrite the holding's product, and the 3:20pm square-off
+    // would then sell shares that had been bought to keep. The server refuses
+    // the same order, so the ticket may as well say why straight away.
+    const openPosition = holdings[symbol];
+    if (openPosition && openPosition.productType !== productType) {
+      const held = openPosition.productType === 'MIS' ? 'an intraday' : 'a delivery';
+      const wanted = productType === 'MIS' ? 'intraday' : 'delivery';
+      return {
+        success: false,
+        message: `You already hold ${openPosition.quantity} ${symbol} as ${held} position. This simulator keeps one position per share, so close it before buying ${symbol} as ${wanted}.`,
+      };
+    }
 
     const executionPrice = (orderType === 'LIMIT' || orderType === 'GTT') && limitPrice ? limitPrice : stock.price;
     const totalCost = Number((executionPrice * quantity).toFixed(2));
@@ -2493,6 +2581,8 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setThemeMode,
         resetSimulator,
         undoLastReset,
+        serverOrderCount,
+        loadOlderOrders,
         resetUndoExpiresAt,
         portfolioValue,
         investedValue,

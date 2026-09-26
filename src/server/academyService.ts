@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
-import path from 'node:path';
+import { readJsonWithRecovery, writeJsonAtomic } from './jsonStore';
 import { getStageExam, EXAM_LENGTH, EXAM_PASS_MARK } from '../data/stageExams';
 import type { ExamAttempt } from '../utils/academyProgress';
 import { rateLimit } from 'express-rate-limit';
@@ -65,15 +65,20 @@ export function rankCohort(db: Database, groupId: string, viewerId: string) {
  */
 export function createAcademyService(file: string, resolveUserId: (req: Request) => string | null) {
   const router = Router();
+  // Through the shared store, so this file gets the same flush, backup and
+  // owner-only permissions as the rest. An unreadable file with no readable
+  // backup is still refused rather than read as empty — the route answers 503
+  // and the learner's device keeps its own copy — because treating it as
+  // empty would let the next attempt write over everybody's history.
   const read = (): Database => {
-    if (!fs.existsSync(file)) return {};
-    return JSON.parse(fs.readFileSync(file, 'utf8'));
+    const { value, recoveredFrom } = readJsonWithRecovery<Database | null>(file, null);
+    if (value !== null) return value;
+    if (recoveredFrom === 'fallback' && (fs.existsSync(file) || fs.existsSync(`${file}.bak`))) {
+      throw new Error('Academy storage could not be read.');
+    }
+    return {};
   };
-  const write = (db: Database) => {
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(`${file}.tmp`, JSON.stringify(db), { mode: 0o600 });
-    fs.renameSync(`${file}.tmp`, file);
-  };
+  const write = (db: Database) => writeJsonAtomic(file, db);
   router.use((_req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
   router.use((req, res, next) => {
     const userId = resolveUserId(req);
