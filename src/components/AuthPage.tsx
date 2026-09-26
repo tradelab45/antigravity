@@ -34,7 +34,6 @@ import {
 import { useSimulator } from '../context/SimulatorContext';
 import { GoogleSignInButton, AuthOrDivider } from './GoogleSignInButton';
 import { AuthFormData, UserAccount } from '../types';
-import { AuthLaunchTransition } from './AuthLaunchTransition';
 import { SpotlightCard } from './ui/spotlight-card';
 import { ExpandableTabs } from './ui/expandable-tabs';
 import { RupeeSpatialBackground } from './ui/rupee-spatial-background';
@@ -181,6 +180,9 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
   const [quizAnswer, setQuizAnswer] = useState<number | null>(null);
   const [quizSubmitted, setQuizSubmitted] = useState<boolean>(false);
 
+  // A successful sign-in swaps this page for the app as soon as the context
+  // holds the account, which unmounts this and clears the timer. If that does
+  // not happen, reload rather than leave a signed-in visitor on the form.
   useEffect(() => {
     if (!launchState) return;
     const timer = window.setTimeout(() => window.location.reload(), 5000);
@@ -384,16 +386,6 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
   }, 0);
   const totalPortfolioWorth = playgroundCash + totalSimulatedHoldingsValue;
   const portfolioPnL = totalPortfolioWorth - 1000000;
-
-  if (launchState) {
-    return (
-      <AuthLaunchTransition
-        user={launchState.user}
-        kind={launchState.kind}
-        onEnter={() => window.location.reload()}
-      />
-    );
-  }
 
   return (
     <div className="min-h-screen bg-[#050906] text-slate-100 flex flex-col font-sans selection:bg-mint selection:text-slate-950 relative overflow-y-auto overflow-x-hidden">
