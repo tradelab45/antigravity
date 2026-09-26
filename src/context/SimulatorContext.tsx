@@ -517,6 +517,10 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           initialCapital: INITIAL_CASH,
         }),
       });
+      if (!res.ok) {
+        const error = await res.json().catch(() => null);
+        return { success: false, message: error?.message || (res.status === 429 ? 'Too many attempts. Please wait before trying again.' : 'Sign-in was rejected. Please check your details.') };
+      }
       if (res.ok) {
         const contentType = res.headers.get('content-type') || '';
         if (contentType.includes('application/json')) {
