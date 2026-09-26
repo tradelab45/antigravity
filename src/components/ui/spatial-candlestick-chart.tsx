@@ -1,18 +1,13 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import { TrendingUp, Zap, Sparkles, Activity, ShieldCheck } from "lucide-react";
-import { motion } from "motion/react";
+import React, { useState, useRef } from "react";
 import { cn } from "../../lib/utils";
 import "./spatial-chart.css";
 
 export interface SpatialCandlestickChartProps {
   variant?: "hero" | "card" | "loading" | "compact";
-  showRupee?: boolean;
-  showBadges?: boolean;
   interactive?: boolean;
   className?: string;
-  onCoinClick?: () => void;
 }
 
 interface CandleData {
@@ -39,18 +34,12 @@ const BASE_CANDLES: CandleData[] = [
 
 export const SpatialCandlestickChart: React.FC<SpatialCandlestickChartProps> = ({
   variant = "hero",
-  showRupee = true,
-  showBadges = true,
   interactive = true,
   className,
-  onCoinClick,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
   const [isHovered, setIsHovered] = useState(false);
-  const [coinFlipped, setCoinFlipped] = useState(false);
-  const [livePrice] = useState(23346.40);
-  const [liveChange] = useState(0.33);
 
   // Gyroscopic 3D Parallax Tilt Handler (Desktop pointer only, ignore touch swipes)
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -69,10 +58,6 @@ export const SpatialCandlestickChart: React.FC<SpatialCandlestickChartProps> = (
     setTilt({ x: 0, y: 0 });
   };
 
-  const handleCoinClickInternal = () => {
-    setCoinFlipped(!coinFlipped);
-    onCoinClick?.();
-  };
 
   const isHero = variant === "hero";
   const isCompact = variant === "compact";
@@ -273,170 +258,7 @@ export const SpatialCandlestickChart: React.FC<SpatialCandlestickChartProps> = (
             );
           })}
         </div>
-
-        {/* CENTRAL FLOATING 3D METALLIC RUPEE COIN */}
-        {showRupee && (
-          <div
-            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-auto cursor-pointer z-20"
-            style={{
-              transformStyle: "preserve-3d",
-              transform: "translateZ(65px)",
-            }}
-            onClick={handleCoinClickInternal}
-            title="Click to flip the 3D Rupee symbol"
-          >
-            {/* Spinning & Floating 3D Coin Body */}
-            <div
-              className={cn(
-                "relative w-28 h-28 sm:w-36 sm:h-36 rounded-full transition-transform duration-700",
-                coinFlipped ? "rotate-y-180" : "spatial-rupee-spin"
-              )}
-              style={{
-                transformStyle: "preserve-3d",
-              }}
-            >
-              {/* Outer Radiant Glow Rings */}
-              <div
-                className="absolute -inset-4 rounded-full border border-mint/30 animate-pulse pointer-events-none"
-                style={{ transform: "translateZ(-10px)" }}
-              />
-              <div
-                className="absolute -inset-8 rounded-full border border-mint/15 pointer-events-none"
-                style={{ transform: "translateZ(-20px)" }}
-              />
-
-              {/* 3D Coin Extrusion Slices (Metallic Edge) */}
-              {Array.from({ length: 16 }, (_, i) => (
-                <div
-                  key={i}
-                  className="absolute inset-0 rounded-full"
-                  style={{
-                    transform: `translateZ(${i * 1.6 - 12}px)`,
-                    background: "linear-gradient(135deg, #10b981 0%, #064e3b 50%, #022c22 100%)",
-                    border: "1.5px solid #00f59b",
-                    boxShadow: i === 15 ? "0 0 25px rgba(0, 245, 155, 0.4)" : "none",
-                  }}
-                />
-              ))}
-
-              {/* FRONT FACE: Embossed ₹ Rupee Symbol */}
-              <div
-                className="absolute inset-0 rounded-full flex flex-col items-center justify-center p-3 text-center"
-                style={{
-                  transform: "translateZ(14px)",
-                  background: "radial-gradient(circle at 35% 30%, #00f59b 0%, #059669 45%, #064e3b 85%, #022c22 100%)",
-                  boxShadow: "inset 0 2px 6px rgba(255, 255, 255, 0.6), inset 0 -4px 10px rgba(0,0,0,0.8), 0 0 20px rgba(0,245,155,0.4)",
-                  border: "2px solid #00f59b",
-                }}
-              >
-                {/* Sunburst radial lines */}
-                <div
-                  className="absolute inset-2 rounded-full border border-white/20 pointer-events-none"
-                  style={{
-                    backgroundImage: "repeating-conic-gradient(from 0deg, rgba(255,255,255,0.15) 0deg 10deg, transparent 10deg 20deg)",
-                    maskImage: "radial-gradient(circle at center, black 40%, transparent 80%)",
-                  }}
-                />
-
-                {/* 3D Rupee Symbol */}
-                <span
-                  className="text-4xl sm:text-5xl font-black text-slate-900 font-mono leading-none select-none"
-                  style={{
-                    textShadow: "0 2px 0 #064e3b, 0 4px 12px rgba(0, 0, 0, 0.8), 0 0 16px rgba(255, 255, 255, 0.7)",
-                  }}
-                >
-                  ₹
-                </span>
-                <span className="text-[8px] sm:text-[9px] font-mono tracking-widest text-emerald-950 font-bold mt-1 uppercase">
-                  Dalal Street
-                </span>
-                <span className="text-[7px] font-mono text-emerald-950/80 tracking-tighter">
-                  EST. 2026
-                </span>
-              </div>
-
-              {/* BACK FACE: Chanakya Wisdom Motto */}
-              <div
-                className="absolute inset-0 rounded-full flex flex-col items-center justify-center p-3 text-center"
-                style={{
-                  transform: "rotateY(180deg) translateZ(14px)",
-                  background: "radial-gradient(circle at 35% 30%, #38bdf8 0%, #0284c7 45%, #0369a1 85%, #082f49 100%)",
-                  boxShadow: "inset 0 2px 6px rgba(255, 255, 255, 0.6), inset 0 -4px 10px rgba(0,0,0,0.8), 0 0 20px rgba(56, 189, 248, 0.4)",
-                  border: "2px solid #38bdf8",
-                }}
-              >
-                <span
-                  className="text-4xl sm:text-5xl font-black text-slate-900 font-mono leading-none select-none"
-                  style={{
-                    textShadow: "0 2px 0 #0369a1, 0 4px 12px rgba(0, 0, 0, 0.8)",
-                  }}
-                >
-                  ₹
-                </span>
-                <span className="text-[8px] sm:text-[9px] font-mono tracking-widest text-sky-950 font-bold mt-1 uppercase">
-                  Gyan • Dhan
-                </span>
-                <span className="text-[7px] font-mono text-sky-950/80 tracking-tighter">
-                  Rupee Rookie Labs
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 3D PARALLAX TELEMETRY BADGES */}
-        {showBadges && (
-          <>
-            {/* Top Left: NIFTY 50 Breakout */}
-            <motion.div
-              animate={{ y: [0, -6, 0] }}
-              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-              className="absolute -top-3 left-4 sm:left-8 px-3 py-2 rounded-xl bg-[#09140e]/90 border border-mint/30 backdrop-blur-md shadow-[0_8px_20px_rgba(0,0,0,0.4)] z-30 pointer-events-none"
-              style={{ transform: "translateZ(75px)" }}
-            >
-              <div className="flex items-center gap-1.5 text-mint text-[10px] font-mono font-bold tracking-wide">
-                <Activity size={12} className="animate-pulse" />
-                <span>NIFTY 50 BREAKOUT</span>
-              </div>
-              <div className="text-sm sm:text-base font-extrabold text-white font-mono mt-0.5">
-                ₹{livePrice.toLocaleString("en-IN")}
-                <span className="text-xs text-mint font-bold ml-1.5">
-                  ▲ +{liveChange}%
-                </span>
-              </div>
-            </motion.div>
-
-            {/* Bottom Right: Virtual Capital Badge */}
-            <motion.div
-              animate={{ y: [0, 6, 0] }}
-              transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-              className="absolute -bottom-2 right-4 sm:right-8 px-3 py-2 rounded-xl bg-[#09140e]/90 border border-white/15 backdrop-blur-md shadow-[0_8px_20px_rgba(0,0,0,0.4)] z-30 pointer-events-none"
-              style={{ transform: "translateZ(85px)" }}
-            >
-              <div className="flex items-center gap-1.5 text-slate-400 text-[10px] font-mono font-bold tracking-wide">
-                <ShieldCheck size={12} className="text-mint" />
-                <span>PRACTICE PORTFOLIO</span>
-              </div>
-              <div className="text-sm sm:text-base font-extrabold text-mint font-mono mt-0.5">
-                ₹10,00,000
-                <span className="text-[10px] text-slate-400 font-normal ml-1">
-                  100% Risk-Free
-                </span>
-              </div>
-            </motion.div>
-          </>
-        )}
       </div>
-
-      {/* Interactive Flip Hint */}
-      {showRupee && (
-        <div className="absolute bottom-0 inset-x-0 flex items-center justify-center pointer-events-none">
-          <span className="text-[10px] font-mono text-slate-500/80 tracking-wider uppercase flex items-center gap-1 bg-black/40 px-2.5 py-0.5 rounded-full border border-white/5">
-            <Sparkles size={11} className="text-mint" />
-            Click coin to flip · Hover to orbit in 3D
-          </span>
-        </div>
-      )}
     </div>
   );
 };

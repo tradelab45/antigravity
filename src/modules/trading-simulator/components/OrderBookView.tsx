@@ -22,10 +22,29 @@ import { useSimulator } from '../../../context/SimulatorContext';
 import { Order, ProductType, Holding } from '../../../types';
 
 export const OrderBookView: React.FC<{ onSelectStock?: (symbol: string) => void }> = ({ onSelectStock }) => {
-  const { orders, cancelPendingOrder, holdings, nseMarketInfo, cashBalance } = useSimulator();
+  const { orders, cancelPendingOrder, holdings, nseMarketInfo, cashBalance, serverOrderCount, loadOlderOrders } = useSimulator();
   const [filterTab, setFilterTab] = useState<'ALL' | 'EXECUTED' | 'PENDING' | 'CANCELLED' | 'POSITIONS'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [productFilter, setProductFilter] = useState<'ALL' | ProductType>('ALL');
+  const [loadingOlder, setLoadingOlder] = useState(false);
+
+  // A sync carries the newest page of the history. When the server holds more
+  // than this browser has, say so and offer the rest rather than letting the
+  // list end where the page happens to end.
+  const executedCount = orders.filter((order) => order.status === 'EXECUTED').length;
+  const olderAvailable =
+    typeof serverOrderCount === 'number' && serverOrderCount > executedCount
+      ? serverOrderCount - executedCount
+      : 0;
+
+  const fetchOlder = async () => {
+    setLoadingOlder(true);
+    try {
+      await loadOlderOrders();
+    } finally {
+      setLoadingOlder(false);
+    }
+  };
 
   const filteredOrders = useMemo(() => {
     return orders.filter(order => {
@@ -137,7 +156,7 @@ export const OrderBookView: React.FC<{ onSelectStock?: (symbol: string) => void 
       {/* Intraday MIS Advisory Banner */}
       {stats.activeMisHoldings > 0 && (
         <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/30 rounded-2xl p-4 flex items-start gap-3">
-          <div className="p-2 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 shrink-0">
+          <div className="p-2 rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-400 shrink-0">
             <Clock className="w-5 h-5" />
           </div>
           <div className="text-sm">
@@ -411,11 +430,18 @@ export const OrderBookView: React.FC<{ onSelectStock?: (symbol: string) => void 
                           )}
                         </td>
                         <td className="p-3.5 whitespace-nowrap">
-                          {isExecuted && (
+                          {isExecuted && order.exitReason === 'SQUARE_OFF' ? (
+                            <span
+                              className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-300 font-semibold text-[11px]"
+                              title="MIS positions are closed by the exchange at 3:20 PM IST"
+                            >
+                              <ShieldAlert className="w-3.5 h-3.5" /> Squared off
+                            </span>
+                          ) : isExecuted ? (
                             <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold text-[11px]">
                               <CheckCircle2 className="w-3.5 h-3.5" /> Executed
                             </span>
-                          )}
+                          ) : null}
                           {isPending && (
                             <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 font-semibold text-[11px]">
                               <Clock className="w-3.5 h-3.5 animate-pulse" /> Pending
@@ -447,6 +473,21 @@ export const OrderBookView: React.FC<{ onSelectStock?: (symbol: string) => void 
                   })}
                 </tbody>
               </table>
+
+              {olderAvailable > 0 && (
+                <div className="p-4 text-center border-t border-slate-200 dark:border-slate-800">
+                  <button
+                    type="button"
+                    onClick={fetchOlder}
+                    disabled={loadingOlder}
+                    className="min-h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-60"
+                  >
+                    {loadingOlder
+                      ? 'Loading…'
+                      : `Load older trades (${olderAvailable} more on the server)`}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

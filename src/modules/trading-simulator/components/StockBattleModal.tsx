@@ -31,6 +31,7 @@ import { useSimulator } from '../../../context/SimulatorContext';
 import { formatINR, formatPercent } from '../../../utils/formatters';
 import { playOrderFilledSound, playSuccessChime } from '../../../utils/soundEffects';
 import type { StockDetail } from '../../../types';
+import { useModalDialog } from '../../../hooks/useModalDialog';
 
 interface StockBattleModalProps {
   isOpen: boolean;
@@ -154,74 +155,98 @@ export const StockBattleModal: React.FC<StockBattleModalProps> = ({
     };
   }, [stockA, stockB]);
 
-  // Head-to-Head Comparative Radar Analysis Data (P/E, 1-Year Return, RoE, Debt-to-Equity)
+  // Head-to-head on four measures, each computed only from what the data holds
+  // for both shares. A measure either share lacks is left out rather than
+  // filled in. The first version filled gaps with stand-ins that differed by
+  // side (an ROE of 18.5% for the left share and 16.2% for the right, leverage
+  // of 0.42x against 0.58x), so a share with missing data won or lost by
+  // construction. It also called the rise from the 52-week low a "1-Year
+  // Return", which it is not.
   const radarData = useMemo(() => {
     if (!stockA || !stockB) return [];
 
-    // 1. P/E Valuation (Lower is more attractive / value-oriented)
-    const peA = stockA.peRatio || 25;
-    const peB = stockB.peRatio || 25;
-    const valScoreA = Math.max(15, Math.min(95, Math.round(100 - (peA / 60) * 55)));
-    const valScoreB = Math.max(15, Math.min(95, Math.round(100 - (peB / 60) * 55)));
+    const positive = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n > 0;
+    const score = (n: number) => Math.max(15, Math.min(95, Math.round(n)));
+    const winnerBy = (a: number, b: number, higherWins: boolean) =>
+      a === b ? 'TIE' : (a > b) === higherWins ? 'A' : 'B';
 
-    // 2. 1-Year Trailing Return (Computed from 52-week baseline)
-    const lowA = stockA.low52 || stockA.price * 0.75;
-    const lowB = stockB.low52 || stockB.price * 0.75;
-    const retA = Math.max(-20, Math.min(150, ((stockA.price - lowA) / lowA) * 100));
-    const retB = Math.max(-20, Math.min(150, ((stockB.price - lowB) / lowB) * 100));
-    const retScoreA = Math.max(15, Math.min(95, Math.round((retA / 90) * 70 + 20)));
-    const retScoreB = Math.max(15, Math.min(95, Math.round((retB / 90) * 70 + 20)));
+    const rows: Array<{
+      metric: string;
+      scoreA: number;
+      scoreB: number;
+      rawA: string;
+      rawB: string;
+      winner: 'A' | 'B' | 'TIE';
+      explainer: string;
+    }> = [];
 
-    // 3. Return on Equity (RoE %)
-    const roeA = stockA.roe || (stockA.dupontAnalysis?.calculatedRoe ? stockA.dupontAnalysis.calculatedRoe * 100 : 18.5);
-    const roeB = stockB.roe || (stockB.dupontAnalysis?.calculatedRoe ? stockB.dupontAnalysis.calculatedRoe * 100 : 16.2);
-    const roeScoreA = Math.max(15, Math.min(95, Math.round((roeA / 35) * 80 + 15)));
-    const roeScoreB = Math.max(15, Math.min(95, Math.round((roeB / 35) * 80 + 15)));
-
-    // 4. Debt-to-Equity (Solvency / Financial Leverage)
-    const deA = stockA.dupontAnalysis?.equityMultiplier ? Math.max(0.05, stockA.dupontAnalysis.equityMultiplier - 1) : 0.42;
-    const deB = stockB.dupontAnalysis?.equityMultiplier ? Math.max(0.05, stockB.dupontAnalysis.equityMultiplier - 1) : 0.58;
-    const deScoreA = Math.max(15, Math.min(95, Math.round(100 - deA * 35)));
-    const deScoreB = Math.max(15, Math.min(95, Math.round(100 - deB * 35)));
-
-    return [
-      {
+    if (positive(stockA.peRatio) && positive(stockB.peRatio)) {
+      const peA = stockA.peRatio;
+      const peB = stockB.peRatio;
+      rows.push({
         metric: 'P/E Valuation',
-        scoreA: valScoreA,
-        scoreB: valScoreB,
+        scoreA: score(100 - (peA / 60) * 55),
+        scoreB: score(100 - (peB / 60) * 55),
         rawA: `${peA.toFixed(1)}x`,
         rawB: `${peB.toFixed(1)}x`,
-        winner: peA < peB ? 'A' : peA > peB ? 'B' : 'TIE',
-        explainer: 'Lower P/E = higher earnings yield per ₹ paid'
-      },
-      {
-        metric: '1-Year Return',
-        scoreA: retScoreA,
-        scoreB: retScoreB,
-        rawA: `+${retA.toFixed(1)}%`,
-        rawB: `+${retB.toFixed(1)}%`,
-        winner: retA > retB ? 'A' : retA < retB ? 'B' : 'TIE',
-        explainer: 'Capital compounding momentum over 52 weeks'
-      },
-      {
+        winner: winnerBy(peA, peB, false),
+        explainer: 'Lower P/E = higher earnings yield per ₹ paid',
+      });
+    }
+
+    if (positive(stockA.low52) && positive(stockB.low52)) {
+      const upA = ((stockA.price - stockA.low52) / stockA.low52) * 100;
+      const upB = ((stockB.price - stockB.low52) / stockB.low52) * 100;
+      rows.push({
+        metric: 'Above 52-week low',
+        scoreA: score((upA / 90) * 70 + 20),
+        scoreB: score((upB / 90) * 70 + 20),
+        rawA: `+${upA.toFixed(1)}%`,
+        rawB: `+${upB.toFixed(1)}%`,
+        winner: winnerBy(upA, upB, true),
+        explainer: 'How far the price has risen from its lowest point of the past year. Not a one-year return.',
+      });
+    }
+
+    const roeOf = (stock: StockDetail): number | null => {
+      if (typeof stock.roe === 'number' && Number.isFinite(stock.roe) && stock.roe !== 0) return stock.roe;
+      const calculated = stock.dupontAnalysis?.calculatedRoe;
+      return typeof calculated === 'number' && Number.isFinite(calculated) && calculated !== 0 ? calculated * 100 : null;
+    };
+    const roeA = roeOf(stockA);
+    const roeB = roeOf(stockB);
+    if (roeA !== null && roeB !== null) {
+      rows.push({
         metric: 'Return on Equity (RoE)',
-        scoreA: roeScoreA,
-        scoreB: roeScoreB,
+        scoreA: score((roeA / 35) * 80 + 15),
+        scoreB: score((roeB / 35) * 80 + 15),
         rawA: `${roeA.toFixed(1)}%`,
         rawB: `${roeB.toFixed(1)}%`,
-        winner: roeA > roeB ? 'A' : roeA < roeB ? 'B' : 'TIE',
-        explainer: 'Profit generated per ₹1 of equity capital'
-      },
-      {
-        metric: 'Debt-to-Equity Moat',
-        scoreA: deScoreA,
-        scoreB: deScoreB,
-        rawA: `${deA.toFixed(2)}x`,
-        rawB: `${deB.toFixed(2)}x`,
-        winner: deA < deB ? 'A' : deA > deB ? 'B' : 'TIE',
-        explainer: 'Solvency cushion; lower leverage reduces interest risk'
-      }
-    ];
+        winner: winnerBy(roeA, roeB, true),
+        explainer: 'Profit generated per ₹1 of equity capital',
+      });
+    }
+
+    // The DuPont equity multiplier is assets ÷ equity, so one less than it is
+    // total liabilities per ₹1 of equity. Borrowing is part of that, not all
+    // of it, which is why this is not labelled debt-to-equity.
+    const multA = stockA.dupontAnalysis?.equityMultiplier;
+    const multB = stockB.dupontAnalysis?.equityMultiplier;
+    if (positive(multA) && positive(multB)) {
+      const levA = Math.max(0, multA - 1);
+      const levB = Math.max(0, multB - 1);
+      rows.push({
+        metric: 'Liabilities to equity',
+        scoreA: score(100 - levA * 35),
+        scoreB: score(100 - levB * 35),
+        rawA: `${levA.toFixed(2)}x`,
+        rawB: `${levB.toFixed(2)}x`,
+        winner: winnerBy(levA, levB, false),
+        explainer: 'Total liabilities per ₹1 of equity. Lower means less leverage and less interest risk.',
+      });
+    }
+
+    return rows;
   }, [stockA, stockB]);
 
   const handleQuickBackStock = (stock: StockDetail, shares = 10) => {
@@ -252,11 +277,21 @@ export const StockBattleModal: React.FC<StockBattleModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
+  const { ref: dialogRef, dialogProps } = useModalDialog({
+    onClose,
+    open: isOpen,
+    label: 'One versus one stock battle',
+    // The component binds Escape itself.
+    closeOnEscape: false,
+  });
+
   if (!isOpen) return null;
 
   return (
     <div
       id="stock-battle-modal"
+      ref={dialogRef}
+      {...dialogProps}
       className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-md overflow-hidden"
       onClick={onClose}
     >
@@ -632,7 +667,7 @@ export const StockBattleModal: React.FC<StockBattleModalProps> = ({
             </div>
           </div>
 
-          {/* HEAD-TO-HEAD COMPARATIVE RADAR CHART (P/E, 1-Year Return, RoE, Debt-to-Equity) */}
+          {/* HEAD-TO-HEAD COMPARATIVE RADAR CHART: only the measures both shares have data for */}
           <div className="backdrop-blur-md bg-slate-900/60 border border-slate-700/50 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-4">
               <div>
@@ -646,7 +681,7 @@ export const StockBattleModal: React.FC<StockBattleModalProps> = ({
                   </h3>
                 </div>
                 <p className="text-xs text-slate-400 mt-1">
-                  Multi-axial financial blueprint comparing <strong>{stockA.symbol}</strong> vs <strong>{stockB.symbol}</strong> across 4 core fundamentals: P/E, 1-Year Return, RoE, and Debt-to-Equity.
+                  Multi-axial financial blueprint comparing <strong>{stockA.symbol}</strong> vs <strong>{stockB.symbol}</strong> on the fundamentals both have data for: P/E, the rise from the 52-week low, RoE and liabilities to equity. A measure either share lacks is left out.
                 </p>
               </div>
 
@@ -664,56 +699,62 @@ export const StockBattleModal: React.FC<StockBattleModalProps> = ({
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
               {/* Radar Chart Visual */}
               <div className="lg:col-span-6 h-64 sm:h-72 w-full flex items-center justify-center relative">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart cx="50%" cy="50%" outerRadius="75%" data={radarData}>
-                    <PolarGrid stroke="#334155" strokeDasharray="3 3" />
-                    <PolarAngleAxis 
-                      dataKey="metric" 
-                      tick={{ fill: '#cbd5e1', fontSize: 11, fontWeight: 'bold' }} 
-                    />
-                    <PolarRadiusAxis angle={30} domain={[0, 100]} stroke="#475569" tick={false} />
-                    <Radar
-                      name={stockA.symbol}
-                      dataKey="scoreA"
-                      stroke="#8b5cf6"
-                      fill="#8b5cf6"
-                      fillOpacity={0.35}
-                      strokeWidth={2}
-                    />
-                    <Radar
-                      name={stockB.symbol}
-                      dataKey="scoreB"
-                      stroke="#06b6d4"
-                      fill="#06b6d4"
-                      fillOpacity={0.35}
-                      strokeWidth={2}
-                    />
-                    <RechartsTooltip
-                      content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                          const item = payload[0].payload as any;
-                          return (
-                            <div className="backdrop-blur-md bg-slate-950/90 border border-slate-700 p-3 rounded-2xl text-xs text-white shadow-2xl font-mono space-y-1">
-                              <div className="font-bold text-amber-300 border-b border-slate-800 pb-1">{item.metric}</div>
-                              <div className="text-violet-400 flex items-center justify-between gap-3">
-                                <span>{stockA.symbol}:</span>
-                                <span className="font-black">{item.rawA} (Score {item.scoreA}/100)</span>
+                {radarData.length >= 3 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart cx="50%" cy="50%" outerRadius="75%" data={radarData}>
+                      <PolarGrid stroke="#334155" strokeDasharray="3 3" />
+                      <PolarAngleAxis 
+                        dataKey="metric" 
+                        tick={{ fill: '#cbd5e1', fontSize: 11, fontWeight: 'bold' }} 
+                      />
+                      <PolarRadiusAxis angle={30} domain={[0, 100]} stroke="#475569" tick={false} />
+                      <Radar
+                        name={stockA.symbol}
+                        dataKey="scoreA"
+                        stroke="#8b5cf6"
+                        fill="#8b5cf6"
+                        fillOpacity={0.35}
+                        strokeWidth={2}
+                      />
+                      <Radar
+                        name={stockB.symbol}
+                        dataKey="scoreB"
+                        stroke="#06b6d4"
+                        fill="#06b6d4"
+                        fillOpacity={0.35}
+                        strokeWidth={2}
+                      />
+                      <RechartsTooltip
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const item = payload[0].payload as any;
+                            return (
+                              <div className="backdrop-blur-md bg-slate-950/90 border border-slate-700 p-3 rounded-2xl text-xs text-white shadow-2xl font-mono space-y-1">
+                                <div className="font-bold text-amber-300 border-b border-slate-800 pb-1">{item.metric}</div>
+                                <div className="text-violet-400 flex items-center justify-between gap-3">
+                                  <span>{stockA.symbol}:</span>
+                                  <span className="font-black">{item.rawA} (Score {item.scoreA}/100)</span>
+                                </div>
+                                <div className="text-cyan-400 flex items-center justify-between gap-3">
+                                  <span>{stockB.symbol}:</span>
+                                  <span className="font-black">{item.rawB} (Score {item.scoreB}/100)</span>
+                                </div>
+                                <div className="text-[10px] text-slate-400 pt-1 border-t border-slate-800 italic">
+                                  {item.explainer}
+                                </div>
                               </div>
-                              <div className="text-cyan-400 flex items-center justify-between gap-3">
-                                <span>{stockB.symbol}:</span>
-                                <span className="font-black">{item.rawB} (Score {item.scoreB}/100)</span>
-                              </div>
-                              <div className="text-[10px] text-slate-400 pt-1 border-t border-slate-800 italic">
-                                {item.explainer}
-                              </div>
-                            </div>
-                          );
-                        }
-                        return null;
-                      }}
-                    />
-                  </RadarChart>
-                </ResponsiveContainer>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="px-6 text-center text-xs font-semibold text-slate-300">
+                    A radar needs at least three measures both shares have data for, and these two share {radarData.length}. The cards alongside compare what there is.
+                  </p>
+                )}
               </div>
 
               {/* 4 Metric Comparative Cards */}

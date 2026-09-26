@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useSimulator } from '../../../context/SimulatorContext';
 import { ChallengeItem } from '../../../types';
+import { ClassBoard } from '../../../components/ClassBoard';
 
 export function TradingChallengesView() {
   const { notifyUser, currentUser, userXP, orders, totalPnLPercent, completedLessonIds } = useSimulator();
@@ -153,6 +154,9 @@ export function TradingChallengesView() {
 
   return (
     <div className="w-full max-w-7xl mx-auto space-y-6 pb-12 animate-in fade-in duration-200">
+      {/* A class sees itself here, next to the individual challenges. */}
+      <ClassBoard />
+
       {/* Top Banner */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl text-white relative overflow-hidden">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">

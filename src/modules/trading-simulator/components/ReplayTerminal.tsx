@@ -261,13 +261,14 @@ export function ReplayTerminal() {
             <button
               type="button"
               onClick={() => setIsBlindMode(!isBlindMode)}
-              className={`px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-2 border transition-all cursor-pointer ${
+              aria-pressed={isBlindMode}
+              className={`shrink-0 whitespace-nowrap px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-2 border transition-all cursor-pointer ${
                 isBlindMode 
                   ? 'bg-amber-500/20 text-amber-300 border-amber-400/40 hover:bg-amber-500/30' 
                   : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
               }`}
             >
-              {isBlindMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              {isBlindMode ? <EyeOff className="w-4 h-4 shrink-0" /> : <Eye className="w-4 h-4 shrink-0" />}
               <span>{isBlindMode ? 'Blind Mode ON' : 'Blind Mode OFF'}</span>
             </button>
 

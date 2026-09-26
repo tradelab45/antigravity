@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { TrendingUp, TrendingDown, ArrowRight, Sparkles, ExternalLink } from "lucide-react";
 import { cn } from "../../lib/utils";
-import { ShareBoxAreaChart } from "./area-charts-2";
+import { ShareBoxAreaChart } from "./share-box-area-chart";
 
 export interface StackCardItem {
   id: string;

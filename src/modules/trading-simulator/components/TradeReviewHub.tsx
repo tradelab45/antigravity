@@ -939,7 +939,7 @@ export function TradeReviewHub({ initialTab = 'DNA' }: { initialTab?: 'HISTORY' 
                 <button
                   type="button"
                   onClick={() => { setProductFilter('MIS'); }}
-                  className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/20 transition-all cursor-pointer"
+                  className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/20 transition-all cursor-pointer"
                 >
                   ⚡ MIS Intraday (5x)
                 </button>
