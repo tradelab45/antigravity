@@ -76,7 +76,7 @@ OTP_WEBHOOK_URL=""
 | `ADMIN_EXPORT_TOKEN` | Recommended for exports | Protects administrative export routes. |
 | `ADMIN_PASSKEY` | **Yes, to use the admin console** | The only credential the admin routes accept. Unset means every admin route is closed. |
 | `DEMO_ACCOUNT_PASSWORD` | No | Password for the seeded demo account. Unset means a random one per process, so the account cannot be signed into. |
-| `SESSION_SECRET` | Recommended | Signs the session cookie, 32 characters or more. Unset means a random secret per boot, so a restart signs everyone out. |
+| `SESSION_SECRET` | Recommended | Signs the session cookie, 32 characters or more. Unset means one is generated on first boot and kept in `data/session-secret`, so sessions last as long as the data directory. |
 | `REQUIRE_LOGIN_OTP` | No | `true` asks for an emailed six-digit code after a password or Google sign-in. Off by default. |
 | `OTP_WEBHOOK_URL` | Yes, if the above is on | Receives `{ email, code, expiresAt }` and sends the mail. Without it, sign-in fails closed rather than skipping the code. |
 | `OTP_WEBHOOK_TOKEN` | No | Sent as `Authorization: Bearer …` on that call. |
