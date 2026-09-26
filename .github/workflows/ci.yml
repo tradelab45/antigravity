@@ -47,5 +47,5 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Contrast audit
-        run: npm run test:contrast
+      - name: Contrast and dialog checks
+        run: npm run test:visual

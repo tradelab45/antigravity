@@ -17,6 +17,7 @@ import {
 import { useSimulator } from '../../../context/SimulatorContext';
 import { StockDetail } from '../../../types';
 import { formatINR, formatIndianShort } from '../../../utils/formatters';
+import { useModalDialog } from '../../../hooks/useModalDialog';
 
 export interface ThematicBasket {
   id: string;
@@ -148,6 +149,12 @@ export const ThematicBasketsModal: React.FC<ThematicBasketsModalProps> = ({
     }
   }, [initialBasket, controlledBasket]);
 
+  const { ref: dialogRef, dialogProps } = useModalDialog({
+    onClose,
+    open: isOpen,
+    label: 'Thematic baskets',
+  });
+
   if (!isOpen) return null;
 
   // Resolve constituent stocks
@@ -196,6 +203,8 @@ export const ThematicBasketsModal: React.FC<ThematicBasketsModalProps> = ({
 
   return (
     <div 
+      ref={dialogRef}
+      {...dialogProps}
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-200"
       onClick={onClose}
     >

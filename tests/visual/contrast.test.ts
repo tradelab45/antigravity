@@ -155,6 +155,26 @@ test('the landing page has readable text', { timeout: 120_000 }, async () => {
   page.on('pageerror', (error) => pageErrors.push(error.message));
 
   try {
+    // The preview server serves the built bundle with no API behind it, so
+    // the index bar would collapse to nothing and go unmeasured. A stub keeps
+    // it on screen, with one index up and one down so both colours are read.
+    await page.route('**/api/market/summary', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          indices: {
+            nifty50: { name: 'NIFTY 50', value: 24219.05, change: -32.95, changePercent: -0.14 },
+            sensex: { name: 'BSE SENSEX', value: 77369.11, change: -171.72, changePercent: -0.22 },
+            niftyBank: { name: 'NIFTY BANK', value: 51450.2, change: -145.2, changePercent: -0.28 },
+            niftyIT: { name: 'NIFTY IT', value: 35210.15, change: 84.1, changePercent: 0.24 },
+          },
+          marketBreadth: { advances: 63, declines: 37, total: 100 },
+          news: [],
+        }),
+      }),
+    );
+
     // Deliberately unseeded: no user, so the landing page renders.
     await page.goto(`${baseUrl}/`, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('.rr-landing', { timeout: 20000 });

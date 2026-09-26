@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { formatINR, formatPercent, formatIndianShort, formatNumberIndian } from '../../../utils/formatters';
 import { Holding, Order, StockDetail } from '../../../types';
+import { useModalDialog } from '../../../hooks/useModalDialog';
 
 interface PortfolioReportModalProps {
   isOpen: boolean;
@@ -108,6 +109,12 @@ export const PortfolioReportModal: React.FC<PortfolioReportModalProps> = ({
       minute: '2-digit'
     });
   }, []);
+
+  const { ref: dialogRef, dialogProps } = useModalDialog({
+    onClose,
+    open: isOpen,
+    label: 'Portfolio report',
+  });
 
   if (!isOpen) return null;
 
@@ -238,7 +245,7 @@ export const PortfolioReportModal: React.FC<PortfolioReportModalProps> = ({
   const isProfit = totalPnL >= 0;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+    <div ref={dialogRef} {...dialogProps} className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
       <div className="bg-white border border-slate-200 rounded-3xl max-w-4xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
         
         {/* Modal Header */}
