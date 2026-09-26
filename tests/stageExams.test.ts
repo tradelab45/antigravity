@@ -1,6 +1,20 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { STAGE_EXAMS, EXAM_LENGTH, EXAM_PASS_MARK, EXAM_ATTEMPT_HISTORY, EXAM_SEEN_MEMORY, getStageExam, buildExamAttempt, type ExamAttempt } from '../src/data/stageExams';
+import {
+  STAGE_EXAMS,
+  EXAM_LENGTH,
+  EXAM_PASS_MARK,
+  EXAM_ATTEMPT_HISTORY,
+  REST_PAPERS_AFTER_CORRECT,
+  REST_PAPERS_AFTER_WRONG,
+  REVIEW_SHARE,
+  emptyExamMemory,
+  memoryFromSeenIds,
+  recordPaper,
+  getStageExam,
+  buildExamAttempt,
+  type ExamAttempt,
+} from '../src/data/stageExams';
 
 test('every stage has a bank larger than one paper', () => {
   assert.equal(STAGE_EXAMS.length, 6);
@@ -153,7 +167,7 @@ test('a retake avoids the questions the last paper served', () => {
   const first = buildExamAttempt(exam);
   const firstIds = first.map((question) => question.id);
 
-  const second = buildExamAttempt(exam, Math.random, firstIds);
+  const second = buildExamAttempt(exam, Math.random, memoryFromSeenIds(firstIds));
   const overlap = second.filter((question) => firstIds.includes(question.id));
 
   // The bank holds 36 and a paper asks 20, so 16 are fresh and only the
@@ -169,7 +183,7 @@ test('a retake avoids the questions the last paper served', () => {
 test('a paper is still full once every question has been seen', () => {
   const exam = STAGE_EXAMS[1];
   const allIds = exam.questions.map((question) => question.id);
-  const paper = buildExamAttempt(exam, Math.random, allIds);
+  const paper = buildExamAttempt(exam, Math.random, memoryFromSeenIds(allIds));
   assert.equal(paper.length, EXAM_LENGTH, 'an exhausted pool must not shorten the paper');
 });
 
@@ -192,15 +206,116 @@ test('no paper serves the same question twice', () => {
   }
 });
 
-test('the seen memory is smaller than every bank', () => {
-  // Remembering a whole bank would leave no unseen pool and silently return
-  // the learner to repeats.
+test('a rested bank always has enough questions left for a full paper', () => {
+  // A paper drawn entirely from questions answered correctly last time still
+  // has to be full: the rest period may not shorten the exam.
   for (const exam of STAGE_EXAMS) {
-    assert.ok(
-      EXAM_SEEN_MEMORY < exam.questions.length,
-      `${exam.stageId} has ${exam.questions.length} questions but the memory holds ${EXAM_SEEN_MEMORY}`,
-    );
+    const everything = exam.questions.map((question) => ({ id: question.id, correct: true }));
+    const memory = recordPaper(emptyExamMemory(), everything);
+    assert.equal(buildExamAttempt(exam, Math.random, memory).length, EXAM_LENGTH, exam.stageId);
   }
+});
+
+test('a question answered wrongly comes back on the next paper', () => {
+  const exam = STAGE_EXAMS[0];
+  const first = buildExamAttempt(exam);
+  const missed = first.slice(0, 4).map((question) => question.id);
+
+  const memory = recordPaper(
+    emptyExamMemory(),
+    first.map((question) => ({ id: question.id, correct: !missed.includes(question.id) })),
+  );
+
+  const second = buildExamAttempt(exam, Math.random, memory).map((question) => question.id);
+  for (const id of missed) {
+    assert.ok(second.includes(id), `${id} was answered wrongly and should be asked again`);
+  }
+});
+
+test('a question answered correctly rests while wrong ones return', () => {
+  const exam = STAGE_EXAMS[0];
+  const first = buildExamAttempt(exam);
+  const wrongId = first[0].id;
+
+  const memory = recordPaper(
+    emptyExamMemory(),
+    first.map((question) => ({ id: question.id, correct: question.id !== wrongId })),
+  );
+
+  const second = buildExamAttempt(exam, Math.random, memory).map((question) => question.id);
+  const restedAndReturned = first
+    .slice(1)
+    .filter((question) => second.includes(question.id));
+
+  // A paper is always full, so once the unseen pool is spent the rested
+  // questions fill the rest — but only that many, and only after them.
+  const unseenAvailable = exam.questions.length - first.length;
+  const shortfall = Math.max(0, EXAM_LENGTH - 1 - unseenAvailable);
+
+  assert.ok(second.includes(wrongId), 'the wrong one is back');
+  assert.equal(
+    restedAndReturned.length,
+    shortfall,
+    'nothing answered correctly returns while an unseen question could take its place',
+  );
+});
+
+test('review never takes more than half the paper', () => {
+  const exam = STAGE_EXAMS[0];
+  // A paper where everything was wrong: the next one still has to teach.
+  const first = buildExamAttempt(exam);
+  const memory = recordPaper(
+    emptyExamMemory(),
+    first.map((question) => ({ id: question.id, correct: false })),
+  );
+
+  const second = buildExamAttempt(exam, Math.random, memory);
+  const repeated = second.filter((question) =>
+    first.some((earlier) => earlier.id === question.id),
+  );
+
+  assert.ok(
+    repeated.length <= Math.floor(EXAM_LENGTH * REVIEW_SHARE),
+    `a wholly failed paper brought back ${repeated.length} of ${EXAM_LENGTH}`,
+  );
+  assert.ok(repeated.length > 0, 'and it does bring some back');
+});
+
+test('a correct answer rests for three papers, not forever', () => {
+  const exam = STAGE_EXAMS[0];
+  const id = exam.questions[0].id;
+
+  let memory = recordPaper(emptyExamMemory(), [{ id, correct: true }]);
+  assert.equal(memory.papers, 1);
+  assert.equal(memory.questions[id].correct, true);
+
+  // Two more papers pass without it.
+  memory = recordPaper(memory, []);
+  memory = recordPaper(memory, []);
+  assert.equal(memory.papers, REST_PAPERS_AFTER_CORRECT);
+
+  const drawn = buildExamAttempt(
+    { ...exam, questions: [exam.questions[0]] },
+    Math.random,
+    memory,
+  );
+  assert.equal(drawn[0].id, id, 'once rested it is eligible again');
+});
+
+test('a paper that was never submitted changes nothing', () => {
+  const memory = emptyExamMemory();
+  assert.equal(memory.papers, 0);
+  assert.deepEqual(memory.questions, {}, 'only a graded paper is recorded');
+  assert.equal(REST_PAPERS_AFTER_WRONG, 1);
+});
+
+test('an unknown result is ignored rather than stored as a question', () => {
+  const memory = recordPaper(emptyExamMemory(), [
+    { id: 'ex-b-1', correct: false },
+    null as any,
+    { id: 42 as any, correct: true },
+  ]);
+  assert.deepEqual(Object.keys(memory.questions), ['ex-b-1']);
 });
 
 test('no bank asks the same question twice', () => {
