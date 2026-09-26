@@ -5,12 +5,12 @@ import {
   ShieldCheck, Sparkles, Pause, Play, TrendingUp, TrendingDown,
   Compass, CheckCircle2, Zap, BarChart3, Layers, Award, Activity
 } from 'lucide-react';
-import { useAccessibility } from '../modules/accessibility/context/AccessibilityContext';
-import { useSimulator } from '../context/SimulatorContext';
-import type { AppTabType } from './Header';
+import { useAccessibility } from '../../accessibility/context/AccessibilityContext';
+import { useSimulator } from '../../../context/SimulatorContext';
+import type { AppTabType } from '../../../components/Header';
 import './landing-3d.css';
-import { MetalButton } from './ui/liquid-glass-button';
-import { GlowCard, SpotlightCard } from './ui/spotlight-card';
+import { MetalButton } from '../../../components/ui/liquid-glass-button';
+import { GlowCard, SpotlightCard } from '../../../components/ui/spotlight-card';
 import { MotionFooter } from './MotionFooter';
 import { LandingHeroPreview } from './LandingHeroPreview';
 

@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
 import { motion } from 'motion/react';
 import { BookOpen, Check, ReceiptIndianRupee, Wallet } from 'lucide-react';
-import { estimateTradeCharges } from '../utils/tradeCharges';
-import { LEARNING_PATH } from '../data/learningPath';
+import { estimateTradeCharges } from '../../../utils/tradeCharges';
+import { LEARNING_PATH } from '../../../data/learningPath';
 
 export interface PreviewShare {
   symbol: string;
