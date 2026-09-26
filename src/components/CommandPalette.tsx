@@ -23,6 +23,7 @@ import {
 import type { StockDetail } from '../types';
 import type { AppTabType } from './Header';
 import { CLIENT_KEYWORD_MAP } from '../modules/screener/constants/marketKeywords';
+import { useModalDialog } from '../hooks/useModalDialog';
 
 interface CommandPaletteProps {
   stocks: StockDetail[];
@@ -123,14 +124,24 @@ export function CommandPalette({ stocks, onNavigate, onSelectStock }: CommandPal
 
   const close = () => setOpen(false);
 
+  // Tab used to walk out of the palette and into the header behind it. The
+  // hook keeps it inside and stops the page scrolling underneath; Escape and
+  // the search field's own focus are handled above.
+  const { ref: dialogRef, dialogProps } = useModalDialog({
+    onClose: close,
+    open,
+    label: 'Search Dalal Street & RupeeRookie',
+    closeOnEscape: false,
+    autoFocus: false,
+  });
+
   return (
     <>
       {open && (
         <div 
+          ref={dialogRef}
+          {...dialogProps}
           className="fixed inset-0 z-[120] flex items-start justify-center px-3 pt-[7vh] sm:pt-[10vh] animate-in fade-in duration-150" 
-          role="dialog" 
-          aria-modal="true" 
-          aria-label="Search Dalal Street & RupeeRookie"
         >
           {/* Frosted Outside Backdrop */}
           <button 
