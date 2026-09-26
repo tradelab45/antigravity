@@ -3,7 +3,7 @@ import { ArrowRight, BookOpen } from 'lucide-react';
 import { INITIAL_LESSONS } from '../data/lessonsData';
 import { localizeLesson } from '../data/hindiLessons';
 import { readResume } from '../utils/academyProgress';
-import { useAccessibility } from '../../../context/AccessibilityContext';
+import { useAccessibility } from '../../accessibility/context/AccessibilityContext';
 
 export function ResumeLearning({ userId, onResume }: { userId?: string; onResume: () => void }) {
   const { settings } = useAccessibility();

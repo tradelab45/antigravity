@@ -25,10 +25,96 @@ export interface StageExam {
 }
 
 /** Questions a learner must get right to pass, out of twenty. */
+/** One submitted paper: the score and when it was submitted. */
+export interface ExamAttempt {
+  score: number;
+  /** Epoch milliseconds. */
+  at: number;
+}
+
+/** How many attempts are kept per stage, newest first. */
+export const EXAM_ATTEMPT_HISTORY = 12;
+
 export const EXAM_PASS_MARK = 14;
 
 /** How many questions each stage exam asks. */
 export const EXAM_LENGTH = 20;
+
+/**
+ * How many papers a question rests for after it was answered correctly.
+ *
+ * Three, so a question a learner has shown they know does not crowd out the
+ * material they have not met yet.
+ */
+export const REST_PAPERS_AFTER_CORRECT = 3;
+
+/**
+ * How many papers a question rests for after it was answered wrongly.
+ *
+ * One, meaning it is back on the very next paper. A question you got wrong is
+ * the one worth asking again, and the rotation used to treat it exactly like
+ * one you aced: both were suppressed for the same stretch, so the fastest way
+ * to stop meeting a question you did not understand was to get it wrong.
+ */
+export const REST_PAPERS_AFTER_WRONG = 1;
+
+/**
+ * The most of a paper that may be review of previously wrong answers.
+ *
+ * Half. Without a ceiling a learner who failed badly would be drilled on the
+ * same wrong answers and never shown the rest of the bank.
+ */
+export const REVIEW_SHARE = 0.5;
+
+/**
+ * What a learner's history with one stage's questions looks like.
+ *
+ * `papers` counts the papers submitted for the stage, and each question
+ * records the paper it last appeared on and whether it was answered
+ * correctly. Papers rather than clock time: a learner who retakes three times
+ * in an evening has genuinely revisited the material three times, and one who
+ * comes back a month later has not done anything in between.
+ */
+export interface ExamMemory {
+  papers: number;
+  questions: Record<string, { paper: number; correct: boolean }>;
+}
+
+export const emptyExamMemory = (): ExamMemory => ({ papers: 0, questions: {} });
+
+/**
+ * Reads the older store, which remembered only which ids had been served.
+ *
+ * Those are treated as answered correctly on the paper before this one, which
+ * is the conservative reading: it rests them, exactly as the old memory did,
+ * rather than pulling them all back immediately.
+ */
+export const memoryFromSeenIds = (ids: string[]): ExamMemory => ({
+  papers: 1,
+  questions: Object.fromEntries(ids.map((id) => [id, { paper: 0, correct: true }])),
+});
+
+/** One question's result, as the paper is graded. */
+export interface QuestionResult {
+  id: string;
+  correct: boolean;
+}
+
+/**
+ * Files a submitted paper against the stage's memory.
+ *
+ * Only a submitted paper counts. A learner who opens an exam and walks away
+ * has not been tested on anything, and should meet the same questions when
+ * they come back.
+ */
+export const recordPaper = (memory: ExamMemory, results: QuestionResult[]): ExamMemory => {
+  const questions = { ...memory.questions };
+  for (const result of results) {
+    if (!result || typeof result.id !== 'string') continue;
+    questions[result.id] = { paper: memory.papers, correct: Boolean(result.correct) };
+  }
+  return { papers: memory.papers + 1, questions };
+};
 
 const beginner: ExamQuestion[] = [
   {
@@ -245,6 +331,178 @@ const beginner: ExamQuestion[] = [
     ],
     correctIndex: 1,
     explanation: 'Understanding the revenue source comes before any number. A ratio on a business you cannot describe is not information.',
+  },
+  {
+    id: 'ex-b-21',
+    question: 'What is the main difference between the NSE and the BSE?',
+    options: [
+      'They are two separate exchanges a company can be listed on',
+      'One trades shares and the other trades only bonds',
+      'One is for Indian investors and the other for foreign investors',
+      'One is regulated by SEBI and the other is not',
+    ],
+    correctIndex: 0,
+    explanation: 'Both are stock exchanges regulated by SEBI. A large company is usually listed on both, and its price on each is very close.',
+  },
+  {
+    id: 'ex-b-22',
+    question: 'What does a stock exchange actually do?',
+    options: [
+      'It decides what each share is worth',
+      'It matches buyers with sellers and records the trade',
+      'It lends money to companies that need it',
+      'It guarantees that share prices rise over time',
+    ],
+    correctIndex: 1,
+    explanation: 'An exchange is a marketplace. It matches orders and settles them; the price comes from what buyers and sellers agree to.',
+  },
+  {
+    id: 'ex-b-23',
+    question: 'Who regulates the securities market in India?',
+    options: ['The RBI', 'SEBI', 'The NSE', 'The Ministry of Finance directly'],
+    correctIndex: 1,
+    explanation: 'SEBI, the Securities and Exchange Board of India, is the regulator. The RBI regulates banking and monetary policy.',
+  },
+  {
+    id: 'ex-b-24',
+    question: 'What is a demat account for?',
+    options: [
+      'Holding your shares in electronic form',
+      'Holding the cash you use to buy shares',
+      'Recording how much tax you owe',
+      'Borrowing money against your shares',
+    ],
+    correctIndex: 0,
+    explanation: 'A demat account holds shares electronically. The cash sits in your linked bank account, and the broker connects the two.',
+  },
+  {
+    id: 'ex-b-25',
+    question: 'What is an IPO?',
+    options: [
+      'The first time a company offers its shares to the public',
+      'A company buying back its own shares',
+      'A bonus issue of free shares to existing holders',
+      'A company being removed from the exchange',
+    ],
+    correctIndex: 0,
+    explanation: 'An Initial Public Offering is the first sale of shares to the public, after which the shares trade on an exchange.',
+  },
+  {
+    id: 'ex-b-26',
+    question: 'A share trades at ₹500 and pays a ₹10 dividend a year. What is its dividend yield?',
+    options: ['2%', '5%', '10%', '50%'],
+    correctIndex: 0,
+    explanation: 'Dividend yield is the yearly dividend divided by the share price: ₹10 ÷ ₹500 = 2%.',
+  },
+  {
+    id: 'ex-b-27',
+    question: 'What is the bid price?',
+    options: [
+      'The highest price a buyer is currently willing to pay',
+      'The lowest price a seller is currently willing to accept',
+      'The price of the last trade that happened',
+      'The price the company set at its IPO',
+    ],
+    correctIndex: 0,
+    explanation: 'The bid is the best buying price on offer, the ask is the best selling price, and the gap between them is the spread.',
+  },
+  {
+    id: 'ex-b-28',
+    question: 'What is a market order?',
+    options: [
+      'An order to buy or sell at whatever the current price is',
+      'An order that only fills at a price you name',
+      'An order that fills only at the market close',
+      'An order that cancels itself after a day',
+    ],
+    correctIndex: 0,
+    explanation: 'A market order prioritises getting filled over getting a price. A limit order does the opposite.',
+  },
+  {
+    id: 'ex-b-29',
+    question: 'You place a limit order to buy at ₹100 and the stock never trades below ₹104. What happens?',
+    options: [
+      'The order does not fill',
+      'It fills at ₹104 anyway',
+      'It fills at ₹100 at the end of the day',
+      'The broker fills it and charges you the difference',
+    ],
+    correctIndex: 0,
+    explanation: 'A limit order sets the worst price you will accept. If the market never reaches it, it simply does not execute.',
+  },
+  {
+    id: 'ex-b-30',
+    question: 'What does NIFTY 50 track?',
+    options: [
+      'The 50 largest companies by market value on the NSE',
+      'The 50 most traded companies on the BSE',
+      'The 50 newest companies to list in India',
+      'The 50 companies that paid the highest dividends',
+    ],
+    correctIndex: 0,
+    explanation: 'NIFTY 50 is an index of 50 large, liquid NSE-listed companies, used as a benchmark for the Indian market.',
+  },
+  {
+    id: 'ex-b-31',
+    question: 'A company has 20 crore shares outstanding, each trading at ₹150. What is its market capitalisation?',
+    options: ['₹3,000 crore', '₹170 crore', '₹150 crore', '₹20 crore'],
+    correctIndex: 0,
+    explanation: 'Market cap is shares outstanding times the share price: 20 crore × ₹150 = ₹3,000 crore.',
+  },
+  {
+    id: 'ex-b-32',
+    question: 'Company A trades at ₹50 and Company B at ₹5,000. Which is the bigger company?',
+    options: [
+      'Company B, because its share price is higher',
+      'Company A, because more people can afford its shares',
+      'You cannot tell without knowing how many shares each has issued',
+      'They must be the same size',
+    ],
+    correctIndex: 2,
+    explanation: 'Share price on its own says nothing about size. Size is price times share count, which is market capitalisation.',
+  },
+  {
+    id: 'ex-b-33',
+    question: 'What are NSE trading hours for the normal equity session?',
+    options: ['09:15 to 15:30 IST', '09:00 to 17:00 IST', '10:00 to 16:00 IST', '08:00 to 14:00 IST'],
+    correctIndex: 0,
+    explanation: 'The normal session runs 09:15 to 15:30 IST on weekdays, with a pre-open window before it.',
+  },
+  {
+    id: 'ex-b-34',
+    question: 'What is a circuit limit on a stock?',
+    options: [
+      'A price band beyond which trading in that stock is paused',
+      'The maximum number of shares one person may own',
+      'The broker’s limit on how much you can spend in a day',
+      'The minimum price a share is allowed to reach',
+    ],
+    correctIndex: 0,
+    explanation: 'Circuit limits cap how far a price can move in a session. They exist to slow panic and give information time to spread.',
+  },
+  {
+    id: 'ex-b-35',
+    question: 'Why is a company’s share price different from its book value per share?',
+    options: [
+      'Price reflects what buyers expect in future; book value records what the accounts say now',
+      'Book value is always wrong',
+      'Price includes tax and book value does not',
+      'They are the same thing measured in different currencies',
+    ],
+    correctIndex: 0,
+    explanation: 'Book value is an accounting figure of assets less liabilities. Price is a forward-looking opinion, so the two rarely match.',
+  },
+  {
+    id: 'ex-b-36',
+    question: 'What does it mean that a share is "liquid"?',
+    options: [
+      'It can be bought or sold quickly without moving the price much',
+      'The company holds a lot of cash',
+      'The share pays a dividend every month',
+      'The price changes very little from day to day',
+    ],
+    correctIndex: 0,
+    explanation: 'Liquidity is about how easily you can get in and out. An illiquid share may be hard to sell without accepting a worse price.',
   },
 ];
 
@@ -468,6 +726,193 @@ const explorer: ExamQuestion[] = [
     ],
     correctIndex: 1,
     explanation: 'History is evidence about a business and a market, not a forecast of returns.',
+  },
+  {
+    id: 'ex-e-21',
+    question: 'What does average daily traded volume tell you about a share?',
+    options: [
+      'How easily you could buy or sell a meaningful quantity',
+      'Whether the share is cheap or expensive',
+      'How much profit the company made',
+      'Whether the price will rise tomorrow',
+    ],
+    correctIndex: 0,
+    explanation: 'Volume is an indication of liquidity, not of value or direction. Thin volume makes getting out harder than getting in.',
+  },
+  {
+    id: 'ex-e-22',
+    question: 'What is a stock split?',
+    options: [
+      'Each share is divided into more shares, with the price adjusted down to match',
+      'The company sells off one of its divisions',
+      'Shareholders are paid a special dividend',
+      'The company is removed from the index',
+    ],
+    correctIndex: 0,
+    explanation: 'A split changes the share count and the price together. The value of your holding does not change at the moment of the split.',
+  },
+  {
+    id: 'ex-e-23',
+    question: 'A company announces a 1:1 bonus issue. What happens to your holding?',
+    options: [
+      'Your share count doubles and the price roughly halves',
+      'Your share count doubles and the price stays the same',
+      'You receive a cash payment equal to your holding',
+      'Nothing changes at all',
+    ],
+    correctIndex: 0,
+    explanation: 'A bonus issue capitalises reserves into new shares. You hold more shares of a proportionally smaller slice each.',
+  },
+  {
+    id: 'ex-e-24',
+    question: 'What does a sector index such as NIFTY IT let you see?',
+    options: [
+      'How one part of the market is moving compared with the whole',
+      'Which individual stock will perform best next quarter',
+      'The total profit of every IT company in India',
+      'How much foreign money entered the market',
+    ],
+    correctIndex: 0,
+    explanation: 'Sector indices let you separate a move in one industry from a move in the market as a whole.',
+  },
+  {
+    id: 'ex-e-25',
+    question: 'The whole market falls 3% and your stock falls 3%. What does that suggest?',
+    options: [
+      'The fall may be market-wide rather than about this company',
+      'The company must have released bad news',
+      'The stock is now cheap',
+      'The stock has low volatility',
+    ],
+    correctIndex: 0,
+    explanation: 'Separating market moves from company moves is the first question to ask before reacting to a fall.',
+  },
+  {
+    id: 'ex-e-26',
+    question: 'What is beta, roughly?',
+    options: [
+      'How much a stock tends to move relative to the market',
+      'How much profit a company makes per share',
+      'The dividend as a percentage of the price',
+      'How long a company has been listed',
+    ],
+    correctIndex: 0,
+    explanation: 'A beta above one has historically moved more than the market, below one less. It describes the past, not a promise.',
+  },
+  {
+    id: 'ex-e-27',
+    question: 'What is dividend yield?',
+    options: [
+      'The annual dividend divided by the current share price',
+      'The total dividend the company has ever paid',
+      'The profit per share',
+      'The rise in the share price over a year',
+    ],
+    correctIndex: 0,
+    explanation: 'Yield moves with price. A yield that looks unusually high is often a price that has fallen sharply, not generosity.',
+  },
+  {
+    id: 'ex-e-28',
+    question: 'What is a SIP?',
+    options: [
+      'Investing a fixed amount at regular intervals',
+      'Buying a large amount at the market low',
+      'A loan taken to buy shares',
+      'A tax-saving deposit with a bank',
+    ],
+    correctIndex: 0,
+    explanation: 'A Systematic Investment Plan buys at regular intervals regardless of price, which removes the need to time entries.',
+  },
+  {
+    id: 'ex-e-29',
+    question: 'Why does investing a fixed amount each month buy more units when prices fall?',
+    options: [
+      'Because the same money buys more when each unit costs less',
+      'Because the fund gives a discount in bad months',
+      'Because dividends are higher when prices fall',
+      'It does not — you always buy the same number of units',
+    ],
+    correctIndex: 0,
+    explanation: 'This is rupee cost averaging: a fixed amount buys more units cheaply and fewer when they are dear.',
+  },
+  {
+    id: 'ex-e-30',
+    question: 'Over ten years, which matters more to a compounded result?',
+    options: [
+      'Staying invested through the whole period',
+      'Picking the exact best day to enter',
+      'Checking the price every day',
+      'Trading as often as possible',
+    ],
+    correctIndex: 0,
+    explanation: 'Compounding needs time. Missing a handful of the strongest days by being out of the market has historically cost a great deal.',
+  },
+  {
+    id: 'ex-e-31',
+    question: 'What is an index fund?',
+    options: [
+      'A fund that simply holds the constituents of an index',
+      'A fund that picks the best stocks each month',
+      'A fund that only invests when the market is cheap',
+      'A fund guaranteed to beat the market',
+    ],
+    correctIndex: 0,
+    explanation: 'An index fund tracks rather than selects, which is why its costs are usually much lower than an actively managed fund.',
+  },
+  {
+    id: 'ex-e-32',
+    question: 'Why does a fund’s expense ratio matter over long periods?',
+    options: [
+      'It is deducted every year and compounds against you',
+      'It is charged once when you buy',
+      'It only applies if the fund loses money',
+      'It is refunded if the fund underperforms',
+    ],
+    correctIndex: 0,
+    explanation: 'A 1% annual charge is not 1% of your final result. It is 1% taken every year, compounding against your returns.',
+  },
+  {
+    id: 'ex-e-33',
+    question: 'A share is down 50% from its high. How much must it rise to get back to that high?',
+    options: ['50%', '75%', '100%', '150%'],
+    correctIndex: 2,
+    explanation: 'Falling from 100 to 50 is a 50% loss, but 50 back to 100 is a 100% gain. Losses need larger gains to undo.',
+  },
+  {
+    id: 'ex-e-34',
+    question: 'What is a trading range?',
+    options: [
+      'A band between a support level and a resistance level where price has been moving',
+      'The difference between the bid and the ask',
+      'The maximum a broker will let you trade',
+      'The gap between the open and the close',
+    ],
+    correctIndex: 0,
+    explanation: 'A range describes where price has been repeatedly turning back. It describes the past and can break at any time.',
+  },
+  {
+    id: 'ex-e-35',
+    question: 'What does "past performance is not indicative of future results" mean in practice?',
+    options: [
+      'A strong recent run tells you little about what happens next',
+      'Past returns are always reversed in the future',
+      'Historical data should never be looked at',
+      'Only companies with poor records are worth buying',
+    ],
+    correctIndex: 0,
+    explanation: 'History informs your understanding of a business and its volatility. It does not forecast the next period’s return.',
+  },
+  {
+    id: 'ex-e-36',
+    question: 'Two investors earn the same 12% average, but one’s returns swing wildly. What differs?',
+    options: [
+      'The volatile path is harder to hold through, and withdrawals along it hurt more',
+      'Nothing at all, the outcome is identical',
+      'The volatile one always ends with more money',
+      'The steady one pays more tax',
+    ],
+    correctIndex: 0,
+    explanation: 'The same average can come from very different paths. Volatility matters for what you can stick with and for money taken out along the way.',
   },
 ];
 
@@ -707,6 +1152,193 @@ const builder: ExamQuestion[] = [
     correctIndex: 1,
     explanation: 'A market order buys certainty of a fill at the cost of price control.',
   },
+  {
+    id: 'ex-bu-21',
+    question: 'You hold five stocks, all banks. How diversified are you?',
+    options: [
+      'Barely — one regulatory or rate shock hits all five together',
+      'Very, because five is more than one',
+      'Fully, because they are different companies',
+      'It depends only on how much money is in each',
+    ],
+    correctIndex: 0,
+    explanation: 'Diversification is about uncorrelated risks, not company count. Five names in one sector share most of the same risks.',
+  },
+  {
+    id: 'ex-bu-22',
+    question: 'What is correlation between two holdings?',
+    options: [
+      'How much they tend to move together',
+      'How much profit each makes',
+      'How long you have held each',
+      'The difference in their share prices',
+    ],
+    correctIndex: 0,
+    explanation: 'Adding a holding that moves with everything you already own adds little diversification, however good the business is.',
+  },
+  {
+    id: 'ex-bu-23',
+    question: 'What is position sizing?',
+    options: [
+      'Deciding how much of your capital a single idea may risk',
+      'Deciding which stock to buy',
+      'Deciding when to sell',
+      'Deciding how many different stocks to hold',
+    ],
+    correctIndex: 0,
+    explanation: 'Sizing decides how much a wrong answer costs. It is the part of risk you control completely.',
+  },
+  {
+    id: 'ex-bu-24',
+    question: 'You risk 2% of a ₹1,00,000 portfolio on a trade with a stop 10% below entry. Roughly what position size does that imply?',
+    options: ['₹20,000', '₹2,000', '₹10,000', '₹50,000'],
+    correctIndex: 0,
+    explanation: 'Risk of ₹2,000 divided by a 10% move gives a ₹20,000 position: size follows from the risk you accept and where you are wrong.',
+  },
+  {
+    id: 'ex-bu-25',
+    question: 'What is a stop-loss meant to do?',
+    options: [
+      'Define in advance where your idea is wrong and cap the loss',
+      'Guarantee you never lose money',
+      'Lock in a profit target',
+      'Prevent the price from falling',
+    ],
+    correctIndex: 0,
+    explanation: 'A stop is a decision made calmly beforehand. It caps a loss; in a gap or a fast market it may fill worse than the level set.',
+  },
+  {
+    id: 'ex-bu-26',
+    question: 'Why can a stop-loss fill below the price you set?',
+    options: [
+      'Because the market can gap past your level without trading at it',
+      'Because brokers charge a penalty',
+      'Because stops are only checked once a day',
+      'It cannot — a stop always fills at the level',
+    ],
+    correctIndex: 0,
+    explanation: 'A stop triggers an order; it does not reserve a price. Overnight news can open the stock well below your level.',
+  },
+  {
+    id: 'ex-bu-27',
+    question: 'What does a moving average show?',
+    options: [
+      'The average closing price over a set number of recent sessions',
+      'The average price the company sold its products for',
+      'The price the stock will move to next',
+      'The average of the day’s high and low',
+    ],
+    correctIndex: 0,
+    explanation: 'A moving average smooths noise to show a trend. It lags by construction and predicts nothing.',
+  },
+  {
+    id: 'ex-bu-28',
+    question: 'What is volume confirming a price move supposed to suggest?',
+    options: [
+      'That more participants were involved in the move',
+      'That the move will certainly continue',
+      'That the company released results',
+      'That the stock is cheap',
+    ],
+    correctIndex: 0,
+    explanation: 'Volume describes participation. A move on thin volume involved fewer people; that is information, not a forecast.',
+  },
+  {
+    id: 'ex-bu-29',
+    question: 'What is support, in chart terms?',
+    options: [
+      'A price area where buying has previously stopped a fall',
+      'A guaranteed floor under the price',
+      'The lowest price of the year',
+      'A level set by the exchange',
+    ],
+    correctIndex: 0,
+    explanation: 'Support is a place where buyers previously appeared. It describes history and is broken regularly.',
+  },
+  {
+    id: 'ex-bu-30',
+    question: 'Why is rebalancing uncomfortable in practice?',
+    options: [
+      'It means selling what has done well and buying what has not',
+      'It always creates a loss',
+      'It is prohibited for retail investors',
+      'It costs more than it can ever return',
+    ],
+    correctIndex: 0,
+    explanation: 'Rebalancing runs against recent performance, which is exactly why it is a rule rather than a judgement call.',
+  },
+  {
+    id: 'ex-bu-31',
+    question: 'What does an emergency fund have to do with investing?',
+    options: [
+      'It stops you having to sell investments at a bad time',
+      'It increases your returns',
+      'It is required before opening a demat account',
+      'It replaces the need to diversify',
+    ],
+    correctIndex: 0,
+    explanation: 'Forced selling is where real damage happens. Cash set aside means the market’s timing does not have to match yours.',
+  },
+  {
+    id: 'ex-bu-32',
+    question: 'What is drawdown?',
+    options: [
+      'The fall from a portfolio’s peak to its lowest point after it',
+      'The amount of cash you have withdrawn',
+      'The annual fee a fund charges',
+      'The difference between your buy and sell price',
+    ],
+    correctIndex: 0,
+    explanation: 'Drawdown measures the worst stretch you would have had to sit through, which is often a better test than the average return.',
+  },
+  {
+    id: 'ex-bu-33',
+    question: 'What is a bracket order?',
+    options: [
+      'An entry with a target and a stop attached to it',
+      'An order split across several brokers',
+      'An order that only fills at the open',
+      'An order for a basket of stocks at once',
+    ],
+    correctIndex: 0,
+    explanation: 'A bracket commits you to both exits at the moment of entry, before the position starts influencing your judgement.',
+  },
+  {
+    id: 'ex-bu-34',
+    question: 'What does CNC mean on an Indian broker’s ticket?',
+    options: [
+      'Cash and Carry — a delivery trade you can hold beyond the day',
+      'A margin trade that must be closed the same day',
+      'An order cancelled at the close',
+      'A trade in a company not on the NSE',
+    ],
+    correctIndex: 0,
+    explanation: 'CNC is delivery: shares go to your demat. MIS is intraday and is squared off before the session ends.',
+  },
+  {
+    id: 'ex-bu-35',
+    question: 'Why does leverage make a small adverse move dangerous?',
+    options: [
+      'Losses are calculated on the full position, not on the margin you put up',
+      'Brokers charge extra interest on losses',
+      'Leverage only magnifies gains',
+      'It forces you to hold overnight',
+    ],
+    correctIndex: 0,
+    explanation: 'Five times leverage means a 20% adverse move wipes out the margin. The gearing works in both directions.',
+  },
+  {
+    id: 'ex-bu-36',
+    question: 'What is the point of writing a trade plan before entering?',
+    options: [
+      'You decide while calm what you will do when you are not',
+      'It guarantees the trade works',
+      'Brokers require one',
+      'It reduces your brokerage charges',
+    ],
+    correctIndex: 0,
+    explanation: 'The plan is made in the only moment you are not holding the position: before you hold it.',
+  },
 ];
 
 const analyst: ExamQuestion[] = [
@@ -934,6 +1566,193 @@ const analyst: ExamQuestion[] = [
     ],
     correctIndex: 1,
     explanation: 'Depreciation is a non-cash charge that allocates an asset’s cost over its useful life.',
+  },
+  {
+    id: 'ex-a-21',
+    question: 'What does the P/E ratio compare?',
+    options: [
+      'The share price against the earnings per share',
+      'The share price against the book value',
+      'Profit against revenue',
+      'Debt against equity',
+    ],
+    correctIndex: 0,
+    explanation: 'P/E says how many rupees the market pays for one rupee of annual earnings. It is a comparison, not a verdict.',
+  },
+  {
+    id: 'ex-a-22',
+    question: 'A company has a P/E of 90. What is the most accurate reading?',
+    options: [
+      'The market expects strong earnings growth, which may or may not arrive',
+      'The company is certainly overpriced',
+      'The company is losing money',
+      'The company pays a high dividend',
+    ],
+    correctIndex: 0,
+    explanation: 'A high multiple is an expectation priced in. It is a statement about the future, and the future can disappoint.',
+  },
+  {
+    id: 'ex-a-23',
+    question: 'Why is comparing P/E across different industries misleading?',
+    options: [
+      'Different industries have different growth rates and capital needs',
+      'P/E is calculated differently in each industry',
+      'Only technology companies report earnings',
+      'P/E is meaningless outside banking',
+    ],
+    correctIndex: 0,
+    explanation: 'A utility and a software company have different normal multiples. Compare like with like, or the ratio tells you nothing.',
+  },
+  {
+    id: 'ex-a-24',
+    question: 'What does the cash flow statement show that the income statement does not?',
+    options: [
+      'Cash actually moving in and out, rather than accounting profit',
+      'The company’s total assets',
+      'The number of employees',
+      'The share price history',
+    ],
+    correctIndex: 0,
+    explanation: 'Profit is an opinion shaped by accounting choices; cash is a fact. A profitable company can still run out of cash.',
+  },
+  {
+    id: 'ex-a-25',
+    question: 'What does return on equity measure?',
+    options: [
+      'Profit generated per rupee of shareholder capital',
+      'The dividend paid per share',
+      'The rise in the share price this year',
+      'Revenue divided by the number of shares',
+    ],
+    correctIndex: 0,
+    explanation: 'ROE measures how efficiently a business turns owners’ capital into profit. Heavy borrowing can flatter it.',
+  },
+  {
+    id: 'ex-a-26',
+    question: 'Why can a high ROE be misleading on its own?',
+    options: [
+      'It can be produced by heavy debt rather than a good business',
+      'It is always an accounting error',
+      'It only applies to banks',
+      'It ignores revenue entirely',
+    ],
+    correctIndex: 0,
+    explanation: 'Equity is the denominator. Borrowing shrinks it, so leverage alone can lift ROE without the business improving.',
+  },
+  {
+    id: 'ex-a-27',
+    question: 'What does the debt-to-equity ratio tell you?',
+    options: [
+      'How much of the business is funded by borrowing rather than by owners',
+      'How much interest the company pays',
+      'Whether the company is profitable',
+      'How liquid the company’s shares are',
+    ],
+    correctIndex: 0,
+    explanation: 'Debt amplifies outcomes both ways and must be serviced whether or not the business has a good year.',
+  },
+  {
+    id: 'ex-a-28',
+    question: 'A company’s operating cash flow is ₹500 crore and it spends ₹350 crore on new plant and equipment. What is its free cash flow?',
+    options: ['₹150 crore', '₹850 crore', '₹500 crore', '₹350 crore'],
+    correctIndex: 0,
+    explanation: 'Free cash flow is operating cash flow less capital expenditure: ₹500 crore − ₹350 crore = ₹150 crore.',
+  },
+  {
+    id: 'ex-a-29',
+    question: 'What is a company’s operating margin?',
+    options: [
+      'Operating profit as a percentage of revenue',
+      'Net profit divided by total assets',
+      'Revenue growth year on year',
+      'The gap between the bid and the ask',
+    ],
+    correctIndex: 0,
+    explanation: 'Margin shows how much of each rupee of sales survives the cost of running the business.',
+  },
+  {
+    id: 'ex-a-30',
+    question: 'Revenue grew 30% but operating margin fell from 20% to 12%. What does that suggest?',
+    options: [
+      'Growth is costing more than it used to',
+      'The company is certainly in trouble',
+      'Revenue must have been misreported',
+      'The share price will fall',
+    ],
+    correctIndex: 0,
+    explanation: 'Growth bought at a falling margin is a different story from growth at a stable one. The question is whether it is investment or pressure.',
+  },
+  {
+    id: 'ex-a-31',
+    question: 'What is CAGR?',
+    options: [
+      'The constant annual rate that would produce the observed total growth',
+      'The average of each year’s returns',
+      'The best year in the period',
+      'The return after tax and inflation',
+    ],
+    correctIndex: 0,
+    explanation: 'CAGR smooths a bumpy path into one equivalent rate. It hides the volatility along the way by design.',
+  },
+  {
+    id: 'ex-a-32',
+    question: 'Why is the average of annual returns usually higher than the CAGR?',
+    options: [
+      'Because a loss and an equal-sized gain do not cancel out',
+      'Because averages are calculated incorrectly',
+      'Because CAGR ignores dividends',
+      'They are always identical',
+    ],
+    correctIndex: 0,
+    explanation: 'Down 50% then up 50% leaves you at 75, not 100. Compounding punishes volatility, and CAGR reflects that.',
+  },
+  {
+    id: 'ex-a-33',
+    question: 'What is the difference between the trailing and forward P/E?',
+    options: [
+      'Trailing uses reported past earnings; forward uses estimated future earnings',
+      'Trailing is used in India and forward abroad',
+      'Forward P/E is always lower',
+      'They use different share prices',
+    ],
+    correctIndex: 0,
+    explanation: 'A forward multiple rests on somebody’s forecast. It is only as reliable as that estimate.',
+  },
+  {
+    id: 'ex-a-34',
+    question: 'What is dilution?',
+    options: [
+      'New shares being issued, reducing each existing holder’s ownership share',
+      'A fall in the share price',
+      'A company selling a division',
+      'A reduction in the dividend',
+    ],
+    correctIndex: 0,
+    explanation: 'Your slice shrinks when the pie is cut into more pieces, even if the business itself is unchanged.',
+  },
+  {
+    id: 'ex-a-35',
+    question: 'Why does a share buyback raise earnings per share?',
+    options: [
+      'The same profit is divided across fewer shares',
+      'The company earns more profit',
+      'It raises the share price directly',
+      'Buybacks reduce corporate tax',
+    ],
+    correctIndex: 0,
+    explanation: 'EPS rises arithmetically from a smaller denominator. Whether that helped shareholders depends on the price paid.',
+  },
+  {
+    id: 'ex-a-36',
+    question: 'What is a related party transaction and why do analysts watch them?',
+    options: [
+      'Business done with insiders or connected entities, where terms may not be at arm’s length',
+      'Any transaction with a foreign company',
+      'A trade between two shareholders',
+      'A transaction that must be approved by SEBI',
+    ],
+    correctIndex: 0,
+    explanation: 'They can be entirely legitimate, but they are a place where value can quietly leave a company, so they deserve reading.',
   },
 ];
 
@@ -1178,6 +1997,198 @@ const responsible: ExamQuestion[] = [
     correctIndex: 1,
     explanation: 'Research and diversification change how much risk you carry and where. Neither removes it.',
   },
+  {
+    id: 'ex-r-21',
+    question: 'What is survivorship bias?',
+    options: [
+      'Judging by the winners you can see while the failures have disappeared',
+      'Preferring older companies to newer ones',
+      'Holding a loser too long',
+      'Believing a rising stock will keep rising',
+    ],
+    correctIndex: 0,
+    explanation: 'Success stories are the ones that get told. The people who tried the same thing and failed are not in the sample.',
+  },
+  {
+    id: 'ex-r-22',
+    question: 'Someone shows a screenshot of a 400% gain. What is missing?',
+    options: [
+      'Every other position they hold, and the ones they closed at a loss',
+      'The name of their broker',
+      'The date of the trade',
+      'Nothing — the screenshot is proof',
+    ],
+    correctIndex: 0,
+    explanation: 'A single position tells you nothing about a record. Nobody screenshots the losses, and a screenshot is trivially fabricated.',
+  },
+  {
+    id: 'ex-r-23',
+    question: 'What is the sunk cost fallacy in a portfolio?',
+    options: [
+      'Holding a position because of what you already lost rather than what you now expect',
+      'Selling too early to lock in a gain',
+      'Refusing to pay brokerage',
+      'Buying only cheap shares',
+    ],
+    correctIndex: 0,
+    explanation: 'Money already lost is gone either way. The only question that matters is what you would do with this capital today.',
+  },
+  {
+    id: 'ex-r-24',
+    question: 'What is overconfidence bias likely to do to your trading?',
+    options: [
+      'Increase how often you trade and how large you size',
+      'Make you hold cash for too long',
+      'Improve your win rate',
+      'Reduce your brokerage costs',
+    ],
+    correctIndex: 0,
+    explanation: 'A run of luck reads as skill. Frequency and size go up, and costs and risk go up with them.',
+  },
+  {
+    id: 'ex-r-25',
+    question: 'Why does a trading journal help more than remembering?',
+    options: [
+      'Memory rewrites what you thought at the time to match what happened',
+      'A journal is required by SEBI',
+      'It reduces your tax bill',
+      'It guarantees better entries',
+    ],
+    correctIndex: 0,
+    explanation: 'Hindsight edits the reasoning. Written at the time, the record cannot be quietly revised.',
+  },
+  {
+    id: 'ex-r-26',
+    question: 'What is revenge trading?',
+    options: [
+      'Entering again quickly to win back what you just lost',
+      'Selling a stock because you dislike the company',
+      'Copying a trade someone else made',
+      'Trading only in the last hour of the session',
+    ],
+    correctIndex: 0,
+    explanation: 'The next trade is chosen by the last loss rather than by the setup. It is usually where a bad day becomes a bad week.',
+  },
+  {
+    id: 'ex-r-27',
+    question: 'A tip on social media promises a guaranteed multi-bagger. What should you conclude?',
+    options: [
+      'Nobody can guarantee a return, and the promise itself is a warning sign',
+      'They must have inside information worth following',
+      'It is safe if many people are sharing it',
+      'It is only a risk if the account is anonymous',
+    ],
+    correctIndex: 0,
+    explanation: 'Guaranteed returns do not exist in equities. In India, unregistered advice is also an offence under SEBI rules.',
+  },
+  {
+    id: 'ex-r-28',
+    question: 'What is a pump and dump?',
+    options: [
+      'Hyping a thinly traded stock to sell into the buying it creates',
+      'A company buying back its own shares',
+      'An exchange pausing trading in a stock',
+      'A fund rebalancing at quarter end',
+    ],
+    correctIndex: 0,
+    explanation: 'The organisers sell into the excitement they manufactured. Low-liquidity stocks are the usual target because they move easily.',
+  },
+  {
+    id: 'ex-r-29',
+    question: 'How should you check whether an adviser is allowed to advise in India?',
+    options: [
+      'Look for a SEBI registration number and verify it on the SEBI site',
+      'Check how many followers they have',
+      'Ask whether they have made money',
+      'See if they appear on television',
+    ],
+    correctIndex: 0,
+    explanation: 'Registration is verifiable and an audience is not. SEBI publishes the list of registered investment advisers.',
+  },
+  {
+    id: 'ex-r-30',
+    question: 'What is FOMO likely to cost an investor?',
+    options: [
+      'Buying late, after the move, at the worst prices',
+      'Missing dividends',
+      'Higher brokerage rates',
+      'A delay in opening an account',
+    ],
+    correctIndex: 0,
+    explanation: 'By the time a move is impossible to ignore, much of it has happened. Fear of missing out buys the last part of it.',
+  },
+  {
+    id: 'ex-r-31',
+    question: 'What is the base rate you should ask about before following a strategy?',
+    options: [
+      'How the strategy has done across everyone who tried it, not just the person telling you',
+      'The interest rate set by the RBI',
+      'The brokerage charged per trade',
+      'The dividend yield of the stock',
+    ],
+    correctIndex: 0,
+    explanation: 'One person’s outcome is a sample of one. The useful question is what typically happens to people who do this.',
+  },
+  {
+    id: 'ex-r-32',
+    question: 'Why is a paper trading result not proof of skill?',
+    options: [
+      'No real money was at risk, so the emotional pressure was absent',
+      'Paper trading uses wrong prices',
+      'Paper trades are not recorded',
+      'It is proof — simulation matches reality',
+    ],
+    correctIndex: 0,
+    explanation: 'Simulation teaches mechanics and process well. It cannot reproduce how it feels to watch real savings fall.',
+  },
+  {
+    id: 'ex-r-33',
+    question: 'What does "risk capital" mean?',
+    options: [
+      'Money you could lose entirely without changing how you live',
+      'Money borrowed specifically to invest',
+      'The margin a broker requires',
+      'Money kept aside for taxes',
+    ],
+    correctIndex: 0,
+    explanation: 'Rent, fees and emergency money are not risk capital. Investing money you need soon forces decisions at the worst moments.',
+  },
+  {
+    id: 'ex-r-34',
+    question: 'Why is borrowing to invest especially dangerous for a beginner?',
+    options: [
+      'The debt is due regardless of what the investment does',
+      'Interest rates always rise',
+      'Borrowed money cannot be used in a demat account',
+      'It increases brokerage charges',
+    ],
+    correctIndex: 0,
+    explanation: 'A fall becomes a fall plus a repayment schedule, which removes your ability to wait.',
+  },
+  {
+    id: 'ex-r-35',
+    question: 'What is the most useful question to ask after a profitable trade?',
+    options: [
+      'Was the process sound, or did I get lucky?',
+      'How much more could I have made?',
+      'Which friend should I tell?',
+      'Should I double the size next time?',
+    ],
+    correctIndex: 0,
+    explanation: 'Good outcomes from bad process are the most expensive lessons, because they get repeated.',
+  },
+  {
+    id: 'ex-r-36',
+    question: 'What is a cooling-off rule and why might you set one?',
+    options: [
+      'A self-imposed pause after a big loss, so the next decision is not made while upset',
+      'A SEBI rule preventing trading after a loss',
+      'A broker’s limit on daily trades',
+      'A tax rule about selling within a month',
+    ],
+    correctIndex: 0,
+    explanation: 'The rule is set in advance precisely because you will not want to follow it at the moment it applies.',
+  },
 ];
 
 const taxation: ExamQuestion[] = [
@@ -1376,6 +2387,193 @@ const taxation: ExamQuestion[] = [
     correctIndex: 0,
     explanation: 'Your reported figures have to stand against the statements and the Annual Information Statement the department already holds.',
   },
+  {
+    id: 'ex-t-21',
+    question: 'When is a capital gain on shares taxable?',
+    options: [
+      'In the year the shares are sold',
+      'Every year the shares rise in value',
+      'Only when the money is withdrawn from the bank',
+      'When the company declares a dividend',
+    ],
+    correctIndex: 0,
+    explanation: 'Gains are taxed on realisation. An unrealised gain on a holding you still own is not taxed.',
+  },
+  {
+    id: 'ex-t-22',
+    question: 'What is the difference between a realised and an unrealised gain?',
+    options: [
+      'Realised means you sold; unrealised means you still hold the position',
+      'Realised means profitable; unrealised means loss-making',
+      'Realised applies to shares, unrealised to mutual funds',
+      'There is no difference',
+    ],
+    correctIndex: 0,
+    explanation: 'Only a realised gain is a tax event, and only a realised loss can be set off.',
+  },
+  {
+    id: 'ex-t-23',
+    question: 'Can a short-term capital loss be set off against a long-term capital gain?',
+    options: [
+      'Yes — a short-term loss can be set off against either short-term or long-term gains',
+      'No, losses can never be set off',
+      'Only against short-term gains',
+      'Only with prior approval from the assessing officer',
+    ],
+    correctIndex: 0,
+    explanation: 'A short-term loss is the more flexible one. A long-term loss, by contrast, can only be set off against long-term gains.',
+  },
+  {
+    id: 'ex-t-24',
+    question: 'A long-term capital loss can be set off against what?',
+    options: [
+      'Long-term capital gains only',
+      'Any head of income',
+      'Salary income',
+      'Short-term capital gains only',
+    ],
+    correctIndex: 0,
+    explanation: 'The restriction runs one way: long-term losses are confined to long-term gains.',
+  },
+  {
+    id: 'ex-t-25',
+    question: 'Can a capital loss be set off against salary income?',
+    options: [
+      'No — a capital loss can only be set off against capital gains',
+      'Yes, up to ₹2 lakh a year',
+      'Yes, without any limit',
+      'Only if the loss is long-term',
+    ],
+    correctIndex: 0,
+    explanation: 'A capital loss stays within the capital gains head. It cannot reduce salary, business or other income, which is why it is carried forward instead.',
+  },
+  {
+    id: 'ex-t-26',
+    question: 'What must you do to be allowed to carry a capital loss forward?',
+    options: [
+      'File your income tax return by the due date',
+      'Inform your broker in writing',
+      'Hold the shares for at least a year',
+      'Nothing — carry-forward is automatic',
+    ],
+    correctIndex: 0,
+    explanation: 'A late return forfeits the carry-forward of the loss, which is one of the costliest routine filing mistakes.',
+  },
+  {
+    id: 'ex-t-27',
+    question: 'How are dividends from Indian companies taxed in the investor’s hands?',
+    options: [
+      'Added to total income and taxed at the investor’s slab rate',
+      'Completely exempt',
+      'Taxed at a flat 10% with no other liability',
+      'Taxed only if reinvested',
+    ],
+    correctIndex: 0,
+    explanation: 'Since the dividend distribution tax was abolished, dividends are taxed in the shareholder’s hands at slab rates.',
+  },
+  {
+    id: 'ex-t-28',
+    question: 'Does the STT you paid on a sale reduce the capital gains tax you owe?',
+    options: [
+      'No — STT cannot be deducted when working out capital gains',
+      'Yes — it is deducted from the gain in full',
+      'Yes — it is credited against the tax due',
+      'Only on long-term gains',
+    ],
+    correctIndex: 0,
+    explanation: 'The Act does not allow STT as a deduction when computing capital gains. It is a cost of trading that stays a cost. Someone taxed on trading as business income is treated differently.',
+  },
+  {
+    id: 'ex-t-29',
+    question: 'How is income from intraday equity trading normally treated?',
+    options: [
+      'As speculative business income, not as capital gains',
+      'As long-term capital gains',
+      'As exempt income',
+      'As salary income',
+    ],
+    correctIndex: 0,
+    explanation: 'Intraday equity, where no delivery is taken, is speculative business income and is taxed at slab rates.',
+  },
+  {
+    id: 'ex-t-30',
+    question: 'A speculative business loss can be set off against what?',
+    options: [
+      'Speculative business income only',
+      'Any business income',
+      'Capital gains',
+      'Salary',
+    ],
+    correctIndex: 0,
+    explanation: 'Speculative losses are ring-fenced to speculative income, and can be carried forward for four years rather than eight.',
+  },
+  {
+    id: 'ex-t-31',
+    question: 'What is the holding period test that decides short versus long term for listed equity?',
+    options: [
+      'The date of sale less the date of purchase, against a twelve-month threshold',
+      'The calendar year in which you bought',
+      'Whether you held across a financial year end',
+      'The number of times you traded the stock',
+    ],
+    correctIndex: 0,
+    explanation: 'It is the actual holding period per lot, which is why selling a few weeks early can change the rate that applies.',
+  },
+  {
+    id: 'ex-t-32',
+    question: 'You bought the same stock three times at different dates and sell part of it. Which lot is treated as sold?',
+    options: [
+      'The earliest purchased, on a first in first out basis',
+      'The most expensive lot',
+      'Whichever lot you nominate',
+      'The most recently purchased',
+    ],
+    correctIndex: 0,
+    explanation: 'FIFO applies to demat holdings, so the oldest shares are treated as sold first, which affects the holding period.',
+  },
+  {
+    id: 'ex-t-33',
+    question: 'What is advance tax?',
+    options: [
+      'Tax paid in instalments during the year rather than entirely at the end',
+      'Tax paid on income you expect next year',
+      'A deposit made when opening a demat account',
+      'Tax deducted by your broker on every trade',
+    ],
+    correctIndex: 0,
+    explanation: 'Where the liability crosses the threshold, advance tax is due in instalments; shortfalls attract interest.',
+  },
+  {
+    id: 'ex-t-34',
+    question: 'What is Form 26AS or the Annual Information Statement useful for?',
+    options: [
+      'Checking what the department already knows about your income and taxes paid',
+      'Filing a complaint against a broker',
+      'Opening a trading account',
+      'Claiming a dividend',
+    ],
+    correctIndex: 0,
+    explanation: 'Reconciling your return against it is how mismatches get caught before a notice arrives.',
+  },
+  {
+    id: 'ex-t-35',
+    question: 'Why does tax rarely justify holding a losing position?',
+    options: [
+      'The tax saved is a fraction of the loss taken to save it',
+      'Losses cannot be claimed at all',
+      'Selling a loser increases your tax',
+      'Tax rules forbid selling at a loss',
+    ],
+    correctIndex: 0,
+    explanation: 'The tax tail should not wag the investment dog. A decision to hold must stand on its own merits first.',
+  },
+  {
+    id: 'ex-t-36',
+    question: 'Under the old regime, which section covers deductions such as ELSS, PPF and life insurance premiums?',
+    options: ['Section 80C', 'Section 80D', 'Section 24', 'Section 10(38)'],
+    correctIndex: 0,
+    explanation: 'Section 80C covers that group of deductions under the old regime. The new default regime forgoes most such deductions for lower slab rates.',
+  },
 ];
 
 /**
@@ -1388,9 +2586,27 @@ const taxation: ExamQuestion[] = [
  *
  * `random` is injectable so the shuffle can be tested.
  */
+/**
+ * Draws one paper.
+ *
+ * Each bank holds far more questions than a paper asks, so the draw can
+ * choose. In order of claim on the paper:
+ *
+ * 1. questions answered wrongly and rested for a paper — up to half the
+ *    paper, so a retake is revision of what went wrong rather than a fresh
+ *    set of twenty that lets the misunderstanding stand;
+ * 2. questions the learner has not met;
+ * 3. questions answered correctly three or more papers ago;
+ * 4. whatever is still resting, so a determined retaker always gets a full
+ *    paper rather than a short one.
+ *
+ * The selected questions are then shuffled, so the review questions are not
+ * always the first five on the page.
+ */
 export const buildExamAttempt = (
   exam: StageExam,
   random: () => number = Math.random,
+  memory: ExamMemory = emptyExamMemory(),
 ): ExamQuestion[] => {
   const shuffle = <T,>(items: T[]): T[] => {
     const copy = [...items];
@@ -1401,7 +2617,38 @@ export const buildExamAttempt = (
     return copy;
   };
 
-  return shuffle(exam.questions).map((question) => {
+  const history = memory?.questions ?? {};
+  const papers = Number(memory?.papers) || 0;
+  const restedFor = (id: string) => papers - history[id].paper;
+
+  const unseen: ExamQuestion[] = [];
+  const dueWrong: ExamQuestion[] = [];
+  const dueCorrect: ExamQuestion[] = [];
+  const resting: ExamQuestion[] = [];
+
+  for (const question of exam.questions) {
+    const record = history[question.id];
+    if (!record) {
+      unseen.push(question);
+    } else if (!record.correct) {
+      (restedFor(question.id) >= REST_PAPERS_AFTER_WRONG ? dueWrong : resting).push(question);
+    } else {
+      (restedFor(question.id) >= REST_PAPERS_AFTER_CORRECT ? dueCorrect : resting).push(question);
+    }
+  }
+
+  const shuffledWrong = shuffle(dueWrong);
+  const reviewCap = Math.floor(EXAM_LENGTH * REVIEW_SHARE);
+
+  const queue = [
+    ...shuffledWrong.slice(0, reviewCap),
+    ...shuffle(unseen),
+    ...shuffle(dueCorrect),
+    ...shuffledWrong.slice(reviewCap),
+    ...shuffle(resting),
+  ];
+
+  return shuffle(queue.slice(0, EXAM_LENGTH)).map((question) => {
     const answer = question.options[question.correctIndex];
     const options = shuffle(question.options);
     return { ...question, options, correctIndex: options.indexOf(answer) };

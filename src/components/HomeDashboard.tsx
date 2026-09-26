@@ -24,9 +24,9 @@ import { useSimulator } from '../context/SimulatorContext';
 import { INITIAL_LESSONS } from '../modules/academy/data/lessonsData';
 import { formatINR, formatPercent } from '../utils/formatters';
 import type { AppTabType } from './Header';
-import { useAccessibility } from '../context/AccessibilityContext';
+import { useAccessibility } from '../modules/accessibility/context/AccessibilityContext';
 import { ResumeLearning } from '../modules/academy/components/ResumeLearning';
-import { PwaInstall } from './PwaInstall';
+import { PwaInstall } from '../modules/pwa-platform/components/PwaInstall';
 import { SpatialCandlestickChart } from './ui/spatial-candlestick-chart';
 import { SpotlightCard } from './ui/spotlight-card';
 import { ThumbnailCarousel, CarouselSlide } from './ui/thumbnail-carousel';
@@ -349,20 +349,14 @@ export const HomeDashboard: React.FC<{ setActiveTab: (tab: AppTabType) => void }
       >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
           <div>
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-mint shadow-[0_0_8px_#00f59b] animate-pulse" />
-              <p className="text-[10px] font-mono font-bold uppercase tracking-widest text-mint">
-                Dalal Street 3D Arena · Live Spatial Simulation
-              </p>
-            </div>
-            <h2 className="mt-1 text-lg sm:text-xl font-black tracking-tight text-white flex items-center gap-2">
-              <span>Interactive Candlestick Breakout</span>
-              <span className="text-xs text-mint bg-mint/15 px-2 py-0.5 rounded-full border border-mint/30 font-mono">
-                MOVE IT 3D
-              </span>
+            <p className="text-[10px] font-mono font-bold uppercase tracking-widest text-mint">
+              Candlestick primer · example prices
+            </p>
+            <h2 className="mt-1 text-lg sm:text-xl font-black tracking-tight text-white">
+              How to read a candlestick
             </h2>
             <p className="mt-0.5 text-xs text-slate-300">
-              Observe Japanese candlestick price momentum and spatial 3D physics with zero financial risk.
+              Green closed above its open, red below; the wick is the full range. Example prices, not a real share.
             </p>
           </div>
 
@@ -377,8 +371,8 @@ export const HomeDashboard: React.FC<{ setActiveTab: (tab: AppTabType) => void }
         </div>
 
         {/* Embedded Spatial Candlestick Chart */}
-        <div className="w-full">
-          <SpatialCandlestickChart variant="card" showRupee={true} showBadges={true} />
+        <div className="w-full pt-6">
+          <SpatialCandlestickChart variant="card" />
         </div>
       </SpotlightCard>
 
@@ -415,11 +409,45 @@ export const HomeDashboard: React.FC<{ setActiveTab: (tab: AppTabType) => void }
             />
           </div>
 
+          {/* The deck is a single card on screen at a time, so the panel used
+              to be mostly empty space around it while the column next door set
+              the height. Naming the four it holds fills that with something
+              worth reading, and the live price is the point of the deck. */}
+          <ul className="mt-3 grid grid-cols-2 gap-1.5">
+            {stackCards.map((card) => (
+              <li key={card.id}>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('screener')}
+                  className="flex min-h-9 w-full items-center justify-between gap-2 rounded-xl border border-slate-200 px-2.5 py-1.5 text-left transition-colors hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate font-mono text-[11px] font-black text-slate-900 dark:text-white">
+                      {card.symbol}
+                    </span>
+                    <span className="block truncate font-mono text-[10px] text-slate-500 dark:text-slate-400">
+                      {card.value}
+                    </span>
+                  </span>
+                  <span
+                    className={`shrink-0 font-mono text-[10px] font-black ${
+                      card.isPositive
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-rose-600 dark:text-rose-400'
+                    }`}
+                  >
+                    {card.change}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+
           <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
-            <span className="text-slate-400 font-medium">4 Core Holdings</span>
+            <span className="text-slate-400 font-medium">{stackCards.length} core holdings</span>
             <button
               onClick={() => setActiveTab('screener')}
-              className="text-emerald-600 dark:text-emerald-400 font-bold hover:underline flex items-center gap-1 cursor-pointer"
+              className="inline-flex min-h-6 items-center gap-1 rounded-lg px-1 font-bold text-emerald-600 hover:underline dark:text-emerald-400 cursor-pointer"
             >
               <span>Explore full 75+ screener</span>
               <ArrowRight className="w-3.5 h-3.5" />

@@ -1,25 +1,26 @@
 /**
- * Academy HTTP routes, extracted from the server.ts monolith.
+ * Academy HTTP routes.
  *
- * The academy service itself lives in the academy module
- * (src/modules/academy/server/academyService.ts) and already exposes an Express
- * router; this file owns constructing it and mounting its surface, and hands
- * back the two handlers server.ts still has to place itself.
+ * The academy service lives in the academy module
+ * (src/modules/academy/server/academyService.ts) and exposes an Express router;
+ * this file constructs it and mounts it under /api/academy.
  *
- * `logout` is returned rather than mounted here on purpose: server.ts registers
- * it *after* the no-store Cache-Control middleware for /api/auth, so that
- * response keeps that header. Mounting it inside this router would register it
- * ahead of that middleware and silently drop the header.
- *
- * `issueSession` is returned because the auth routes use it to start a session
- * once credentials check out.
+ * The Academy has no sessions of its own. It asks the app's signed session who
+ * the caller is, through the lookup server.ts hands in, so a sign-out, a
+ * revoke-everywhere, a password change or a deleted account reaches it too.
+ * The branch this came from also returned a logout handler and issueSession
+ * for a separate Academy session store; that store was removed when the
+ * Academy moved onto the app's session, so there is nothing to hand back.
  */
 import express from "express";
 import { createAcademyService } from "../../modules/academy/server/academyService";
 
-export function createAcademyRoutes(dataFilePath: string) {
-  const service = createAcademyService(dataFilePath);
+export function createAcademyRoutes(
+  dataFilePath: string,
+  resolveUserId: (req: express.Request) => string | null,
+) {
+  const service = createAcademyService(dataFilePath, resolveUserId);
   const router = express.Router();
   router.use('/api/academy', service.router);
-  return { router, logout: service.logout, issueSession: service.issueSession };
+  return { router };
 }

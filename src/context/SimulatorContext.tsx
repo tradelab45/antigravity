@@ -25,11 +25,12 @@ import {
   BroadcastAnnouncement
 } from '../types';
 import { INITIAL_BADGES } from '../modules/academy/data/lessonsData';
-import { TOP_100_INDIAN_COMPANIES } from '../data/indianCompanies';
-import { getNSEMarketTimeInfo, NSEMarketInfo } from '../utils/marketHours';
-import { enrichStockWithTechnicalsAndDuPont } from '../utils/technicalCalculator';
-import { computeMarketIndicesFromStocks } from '../utils/indexCalculator';
-import { mergeQuote } from '../utils/quoteState';
+import { TOP_100_INDIAN_COMPANIES } from '../modules/market-data/data/indianCompanies';
+import { getNSEMarketTimeInfo, NSEMarketInfo } from '../modules/market-data/utils/marketHours';
+import { enrichStockWithTechnicalsAndDuPont } from '../modules/market-data/utils/technicalCalculator';
+import { computeMarketIndicesFromStocks } from '../modules/market-data/utils/indexCalculator';
+import { mergeQuote } from '../modules/market-data/utils/quoteState';
+import { isAuthApiRejection } from '../utils/authResponse';
 
 export const ADMIN_EMAILS = ['aaravvjain23@gmail.com'];
 export const ADMIN_USERNAMES = ['aaravvjain23@gmail.com', 'aarav', 'aarav_trader'];
@@ -88,12 +89,55 @@ export interface CopilotFeedback {
   timestamp: string;
 }
 
+/** A sign-in the server has parked until an emailed code comes back. */
+export interface PendingVerification {
+  challengeId: string;
+  /** `a•••@example.com`, for the "we sent a code to…" line. */
+  maskedEmail: string;
+  expiresInSeconds: number;
+  /**
+   * Only ever set when the server runs with OTP_DEV_ECHO outside production,
+   * so the flow can be exercised without a mail provider.
+   */
+  devCode?: string;
+}
+
+export interface AuthOutcome {
+  success: boolean;
+  message: string;
+  user?: UserAccount;
+  isNew?: boolean;
+  /** Set when the account is held back pending a code. */
+  verification?: PendingVerification;
+}
+
+/** How long the header keeps offering to undo a reset. */
+const RESET_UNDO_WINDOW_MS = 20_000;
+
 interface SimulatorContextType {
   currentUser: UserAccount | null;
-  loginUser: (identifier: string, password: string) => Promise<{ success: boolean; message: string; user?: UserAccount }>;
+  loginUser: (identifier: string, password: string) => Promise<AuthOutcome>;
+  /** Signs in to the shared practice account behind the landing page's demo button. */
+  loginAsDemo: () => Promise<AuthOutcome>;
+  /** Exchanges an emailed code for the account, finishing a sign-in. */
+  completeVerification: (challengeId: string, code: string) => Promise<AuthOutcome>;
+  /** Sends a fresh code for a sign-in already in progress. */
+  resendVerificationCode: (challengeId: string) => Promise<{ success: boolean; message: string; devCode?: string }>;
+  /** Abandons a pending sign-in so its code cannot be used later. */
+  cancelVerification: (challengeId: string) => void;
   registerUser: (data: AuthFormData) => Promise<{ success: boolean; message: string; user?: UserAccount }>;
-  loginWithGoogle: (credential: string) => Promise<{ success: boolean; message: string; user?: UserAccount; isNew?: boolean }>;
+  loginWithGoogle: (credential: string) => Promise<AuthOutcome>;
   logoutUser: () => void;
+  /** Ends every session for this account, on every device. */
+  logoutEverywhere: () => Promise<{ success: boolean; message: string }>;
+  /**
+   * Whether the server has confirmed who this browser is.
+   *
+   * null while the first check is in flight. False means the app is running
+   * with no backend to ask — a static deployment — and the signed-in identity
+   * is only this browser's cached claim.
+   */
+  sessionVerified: boolean | null;
   alerts: Alert[];
   addAlert: (symbol: string, targetPrice: number, type: 'ABOVE' | 'BELOW') => void;
   addSmartAlert: (alert: Omit<Alert, 'id' | 'active' | 'createdAt'>) => void;
@@ -159,6 +203,14 @@ interface SimulatorContextType {
   setThemeMode: (mode: 'light' | 'dark' | 'oled') => void;
   // Metrics & State
   resetSimulator: () => void;
+  /** Puts back what the last reset wiped, while the window is still open. */
+  undoLastReset: () => boolean;
+  /** How many executed orders the server holds, or null with no server. */
+  serverOrderCount: number | null;
+  /** Fetches the next page of older orders. Resolves with how many arrived. */
+  loadOlderOrders: () => Promise<number>;
+  /** Epoch ms the undo offer lapses at, or null when there is nothing to undo. */
+  resetUndoExpiresAt: number | null;
   portfolioValue: number;
   investedValue: number;
   totalPnL: number;
@@ -179,6 +231,8 @@ interface SimulatorContextType {
   marketHoursMode: 'STRICT_NSE_HOURS' | 'PRACTICE_24x7';
   setMarketHoursMode: (mode: 'STRICT_NSE_HOURS' | 'PRACTICE_24x7') => void;
   notifyUser: (title: string, message: string, type: 'INFO' | 'SUCCESS' | 'WARNING' | 'ALERT', symbol?: string) => void;
+  backupPortfolio: () => string;
+  restorePortfolioBackup: (backupJson: string) => { success: boolean; message: string };
   refreshStocks: () => Promise<void>;
   syncHoldingsRealTime: () => Promise<void>;
   isSyncingHoldings: boolean;
@@ -341,35 +395,89 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
   }, [currentUser]);
 
-  const loginUser = async (identifier: string, password: string): Promise<{ success: boolean; message: string; user?: UserAccount }> => {
+  /**
+   * Puts a signed-in account into local state. One place, so the login, the
+   * Google and the verification paths cannot drift on what they persist.
+   */
+  const adoptSignedInUser = (user: any, kind: 'new' | 'returning'): UserAccount => {
+    user.isAdmin = isUserAdmin(user);
+    user.role = user.isAdmin ? 'ADMIN' : 'USER';
+    localStorage.setItem('rr_current_user', JSON.stringify(user));
+    localStorage.setItem(getLastActivityKey(user.id), Date.now().toString());
+    localStorage.setItem('rr_auth_entry', JSON.stringify({ kind, userId: user.id, at: Date.now() }));
+    setCurrentUser(user);
+    return user as UserAccount;
+  };
+
+  /**
+   * The demo button's sign-in: a shared account with no password, so there is
+   * no password to send. It used to sign in to the owner's account with the
+   * password "demo", which could never be right. As with every other sign-in,
+   * a server answer is final; only a build with no backend at all falls back
+   * to the offline demo.
+   */
+  const loginAsDemo = async (): Promise<AuthOutcome> => {
+    try {
+      const res = await fetch('/api/auth/demo', { method: 'POST' });
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const data = await res.json();
+        if (res.ok && data.success && data.user) {
+          adoptSignedInUser(data.user, 'returning');
+          return { success: true, message: data.message, user: data.user };
+        }
+        return { success: false, message: data.message || 'The demo is unavailable right now.' };
+      }
+      if (res.status !== 404) {
+        return { success: false, message: 'The demo is unavailable right now.' };
+      }
+    } catch {
+      // No backend at all: fall through to the offline demo below.
+    }
+    return loginUser('xyz@gmail.com', 'demo');
+  };
+
+  const loginUser = async (identifier: string, password: string): Promise<AuthOutcome> => {
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ identifier, password }),
       });
-      if (!res.ok) {
-        const error = await res.json().catch(() => null);
-        return { success: false, message: error?.message || (res.status === 429 ? 'Too many attempts. Please wait before trying again.' : 'Sign-in was rejected. Please check your details.') };
-      }
-      if (res.ok) {
-        const contentType = res.headers.get('content-type') || '';
-        if (contentType.includes('application/json')) {
-          const data = await res.json();
-          if (data.success && data.user) {
-            data.user.isAdmin = isUserAdmin(data.user);
-            data.user.role = data.user.isAdmin ? 'ADMIN' : 'USER';
-            localStorage.setItem('rr_current_user', JSON.stringify(data.user));
-            localStorage.setItem(getLastActivityKey(data.user.id), Date.now().toString());
-            localStorage.setItem('rr_auth_entry', JSON.stringify({ kind: 'returning', userId: data.user.id, at: Date.now() }));
-            setCurrentUser(data.user);
-            return { success: true, message: data.message, user: data.user };
-          }
-          return { success: false, message: data.message || 'Login failed' };
+
+      // The server answered, so its answer is final. Falling through to the
+      // offline branch on a refusal would turn every rejection — a wrong
+      // password, a rate limit, a demand for a verification code — into a
+      // second chance at signing in without the server.
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const data = await res.json();
+
+        if (data.requiresVerification && data.challengeId) {
+          return {
+            success: false,
+            message: data.message || 'Enter the code we just sent you.',
+            verification: {
+              challengeId: data.challengeId,
+              maskedEmail: data.maskedEmail || '',
+              expiresInSeconds: Number(data.expiresInSeconds) || 600,
+              devCode: typeof data.devCode === 'string' ? data.devCode : undefined,
+            },
+          };
         }
+
+        if (res.ok && data.success && data.user) {
+          adoptSignedInUser(data.user, 'returning');
+          return { success: true, message: data.message, user: data.user };
+        }
+        return { success: false, message: data.message || 'Login failed' };
+      }
+      if (res.status !== 404) {
+        return { success: false, message: 'Login failed. Please try again.' };
       }
     } catch {
-      // Backend not running or offline (e.g. static site deployment on Hostinger / Netlify / Vercel)
+      // Only a genuine network failure reaches here — the app is served
+      // statically with no backend behind it.
     }
 
     // Static / Offline Login Fallback:
@@ -443,10 +551,15 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }),
       });
       if (!res.ok) {
-        const error = await res.json().catch(() => null);
-        return { success: false, message: error?.message || (res.status === 429 ? 'Too many attempts. Please wait before trying again.' : 'Sign-in was rejected. Please check your details.') };
-      }
-      if (res.ok) {
+        // The server's answer is final. Only a static host's HTML 404 or 405,
+        // which means there is no API here at all, falls through to the
+        // offline registration below. It used to be reported as "Sign-in was
+        // rejected", which is neither what happened nor the right word.
+        if (isAuthApiRejection(res.status, res.headers.get('content-type'))) {
+          const error = await res.json().catch(() => null);
+          return { success: false, message: error?.message || (res.status === 429 ? 'Too many attempts. Please wait before trying again.' : 'We could not create your account. Please check your details.') };
+        }
+      } else {
         const contentType = res.headers.get('content-type') || '';
         if (contentType.includes('application/json')) {
           const data = await res.json();
@@ -504,38 +617,117 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
-  const loginWithGoogle = async (credential: string): Promise<{ success: boolean; message: string; user?: UserAccount; isNew?: boolean }> => {
-    // 1. First attempt backend validation if available
+  /**
+   * Finishes a sign-in the server parked behind an emailed code.
+   *
+   * There is no offline branch here on purpose. A code can only be checked by
+   * whoever issued it, so if the server cannot be reached the sign-in simply
+   * does not complete.
+   */
+  const completeVerification = async (challengeId: string, code: string): Promise<AuthOutcome> => {
+    try {
+      const res = await fetch('/api/auth/otp/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ challengeId, code }),
+      });
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        return { success: false, message: 'Verification is unavailable right now.' };
+      }
+      const data = await res.json();
+      if (res.ok && data.success && data.user) {
+        const user = adoptSignedInUser(data.user, 'returning');
+        return { success: true, message: data.message || 'Signed in.', user };
+      }
+      return { success: false, message: data.message || 'That code is not right.' };
+    } catch {
+      return { success: false, message: 'Could not reach the server to check that code.' };
+    }
+  };
+
+  const resendVerificationCode = async (challengeId: string) => {
+    try {
+      const res = await fetch('/api/auth/otp/resend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ challengeId }),
+      });
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        return { success: false, message: 'Could not send a new code.' };
+      }
+      const data = await res.json();
+      return {
+        success: Boolean(res.ok && data.success),
+        message: data.message || (res.ok ? 'A new code is on its way.' : 'Could not send a new code.'),
+        devCode: typeof data.devCode === 'string' ? data.devCode : undefined,
+      };
+    } catch {
+      return { success: false, message: 'Could not reach the server.' };
+    }
+  };
+
+  /** Best effort: the challenge expires on its own if this never lands. */
+  const cancelVerification = (challengeId: string) => {
+    if (!challengeId) return;
+    fetch('/api/auth/otp/cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ challengeId }),
+      keepalive: true,
+    }).catch(() => {});
+  };
+
+  const loginWithGoogle = async (credential: string): Promise<AuthOutcome> => {
+    // 1. The server verifies the credential's signature against Google.
     try {
       const res = await fetch('/api/auth/google', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ credential }),
       });
-      if (!res.ok) {
-        const error = await res.json().catch(() => null);
-        return { success: false, message: error?.message || (res.status === 429 ? 'Too many attempts. Please wait before trying again.' : 'Sign-in was rejected. Please check your details.') };
-      }
-      if (res.ok) {
-        const contentType = res.headers.get('content-type') || '';
-        if (contentType.includes('application/json')) {
-          const data = await res.json();
-          if (data.success && data.user) {
-            data.user.isAdmin = isUserAdmin(data.user);
-            data.user.role = data.user.isAdmin ? 'ADMIN' : 'USER';
-            localStorage.setItem('rr_current_user', JSON.stringify(data.user));
-            localStorage.setItem(getLastActivityKey(data.user.id), Date.now().toString());
-            localStorage.setItem('rr_auth_entry', JSON.stringify({ kind: data.isNew ? 'new' : 'returning', userId: data.user.id, at: Date.now() }));
-            setCurrentUser(data.user);
-            return { success: true, message: data.message, user: data.user, isNew: Boolean(data.isNew) };
-          }
+
+      // Whatever the server said stands. The unverified branch below exists
+      // only for a build with no backend at all; reaching it after a real
+      // answer would let anyone skip the verification step, or a refusal,
+      // by making this one call fail.
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const data = await res.json();
+
+        if (data.requiresVerification && data.challengeId) {
+          return {
+            success: false,
+            message: data.message || 'Enter the code we just sent you.',
+            verification: {
+              challengeId: data.challengeId,
+              maskedEmail: data.maskedEmail || '',
+              expiresInSeconds: Number(data.expiresInSeconds) || 600,
+              devCode: typeof data.devCode === 'string' ? data.devCode : undefined,
+            },
+          };
         }
+
+        if (res.ok && data.success && data.user) {
+          adoptSignedInUser(data.user, data.isNew ? 'new' : 'returning');
+          return { success: true, message: data.message, user: data.user, isNew: Boolean(data.isNew) };
+        }
+        return { success: false, message: data.message || 'Google sign-in could not complete.' };
+      }
+      if (res.status !== 404) {
+        return { success: false, message: 'Google sign-in could not complete. Please try again.' };
       }
     } catch {
-      // Backend not running (e.g. static site deployment on Hostinger / Netlify / Vercel)
+      // Only a genuine network failure reaches here.
     }
 
-    // 2. Resilient Client-Side ID Token (JWT) parsing for static hosting
+    // 2. No backend answered, so this build is hosted statically. The ID token
+    //    is read WITHOUT verifying its signature, because verifying it needs
+    //    Google's keys and a server to hold them. Anyone able to craft a token
+    //    body can sign in as any address on such a deployment, and a code step
+    //    cannot apply here either — there is nothing to send it. Run the
+    //    Express server in front of the app if either matters.
     try {
       const parts = credential.split('.');
       if (parts.length === 3) {
@@ -610,11 +802,87 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return { success: false, message: 'Google sign-in could not complete. Please try again.' };
   };
 
+  /**
+   * The server decides who is signed in.
+   *
+   * `rr_current_user` is now only a cache, so the app can paint immediately.
+   * This asks the server straight afterwards and on a timer: if the answer is
+   * no, the cached copy is dropped, which is what stops an edited localStorage
+   * entry from being a session. With no backend to ask — a statically hosted
+   * build — the cached copy stands and `sessionVerified` stays false, so the
+   * rest of the app can tell the difference.
+   */
+  const [sessionVerified, setSessionVerified] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const check = async () => {
+      try {
+        const res = await fetch('/api/auth/session');
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) return; // no backend behind this build
+        const data = await res.json();
+        if (cancelled) return;
+
+        if (res.ok && data.authenticated && data.user) {
+          setSessionVerified(true);
+          // The server's copy wins over the cache.
+          const merged = { ...data.user, isAdmin: isUserAdmin(data.user) };
+          merged.role = merged.isAdmin ? 'ADMIN' : 'USER';
+          localStorage.setItem('rr_current_user', JSON.stringify(merged));
+          setCurrentUser((previous) => (previous && previous.id === merged.id ? previous : merged));
+          return;
+        }
+
+        // The server answered and said no. If this browser thinks it is signed
+        // in, it is wrong.
+        setSessionVerified(false);
+        if (localStorage.getItem('rr_current_user')) {
+          localStorage.removeItem('rr_current_user');
+          localStorage.setItem('rr_logout_reason', 'expired');
+          setCurrentUser(null);
+        }
+      } catch {
+        // Unreachable: keep whatever the cache holds and say it is unverified.
+        if (!cancelled) setSessionVerified(false);
+      }
+    };
+
+    check();
+    const timer = window.setInterval(check, 5 * 60_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+    // Runs once for the app's lifetime; currentUser is read inside, not tracked.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const logoutUser = () => {
-    void fetch('/api/auth/logout', { method: 'POST', keepalive: true }).catch(() => undefined);
+    // Tell the server first, so the session is revoked rather than only
+    // forgotten by this browser. keepalive lets it finish through the reload.
+    fetch('/api/auth/logout', { method: 'POST', keepalive: true }).catch(() => {});
     if (currentUser) localStorage.removeItem(getLastActivityKey(currentUser.id));
     localStorage.removeItem('rr_current_user');
     window.location.reload();
+  };
+
+  /** Ends the account's sessions everywhere, not just on this device. */
+  const logoutEverywhere = async (): Promise<{ success: boolean; message: string }> => {
+    try {
+      const res = await fetch('/api/auth/logout-everywhere', { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        return { success: false, message: data.message || 'Could not sign out the other devices.' };
+      }
+      if (currentUser) localStorage.removeItem(getLastActivityKey(currentUser.id));
+      localStorage.removeItem('rr_current_user');
+      window.location.reload();
+      return { success: true, message: data.message || 'Signed out everywhere.' };
+    } catch {
+      return { success: false, message: 'Could not reach the server.' };
+    }
   };
 
   const profileStorageKey = (base: string) => getProfileStorageKey(base, currentUser?.id);
@@ -1051,19 +1319,43 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // Instant real-time listener for stock updates across components/tabs
   useEffect(() => {
-    const stream = new EventSource('/api/market/stream');
-    stream.onmessage = (event) => {
+    let isMounted = true;
+    let stream: EventSource | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const connectStream = () => {
+      if (!isMounted) return;
       try {
-        const data = JSON.parse(event.data);
-        if (Array.isArray(data.stocks) && data.stocks.length > 0) {
-          window.dispatchEvent(new CustomEvent('rr_stocks_updated', { detail: { stocks: data.stocks } }));
-        }
-      } catch { /* Ignore incomplete stream messages; polling remains available. */ }
+        stream = new EventSource('/api/market/stream');
+        stream.onmessage = (event) => {
+          if (!isMounted) return;
+          try {
+            const data = JSON.parse(event.data);
+            if (Array.isArray(data.stocks) && data.stocks.length > 0) {
+              window.dispatchEvent(new CustomEvent('rr_stocks_updated', { detail: { stocks: data.stocks } }));
+            }
+          } catch { /* Ignore incomplete stream messages; polling remains available. */ }
+        };
+        stream.onerror = () => {
+          if (!isMounted) return;
+          setStocks(previous => previous.map(stock => stock.quoteStatus === 'live'
+            ? { ...stock, quoteStatus: 'delayed' } : stock));
+          if (stream) {
+            stream.close();
+            stream = null;
+          }
+          if (reconnectTimer) clearTimeout(reconnectTimer);
+          reconnectTimer = setTimeout(() => {
+            if (isMounted) connectStream();
+          }, 5000);
+        };
+      } catch {
+        // Fallback polling will handle updates
+      }
     };
-    stream.onerror = () => {
-      setStocks(previous => previous.map(stock => stock.quoteStatus === 'live'
-        ? { ...stock, quoteStatus: 'delayed' } : stock));
-    };
+
+    connectStream();
+
     const handleStockUpdate = (e: Event) => {
       const customEvent = e as CustomEvent<{ stocks: StockDetail[] }>;
       if (customEvent.detail?.stocks && Array.isArray(customEvent.detail.stocks)) {
@@ -1095,9 +1387,20 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     } catch {}
 
     return () => {
-      stream.close();
+      isMounted = false;
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      if (stream) {
+        stream.close();
+        stream = null;
+      }
       window.removeEventListener('rr_stocks_updated', handleStockUpdate);
-      bc?.close();
+      if (bc) {
+        bc.close();
+        bc = null;
+      }
     };
   }, []);
 
@@ -1503,6 +1806,173 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, [currentUser]);
 
   // Execute Buy Order (Supports CNC / MIS Intraday 5x leverage / Bracket / GTT)
+  /**
+   * The server's ledger, adopted wholesale.
+   *
+   * Trades are still applied locally first so the ticket answers instantly,
+   * but the server executes the same order independently — pricing it from its
+   * own quote and checking its own copy of the cash — and whatever it returns
+   * wins. That is what makes a portfolio something the server can vouch for
+   * rather than a number this browser asserts.
+   */
+  /** What the server says the whole history is, of which `orders` is a page. */
+  const [serverOrderCount, setServerOrderCount] = useState<number | null>(null);
+
+  /**
+   * Says what the exchange closed while nobody was watching.
+   *
+   * An intraday position that simply disappeared between two visits would
+   * look like a bug or a theft. It is neither — it is the rule the ticket
+   * has always described — so it is named, with the price it went at.
+   */
+  const announceSquareOff = (closed: unknown) => {
+    if (!Array.isArray(closed) || closed.length === 0) return;
+    const summary = closed
+      .map((order: any) => `${order.quantity} ${order.symbol} at ₹${order.price}`)
+      .join(', ');
+    notifyUser(
+      'Intraday positions squared off',
+      `The exchange closes MIS positions at 3:20 PM IST. Closed: ${summary}.`,
+      'WARNING',
+    );
+  };
+
+  /**
+   * Fetches the next page of older orders from the server.
+   *
+   * The history used to stop at whatever the last sync carried, which is why
+   * a term's early trades looked deleted. Paging asks for them only when
+   * somebody scrolls back for them.
+   */
+  const loadOlderOrders = async (): Promise<number> => {
+    if (sessionVerified !== true) return 0;
+    const have = orders.filter((order) => order.status === 'EXECUTED').length;
+
+    try {
+      const res = await fetch(`/api/portfolio/orders?offset=${have}&limit=100`);
+      const contentType = res.headers.get('content-type') || '';
+      if (!res.ok || !contentType.includes('application/json')) return 0;
+      const data = await res.json();
+      const page: Order[] = Array.isArray(data.orders) ? data.orders : [];
+      if (typeof data.total === 'number') setServerOrderCount(data.total);
+      if (page.length === 0) return 0;
+
+      setOrders((previous) => {
+        const known = new Set(previous.map((order) => order.id));
+        const additions = page.filter((order) => !known.has(order.id));
+        return [...previous, ...additions];
+      });
+      return page.length;
+    } catch {
+      return 0;
+    }
+  };
+
+  const adoptServerLedger = (ledger: {
+    cashBalance: number;
+    holdings: Record<string, Holding>;
+    orders: Order[];
+    orderCount?: number;
+  }) => {
+    if (!ledger || typeof ledger.cashBalance !== 'number') return;
+    setCashBalance(ledger.cashBalance);
+    setHoldings(ledger.holdings || {});
+    // A sync carries the newest page of orders. The count is what the whole
+    // history is, so the order book can offer the rest instead of pretending
+    // the page is everything.
+    setServerOrderCount(
+      typeof ledger.orderCount === 'number'
+        ? ledger.orderCount
+        : Array.isArray(ledger.orders)
+          ? ledger.orders.length
+          : null,
+    );
+    setOrders((previous) => {
+      const fromServer = Array.isArray(ledger.orders) ? ledger.orders : [];
+      // Anything the server does not execute — GTT, bracket legs, options —
+      // still lives only here, so those are kept alongside its record.
+      const localOnly = previous.filter((order) => order.status !== 'EXECUTED');
+      return [...fromServer, ...localOnly];
+    });
+  };
+
+  /** Pulls the server's ledger once a session is confirmed. */
+  useEffect(() => {
+    if (sessionVerified !== true) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch('/api/portfolio');
+        const contentType = res.headers.get('content-type') || '';
+        if (!res.ok || !contentType.includes('application/json')) return;
+        const data = await res.json();
+        if (cancelled || !data.success || !data.ledger) return;
+        adoptServerLedger(data.ledger);
+        announceSquareOff(data.squaredOff);
+      } catch {
+        // Nothing to adopt; the local copy stands.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionVerified]);
+
+  /**
+   * Sends a market order for the server to execute in its own ledger.
+   *
+   * Only the symbol, quantity, side and product go over the wire. The price is
+   * the server's, so a client cannot buy at a price it made up.
+   */
+  const syncTradeToServer = (
+    symbol: string,
+    quantity: number,
+    side: 'BUY' | 'SELL',
+    productType: ProductType,
+  ) => {
+    if (sessionVerified !== true) return; // no server to be authoritative
+
+    fetch('/api/portfolio/execute', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ symbol, quantity, side, product: productType === 'MIS' ? 'MIS' : 'CNC' }),
+    })
+      .then(async (res) => {
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) return;
+        const data = await res.json();
+
+        if (data.ledger) {
+          adoptServerLedger(data.ledger);
+          announceSquareOff(data.squaredOff);
+          return;
+        }
+        if (!res.ok) {
+          // The server refused an order this browser had already applied, so
+          // the local copy is wrong. Take the server's view and say so.
+          notifyUser(
+            'Order not accepted',
+            data.message || 'The server did not accept that order. Your portfolio has been refreshed.',
+            'WARNING',
+          );
+          const refreshed = await fetch('/api/portfolio').catch(() => null);
+          if (refreshed?.ok) {
+            const fresh = await refreshed.json().catch(() => null);
+            if (fresh?.ledger) {
+              adoptServerLedger(fresh.ledger);
+              announceSquareOff(fresh.squaredOff);
+            }
+          }
+        }
+      })
+      .catch(() => {
+        // Offline: the local ledger stands and stays unverified.
+      });
+  };
+
   const executeBuyOrder = (
     symbol: string, 
     quantity: number, 
@@ -1516,6 +1986,20 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (!stock) return { success: false, message: 'Stock not found' };
     if (!Number.isFinite(stock.price) || stock.price <= 0) return { success: false, message: 'A market quote is not available yet.' };
     if (quantity <= 0 || !Number.isInteger(quantity)) return { success: false, message: 'Please enter a valid quantity of shares (whole number)' };
+
+    // One position per share. Buying intraday a share already held for
+    // delivery used to rewrite the holding's product, and the 3:20pm square-off
+    // would then sell shares that had been bought to keep. The server refuses
+    // the same order, so the ticket may as well say why straight away.
+    const openPosition = holdings[symbol];
+    if (openPosition && openPosition.productType !== productType) {
+      const held = openPosition.productType === 'MIS' ? 'an intraday' : 'a delivery';
+      const wanted = productType === 'MIS' ? 'intraday' : 'delivery';
+      return {
+        success: false,
+        message: `You already hold ${openPosition.quantity} ${symbol} as ${held} position. This simulator keeps one position per share, so close it before buying ${symbol} as ${wanted}.`,
+      };
+    }
 
     const executionPrice = (orderType === 'LIMIT' || orderType === 'GTT') && limitPrice ? limitPrice : stock.price;
     const totalCost = Number((executionPrice * quantity).toFixed(2));
@@ -1603,6 +2087,10 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         status: 'EXECUTED',
         realizedPnL: 0
       });
+
+      // The server executes the same order in its own ledger, prices it from
+      // its own quote, and whatever it returns replaces this local copy.
+      syncTradeToServer(symbol, quantity, 'BUY', productType);
 
       awardXP(`order:${newOrder.id}`, 50, 'Executed a stock purchase');
       unlockBadge('badge-first-trade');
@@ -1794,6 +2282,9 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         status: 'EXECUTED',
         realizedPnL: Number(realizedPnL.toFixed(2))
       });
+
+      // Same order, executed independently by the server.
+      syncTradeToServer(symbol, quantity, 'SELL', productType);
 
       awardXP(`order:${newOrder.id}`, 50, 'Executed a stock sale');
       if (realizedPnL > 0) {
@@ -1997,7 +2488,27 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     awardXP(`activity:${normalizedReason}`, amount, reason);
   };
 
+  /**
+   * A reset wipes every holding, order and history point at once. It used to
+   * do that with no way back, so one mis-click ended a week of practice. The
+   * previous state is kept for a short window and the header offers to put it
+   * back; after that the snapshot is dropped.
+   */
+  const resetSnapshot = useRef<{
+    cashBalance: number;
+    holdings: typeof holdings;
+    orders: typeof orders;
+    optionPositions: typeof optionPositions;
+    portfolioHistory: typeof portfolioHistory;
+  } | null>(null);
+  const [resetUndoExpiresAt, setResetUndoExpiresAt] = useState<number | null>(null);
+
   const resetSimulator = () => {
+    const hadSomethingToLose =
+      Object.keys(holdings).length > 0 || orders.length > 0 || optionPositions.length > 0;
+
+    resetSnapshot.current = { cashBalance, holdings, orders, optionPositions, portfolioHistory };
+
     setCashBalance(INITIAL_CASH);
     setHoldings({});
     setOrders([]);
@@ -2012,16 +2523,140 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         totalPnL: 0,
       },
     ]);
+
+    // Nothing was lost on an already-empty account, so there is nothing worth
+    // offering to undo.
+    setResetUndoExpiresAt(hadSomethingToLose ? Date.now() + RESET_UNDO_WINDOW_MS : null);
+
+    // Without this the server keeps the old ledger and the next sync puts it
+    // straight back.
+    if (sessionVerified === true) {
+      fetch('/api/portfolio/reset', { method: 'POST' }).catch(() => {});
+    }
   };
+
+  const backupPortfolio = useCallback((): string => {
+    const backupData = {
+      version: 1,
+      appName: 'RupeeRookie',
+      exportedAt: new Date().toISOString(),
+      user: currentUser,
+      cashBalance,
+      holdings,
+      orders,
+      watchlist,
+      badges,
+      portfolioHistory,
+    };
+    return JSON.stringify(backupData, null, 2);
+  }, [currentUser, cashBalance, holdings, orders, watchlist, badges, portfolioHistory]);
+
+  const restorePortfolioBackup = useCallback((backupJson: string): { success: boolean; message: string } => {
+    try {
+      const parsed = JSON.parse(backupJson);
+      if (!parsed || typeof parsed !== 'object') {
+        return { success: false, message: 'Invalid backup file format' };
+      }
+      // A signed-in account's cash, holdings and orders are the server's
+      // ledger, and the next sync replaces this browser's copy with it. So a
+      // restore here would announce success and then quietly revert. Worse,
+      // until it did, an edited backup file would show cash and positions no
+      // trade ever produced. Only the parts this browser owns are restored.
+      const ledgerIsServers = sessionVerified === true;
+      if (!ledgerIsServers && typeof parsed.cashBalance === 'number' && Number.isFinite(parsed.cashBalance)) {
+        setCashBalance(parsed.cashBalance);
+      }
+      if (!ledgerIsServers && parsed.holdings && typeof parsed.holdings === 'object') {
+        setHoldings(parsed.holdings);
+      }
+      if (!ledgerIsServers && Array.isArray(parsed.orders)) {
+        setOrders(parsed.orders);
+      }
+      if (Array.isArray(parsed.watchlist)) {
+        // `watchlist` is derived from the active group, so restore into it.
+        const restored = parsed.watchlist.filter((s: unknown): s is string => typeof s === 'string');
+        setWatchlistGroups(prev => prev.map(g =>
+          g.id === activeWatchlistGroupId ? { ...g, symbols: restored } : g
+        ));
+      }
+      if (ledgerIsServers) {
+        const message = 'Your watchlist was restored. Cash, holdings, orders and badges are kept by the server for this account, so a backup file cannot change them.';
+        notifyUser('Watchlist restored', message, 'INFO');
+        return { success: true, message };
+      }
+      if (Array.isArray(parsed.badges)) {
+        setBadges(parsed.badges);
+      }
+      if (Array.isArray(parsed.portfolioHistory)) {
+        setPortfolioHistory(parsed.portfolioHistory);
+      }
+      notifyUser('Portfolio Restored! 🎉', 'Your holdings, cash balance, and orders were restored from backup.', 'SUCCESS');
+      return { success: true, message: 'Portfolio restored successfully!' };
+    } catch (err: any) {
+      return { success: false, message: `Failed to restore portfolio: ${err?.message || 'Invalid JSON'}` };
+    }
+  }, [notifyUser, sessionVerified, activeWatchlistGroupId]);
+
+  const undoLastReset = (): boolean => {
+    const snapshot = resetSnapshot.current;
+    if (!snapshot || !resetUndoExpiresAt || Date.now() > resetUndoExpiresAt) return false;
+
+    setCashBalance(snapshot.cashBalance);
+    setHoldings(snapshot.holdings);
+    setOrders(snapshot.orders);
+    setOptionPositions(snapshot.optionPositions);
+    setPortfolioHistory(snapshot.portfolioHistory);
+
+    resetSnapshot.current = null;
+    setResetUndoExpiresAt(null);
+
+    // The server wiped its ledger too, so undoing only here would be put back
+    // by the next sync.
+    if (sessionVerified === true) {
+      fetch('/api/portfolio/reset/undo', { method: 'POST' })
+        .then(async (res) => {
+          if (!res.ok) return;
+          const data = await res.json().catch(() => null);
+          if (data?.ledger) adoptServerLedger(data.ledger);
+        })
+        .catch(() => {});
+    }
+
+    return true;
+  };
+
+  const dismissResetUndo = () => {
+    resetSnapshot.current = null;
+    setResetUndoExpiresAt(null);
+  };
+
+  // The offer lapses on its own, so a stale bar cannot sit there promising an
+  // undo that would no longer restore anything.
+  useEffect(() => {
+    if (!resetUndoExpiresAt) return;
+    const remaining = resetUndoExpiresAt - Date.now();
+    if (remaining <= 0) {
+      dismissResetUndo();
+      return;
+    }
+    const timer = window.setTimeout(dismissResetUndo, remaining);
+    return () => window.clearTimeout(timer);
+  }, [resetUndoExpiresAt]);
 
   return (
     <SimulatorContext.Provider
       value={{
         currentUser,
         loginUser,
+        loginAsDemo,
+        completeVerification,
+        resendVerificationCode,
+        cancelVerification,
         registerUser,
         loginWithGoogle,
         logoutUser,
+        logoutEverywhere,
+        sessionVerified,
         stocks,
         selectedStock,
         setSelectedStock,
@@ -2050,6 +2685,10 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         themeMode,
         setThemeMode,
         resetSimulator,
+        undoLastReset,
+        serverOrderCount,
+        loadOlderOrders,
+        resetUndoExpiresAt,
         portfolioValue,
         investedValue,
         totalPnL,
@@ -2069,6 +2708,8 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         nseMarketInfo,
         marketHoursMode,
         setMarketHoursMode,
+        backupPortfolio,
+        restorePortfolioBackup,
         notifyUser,
         refreshStocks: async () => {
           await Promise.allSettled([fetchStocks(), syncHoldingsRealTime(), fetchMarketSummary()]);
