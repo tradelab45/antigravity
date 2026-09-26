@@ -32,10 +32,10 @@ import {
   Pie, 
   Cell 
 } from 'recharts';
-import { formatINR, formatPercent, formatIndianShort, formatNumberIndian } from '../utils/formatters';
-import { ChartFigure } from './ui/chart-figure';
-import { describeSeries, seriesRows } from '../utils/chartSummary';
-import { GrowthSnowballAreaChart } from './ui/area-charts-2';
+import { formatINR, formatPercent, formatIndianShort, formatNumberIndian } from '../../../utils/formatters';
+import { ChartFigure } from '../../../components/ui/chart-figure';
+import { describeSeries, seriesRows } from '../../../utils/chartSummary';
+import { GrowthSnowballAreaChart } from '../../../components/ui/area-charts-2';
 
 type CalcMode = 'SIP' | 'LUMPSUM' | 'STEP_UP' | 'GOAL';
 

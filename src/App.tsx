@@ -34,7 +34,7 @@ const StockDetailModal = lazy(() => import('./modules/market-data/components/Sto
 const ReplayTerminal = lazy(() => import('./components/ReplayTerminal').then((module) => ({ default: module.ReplayTerminal })));
 const TradeReviewHub = lazy(() => import('./components/TradeReviewHub').then((module) => ({ default: module.TradeReviewHub })));
 const ProgressHub = lazy(() => import('./components/ProgressHub').then((module) => ({ default: module.ProgressHub })));
-const CompoundCalculator = lazy(() => import('./components/CompoundCalculator').then((module) => ({ default: module.CompoundCalculator })));
+const CompoundCalculator = lazy(() => import('./modules/tax/components/CompoundCalculator').then((module) => ({ default: module.CompoundCalculator })));
 const AppWalkthroughOverlay = lazy(() => import('./components/AppWalkthroughOverlay').then((module) => ({ default: module.AppWalkthroughOverlay })));
 const CompleteProfileModal = lazy(() => import('./components/CompleteProfileModal').then((module) => ({ default: module.CompleteProfileModal })));
 const HomeDashboard = lazy(() => import('./components/HomeDashboard').then((module) => ({ default: module.HomeDashboard })));

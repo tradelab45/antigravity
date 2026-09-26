@@ -19,7 +19,7 @@ import {
   TAX_REFERENCE_AS_OF,
   TRANSACTION_CHARGES,
 } from '../data/taxationLessons';
-import { formatINR } from '../utils/formatters';
+import { formatINR } from '../../../utils/formatters';
 
 const STCG_RATE = 0.20;
 const LTCG_RATE = 0.125;

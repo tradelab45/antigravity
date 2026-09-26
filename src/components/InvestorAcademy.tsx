@@ -30,7 +30,7 @@ import { Lesson, LessonQuizOption } from '../types';
 import { formatINR } from '../utils/formatters';
 import { HistoricalEventsLab } from './HistoricalEventsLab';
 import { PortfolioConstructionLab } from './PortfolioConstructionLab';
-import { TaxCentre } from './TaxCentre';
+import { TaxCentre } from '../modules/tax/components/TaxCentre';
 import { startPracticeTask } from './PracticeTaskBanner';
 import { getPracticeAction } from '../data/practiceActions';
 import { StageExam } from './StageExam';
