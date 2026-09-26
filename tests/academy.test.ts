@@ -156,3 +156,32 @@ test('auth limiter returns 429 and Retry-After before the expensive handler', as
     assert.equal(calls, 2);
   } finally { await new Promise<void>(resolve => server.close(() => resolve())); }
 });
+
+test('academy storage recovers from its backup and refuses rather than reading a lost file as empty', async () => {
+  const { writeFileSync } = await import('node:fs');
+  const { writeJsonAtomic } = await import('../src/server/jsonStore');
+  const directory = mkdtempSync(path.join(os.tmpdir(), 'rr-academy-store-'));
+  const file = path.join(directory, 'academy.json');
+  const record = { attempts: [attempt] };
+  const service = createAcademyService(file, () => 'learner-one');
+  const app = express(); app.use(express.json()); app.use('/api/academy', service.router);
+  const server = app.listen(0, '127.0.0.1');
+  await new Promise<void>(resolve => server.once('listening', resolve));
+  const me = () => fetch(`http://127.0.0.1:${(server.address() as { port: number }).port}/api/academy/me`, {
+    headers: { 'x-academy-user': 'learner-one' },
+  });
+  try {
+    writeJsonAtomic(file, { 'learner-one': record });
+    writeJsonAtomic(file, { 'learner-one': record }); // leaves a good backup
+    writeFileSync(file, '{"learner-one": {"attem');
+    const recovered = await me();
+    assert.equal(recovered.status, 200, 'a corrupt file with a good backup is read from the backup');
+    assert.equal((await recovered.json()).attempts.length, 1);
+
+    rmSync(`${file}.bak`);
+    assert.equal((await me()).status, 503, 'with nothing readable left, refuse rather than start empty');
+  } finally {
+    await new Promise<void>(resolve => server.close(() => resolve()));
+    rmSync(directory, { recursive: true, force: true });
+  }
+});

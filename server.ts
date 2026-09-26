@@ -23,6 +23,7 @@ import {
   type ScreenerChartResponse
 } from "./src/server/screenerService";
 import { clientKey, consume, reset as resetRateLimit, type RateLimitRule } from './src/server/rateLimit';
+import { readJson, updateJson, writeJsonAtomic } from './src/server/jsonStore';
 import {
   CODE_TTL_MS,
   peekChallenge,
@@ -2829,9 +2830,9 @@ try {
 
 function loadUsers(): StoredUser[] {
   try {
-    if (fs.existsSync(USERS_FILE)) {
-      const data = fs.readFileSync(USERS_FILE, "utf-8");
-      const users = JSON.parse(data) as StoredUser[];
+    if (fs.existsSync(USERS_FILE) || fs.existsSync(`${USERS_FILE}.bak`)) {
+      const users = readJson<StoredUser[]>(USERS_FILE, null);
+      if (!Array.isArray(users)) return seedUsers();
       return users.map((user) => {
         if (user.id === "usr_rookie_demo" && (CONFIGURED_OWNER_PASSWORD || (!user.passwordHash && !user.password))) {
           const { password: _legacy, ...rest } = user;
@@ -2843,6 +2844,11 @@ function loadUsers(): StoredUser[] {
   } catch {
     // fallback
   }
+  return seedUsers();
+}
+
+/** The account a fresh install starts with. */
+function seedUsers(): StoredUser[] {
   return [
     {
       id: "usr_rookie_demo",
@@ -2864,9 +2870,7 @@ function loadUsers(): StoredUser[] {
 
 function saveUsers(users: StoredUser[]): void {
   try {
-    const tempFile = `${USERS_FILE}.tmp`;
-    fs.writeFileSync(tempFile, JSON.stringify(users, null, 2), "utf-8");
-    fs.renameSync(tempFile, USERS_FILE);
+    writeJsonAtomic(USERS_FILE, users);
   } catch (err) {
     console.error("Error saving users to disk:", err);
   }
@@ -3013,12 +3017,9 @@ function getInitialTrades(): StoredTrade[] {
 
 function loadTrades(): StoredTrade[] {
   try {
-    if (fs.existsSync(TRADES_FILE)) {
-      const data = fs.readFileSync(TRADES_FILE, "utf-8");
-      const parsed = JSON.parse(data) as StoredTrade[];
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
-      }
+    const parsed = readJson<StoredTrade[]>(TRADES_FILE, null);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed;
     }
   } catch {
     // fallback
@@ -3030,9 +3031,7 @@ function loadTrades(): StoredTrade[] {
 
 function saveTrades(trades: StoredTrade[]): void {
   try {
-    const tempFile = `${TRADES_FILE}.tmp`;
-    fs.writeFileSync(tempFile, JSON.stringify(trades, null, 2), "utf-8");
-    fs.renameSync(tempFile, TRADES_FILE);
+    writeJsonAtomic(TRADES_FILE, trades);
   } catch (err) {
     console.error("Error saving trades to disk:", err);
   }
@@ -3473,10 +3472,12 @@ const CLASSES_FILE = path.join(process.cwd(), "data", "classes.json");
  * for such a board would hand control to whichever learner happened to join
  * first, so it stays unmanaged until a teacher creates a fresh code.
  */
+// Through the same store as the ledgers. Written straight over the file, a
+// crash mid-write left it unparseable, the read answered {} and the next save
+// made that permanent: every teacher's board gone at once.
 function loadRooms(): Record<string, ClassRoom> {
   try {
-    if (!fs.existsSync(CLASSES_FILE)) return {};
-    return sanitiseRooms(JSON.parse(fs.readFileSync(CLASSES_FILE, "utf-8")));
+    return sanitiseRooms(readJson<unknown>(CLASSES_FILE, {}));
   } catch (err) {
     console.error("[classes] could not be read:", err);
     return {};
@@ -3485,8 +3486,7 @@ function loadRooms(): Record<string, ClassRoom> {
 
 function saveRooms(rooms: Record<string, ClassRoom>): void {
   try {
-    fs.mkdirSync(path.dirname(CLASSES_FILE), { recursive: true });
-    fs.writeFileSync(CLASSES_FILE, JSON.stringify(rooms, null, 2));
+    writeJsonAtomic(CLASSES_FILE, rooms);
   } catch (err) {
     console.error("[classes] could not be written:", err);
   }
@@ -4240,6 +4240,23 @@ app.delete("/api/account", (req, res) => {
   users.splice(index, 1);
   saveUsers(users);
 
+  // The account record was all that went. The message said "everything the
+  // server held for it", and the portfolio this server executed and the rows
+  // in the trade log stayed exactly where they were, keyed by an id nothing
+  // pointed at any more. Either the message was wrong or the deletion was;
+  // the deletion was.
+  updateLedgers((ledgers) => {
+    delete ledgers[user.id];
+  });
+
+  try {
+    const trades = loadTrades();
+    const remaining = trades.filter(trade => trade.userId !== user.id);
+    if (remaining.length !== trades.length) saveTrades(remaining);
+  } catch (err) {
+    console.error("[account] could not clear the trade log:", err);
+  }
+
   // Every device, not just this one: the account is gone.
   revokeAllSessionsForUser(user.id);
   res.clearCookie(SESSION_COOKIE, { path: "/" });
@@ -4260,8 +4277,9 @@ const LEDGERS_FILE = path.join(process.cwd(), "data", "ledgers.json");
 
 function loadLedgers(): Record<string, Ledger> {
   try {
-    if (!fs.existsSync(LEDGERS_FILE)) return {};
-    const parsed = JSON.parse(fs.readFileSync(LEDGERS_FILE, "utf-8"));
+    // An empty object here is every portfolio on the server, so the read goes
+    // to the last good copy before it settles for one.
+    const parsed = readJson<Record<string, unknown>>(LEDGERS_FILE, {});
     const out: Record<string, Ledger> = {};
     for (const [userId, ledger] of Object.entries(parsed || {})) {
       out[userId] = sanitiseLedger(ledger);
@@ -4272,13 +4290,27 @@ function loadLedgers(): Record<string, Ledger> {
   }
 }
 
-function saveLedgers(ledgers: Record<string, Ledger>): void {
-  try {
-    fs.mkdirSync(path.dirname(LEDGERS_FILE), { recursive: true });
-    fs.writeFileSync(LEDGERS_FILE, JSON.stringify(ledgers, null, 2));
-  } catch (err) {
-    console.error("[ledger] could not be written:", err);
-  }
+/**
+ * Reads the ledgers, changes them and writes them back as one step.
+ *
+ * Every route that writes a ledger does so by reading all of them, changing
+ * one and writing them all back. Nothing may happen in between: a single
+ * `await` between the read and the write makes one request's copy overwrite
+ * another's, and what is lost is somebody's trade. `updateJson` enforces
+ * that — the change is synchronous and a nested write throws — rather than
+ * leaving it as a convention to be broken later.
+ */
+function updateLedgers<T>(mutate: (ledgers: Record<string, Ledger>) => T): T {
+  let outcome: T;
+  updateJson<Record<string, unknown>>(LEDGERS_FILE, {}, (raw) => {
+    const ledgers: Record<string, Ledger> = {};
+    for (const [userId, ledger] of Object.entries(raw || {})) {
+      ledgers[userId] = sanitiseLedger(ledger);
+    }
+    outcome = mutate(ledgers);
+    return ledgers;
+  });
+  return outcome!;
 }
 
 function ledgerFor(userId: string): Ledger {
@@ -4303,14 +4335,18 @@ function quoteMap(): Record<string, number> {
  * was taken in.
  */
 function settleIntraday(userId: string): { ledger: Ledger; closed: LedgerOrder[] } {
-  const ledgers = loadLedgers();
-  const current = ledgers[userId] || emptyLedger();
-  const { ledger, closed } = squareOffIntraday(current, quoteMap());
-  if (closed.length > 0) {
-    ledgers[userId] = ledger;
-    saveLedgers(ledgers);
+  const quotes = quoteMap();
+  // Most reads find nothing due, and they stay reads. Only a square-off that
+  // is actually owed takes the write lock, and it is worked out again inside
+  // it, from the ledger as it stands at that moment.
+  if (squareOffIntraday(ledgerFor(userId), quotes).closed.length === 0) {
+    return { ledger: ledgerFor(userId), closed: [] };
   }
-  return { ledger, closed };
+  return updateLedgers((ledgers) => {
+    const settled = squareOffIntraday(ledgers[userId] || emptyLedger(), quotes);
+    if (settled.closed.length > 0) ledgers[userId] = settled.ledger;
+    return settled;
+  });
 }
 
 app.get("/api/portfolio", (req, res) => {
@@ -4365,27 +4401,28 @@ app.post("/api/portfolio/execute", (req, res) => {
   }
 
   // Any stale intraday position is closed before this order is priced, so a
-  // buy is checked against the cash the learner actually has.
-  const closed = settleIntraday(user.id).closed;
-
-  const ledgers = loadLedgers();
-  const ledger = ledgers[user.id] || emptyLedger();
-
-  const result = executeOrder(ledger, {
-    symbol: cleanSymbol,
-    stockName: stock.name || cleanSymbol,
-    quantity: Number(quantity),
-    side: side === "SELL" ? "SELL" : "BUY",
-    product: product === "MIS" ? "MIS" : "CNC",
-    price: stock.price,
+  // buy is checked against the cash the learner actually has. Both happen in
+  // one write: settling first and trading in a second write would let another
+  // request land in between.
+  const result = updateLedgers((ledgers) => {
+    const settled = squareOffIntraday(ledgers[user.id] || emptyLedger(), quoteMap());
+    const outcome = executeOrder(settled.ledger, {
+      symbol: cleanSymbol,
+      stockName: stock.name || cleanSymbol,
+      quantity: Number(quantity),
+      side: side === "SELL" ? "SELL" : "BUY",
+      product: product === "MIS" ? "MIS" : "CNC",
+      price: stock.price,
+    });
+    // A square-off that was due stands whether or not the new order does.
+    if (outcome.ok && outcome.ledger) ledgers[user.id] = outcome.ledger;
+    else if (settled.closed.length > 0) ledgers[user.id] = settled.ledger;
+    return { ...outcome, closed: settled.closed };
   });
 
   if (!result.ok || !result.ledger) {
     return res.status(400).json({ success: false, message: result.message });
   }
-
-  ledgers[user.id] = result.ledger;
-  saveLedgers(ledgers);
 
   // Keep the account row in step, so anything reading it sees a measured
   // figure rather than the signup constant it used to hold forever.
@@ -4403,7 +4440,7 @@ app.post("/api/portfolio/execute", (req, res) => {
     order: result.order,
     ledger: syncView(result.ledger),
     portfolioValue: computePortfolioValue(result.ledger, quoteMap()),
-    squaredOff: closed,
+    squaredOff: result.closed,
   });
 });
 
@@ -4421,12 +4458,12 @@ app.post("/api/portfolio/reset", (req, res) => {
   const user = sessionUser(req);
   if (!user) return res.status(401).json({ success: false, message: "Sign in first." });
 
-  const ledgers = loadLedgers();
-  const previous = ledgers[user.id];
-  if (previous) resetSnapshots.set(user.id, { ledger: previous, at: Date.now() });
-
-  ledgers[user.id] = emptyLedger();
-  saveLedgers(ledgers);
+  const fresh = updateLedgers((ledgers) => {
+    const previous = ledgers[user.id];
+    if (previous) resetSnapshots.set(user.id, { ledger: previous, at: Date.now() });
+    ledgers[user.id] = emptyLedger();
+    return ledgers[user.id];
+  });
 
   const users = loadUsers();
   const account = users.find(u => u.id === user.id);
@@ -4436,7 +4473,7 @@ app.post("/api/portfolio/reset", (req, res) => {
     saveUsers(users);
   }
 
-  res.json({ success: true, ledger: syncView(ledgers[user.id]), portfolioValue: INITIAL_LEDGER_CAPITAL });
+  res.json({ success: true, ledger: syncView(fresh), portfolioValue: INITIAL_LEDGER_CAPITAL });
 });
 
 /** Restores what the last reset displaced, while the window is still open. */
@@ -4450,9 +4487,9 @@ app.post("/api/portfolio/reset/undo", (req, res) => {
     return res.status(410).json({ success: false, message: "That reset can no longer be undone." });
   }
 
-  const ledgers = loadLedgers();
-  ledgers[user.id] = snapshot.ledger;
-  saveLedgers(ledgers);
+  updateLedgers((ledgers) => {
+    ledgers[user.id] = snapshot.ledger;
+  });
   resetSnapshots.delete(user.id);
 
   const value = computePortfolioValue(snapshot.ledger, quoteMap());
