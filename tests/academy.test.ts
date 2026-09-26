@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createAcademyService, gradeExam, rankCohort } from '../src/server/academyService';
 import { createAuthLimiter } from '../src/server/authRateLimit';
+import { SESSION_COOKIE, issueSession, readSession, revokeSession } from '../src/server/sessions';
 import { STAGE_EXAMS, EXAM_LENGTH } from '../src/data/stageExams';
 import { LEARNING_PATH } from '../src/data/learningPath';
 import { INITIAL_LESSONS } from '../src/data/lessonsData';
@@ -13,7 +14,9 @@ import { HINDI_LESSONS, localizeLesson } from '../src/data/hindiLessons';
 import { parseAttempts, resolveResume } from '../src/utils/academyProgress';
 
 const exam = STAGE_EXAMS[0];
-const answers = Object.fromEntries(exam.questions.map(question => [question.id, question.options[question.correctIndex]]));
+// A paper is EXAM_LENGTH questions drawn from the bank, not the whole bank.
+const paper = exam.questions.slice(0, EXAM_LENGTH);
+const answers = Object.fromEntries(paper.map(question => [question.id, question.options[question.correctIndex]]));
 const attempt = { id: 'attempt-valid-001', stageId: exam.stageId, score: 18, total: 20, completedAt: '2026-09-25T01:00:00.000Z' };
 
 test('all Hindi lessons preserve module identity, XP and answer correctness', () => {
@@ -44,12 +47,28 @@ test('history rejects corrupt data and deduplicates attempts without fabricating
 });
 test('grading accepts canonical option text, rejects incomplete or invented answers', () => {
   assert.equal(gradeExam(exam.stageId, answers), EXAM_LENGTH);
-  const wrong = { ...answers, [exam.questions[0].id]: exam.questions[0].options[(exam.questions[0].correctIndex + 1) % 4] };
+  const wrong = { ...answers, [paper[0].id]: paper[0].options[(paper[0].correctIndex + 1) % 4] };
   assert.equal(gradeExam(exam.stageId, wrong), 19);
   assert.equal(gradeExam(exam.stageId, {}), null);
   assert.equal(gradeExam('unknown', answers), null);
   assert.equal(gradeExam(exam.stageId, { ...answers, invented: 'answer' }), null);
-  assert.equal(gradeExam(exam.stageId, { ...answers, [exam.questions[0].id]: 1 }), null);
+  assert.equal(gradeExam(exam.stageId, { ...answers, [paper[0].id]: 1 }), null);
+});
+test('grading accepts any paper drawn from a bank larger than the paper', () => {
+  // The banks hold more questions than a paper asks, and each retake draws a
+  // different set. Requiring an answer to every question in the bank refused
+  // every real paper once the banks grew past the paper length.
+  assert.ok(exam.questions.length > EXAM_LENGTH, 'the bank is larger than one paper');
+  const lastPaper = exam.questions.slice(-EXAM_LENGTH);
+  const lastAnswers = Object.fromEntries(lastPaper.map(question => [question.id, question.options[question.correctIndex]]));
+  assert.equal(gradeExam(exam.stageId, lastAnswers), EXAM_LENGTH);
+  const allOfIt = Object.fromEntries(exam.questions.map(question => [question.id, question.options[question.correctIndex]]));
+  assert.equal(gradeExam(exam.stageId, allOfIt), null, 'more answers than a paper asks is not a paper');
+  const otherStage = STAGE_EXAMS[1].questions[0];
+  const borrowed = { ...answers };
+  delete borrowed[paper[0].id];
+  borrowed[otherStage.id] = otherStage.options[otherStage.correctIndex];
+  assert.equal(gradeExam(exam.stageId, borrowed), null, 'a question from another stage does not count');
 });
 test('cohort ranks best score per stage, preserves ties and hides outsiders', () => {
   const member = { groupId: 'private', kind: 'SCHOOL' as const, name: 'Example School', alias: 'Alpha' };
@@ -64,13 +83,25 @@ test('cohort ranks best score per stage, preserves ties and hides outsiders', ()
   assert.equal(result.yourRank?.alias, 'Beta');
   assert.ok(result.rows.every(row => !('userId' in row) && !('email' in row)));
 });
-test('academy API requires its session, grades and persists attempts, and supports opt-in groups', async () => {
+/** What server.ts does: the signed session cookie decides who the caller is. */
+const sessionUserId = (req: express.Request): string | null => {
+  const raw = req.headers.cookie?.split(';').map(part => part.trim()).find(part => part.startsWith(`${SESSION_COOKIE}=`));
+  return readSession(raw ? decodeURIComponent(raw.slice(SESSION_COOKIE.length + 1)) : null)?.userId ?? null;
+};
+
+test('academy API rides the app session, grades and persists attempts, and supports opt-in groups', async () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), 'rr-academy-test-'));
   const file = path.join(directory, 'academy.json');
-  const service = createAcademyService(file);
+  const service = createAcademyService(file, sessionUserId);
   const app = express(); app.use(express.json());
-  app.post('/session/:id', (req, res) => { service.issueSession(req, res, req.params.id); res.json({ ok: true }); });
-  app.post('/logout', service.logout);
+  let token = '';
+  app.post('/session/:id', (req, res) => {
+    token = issueSession(req.params.id).token;
+    res.cookie(SESSION_COOKIE, token, { httpOnly: true, sameSite: 'lax', path: '/' });
+    res.json({ ok: true });
+  });
+  // The app's logout: revoking the signed session is what has to reach the Academy.
+  app.post('/logout', (_req, res) => { revokeSession(token); res.json({ success: true }); });
   app.use('/api/academy', service.router);
   const server = app.listen(0, '127.0.0.1');
   await new Promise<void>(resolve => server.once('listening', resolve));
@@ -103,8 +134,8 @@ test('academy API requires its session, grades and persists attempts, and suppor
     assert.equal((await call('/api/academy/leaderboard')).status, 404);
     await call('/logout', 'POST');
     assert.equal((await call('/api/academy/me')).status, 401);
-    // A fresh service reads the saved history after a restart, but requires reauthentication.
-    const restarted = createAcademyService(file);
+    // A fresh service reads the saved history after a restart.
+    const restarted = createAcademyService(file, sessionUserId);
     assert.ok(restarted.router);
   } finally {
     await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
@@ -124,4 +155,33 @@ test('auth limiter returns 429 and Retry-After before the expensive handler', as
     assert.equal(rejected.status, 429); assert.ok(Number(rejected.headers.get('retry-after')) > 0);
     assert.equal(calls, 2);
   } finally { await new Promise<void>(resolve => server.close(() => resolve())); }
+});
+
+test('academy storage recovers from its backup and refuses rather than reading a lost file as empty', async () => {
+  const { writeFileSync } = await import('node:fs');
+  const { writeJsonAtomic } = await import('../src/server/jsonStore');
+  const directory = mkdtempSync(path.join(os.tmpdir(), 'rr-academy-store-'));
+  const file = path.join(directory, 'academy.json');
+  const record = { attempts: [attempt] };
+  const service = createAcademyService(file, () => 'learner-one');
+  const app = express(); app.use(express.json()); app.use('/api/academy', service.router);
+  const server = app.listen(0, '127.0.0.1');
+  await new Promise<void>(resolve => server.once('listening', resolve));
+  const me = () => fetch(`http://127.0.0.1:${(server.address() as { port: number }).port}/api/academy/me`, {
+    headers: { 'x-academy-user': 'learner-one' },
+  });
+  try {
+    writeJsonAtomic(file, { 'learner-one': record });
+    writeJsonAtomic(file, { 'learner-one': record }); // leaves a good backup
+    writeFileSync(file, '{"learner-one": {"attem');
+    const recovered = await me();
+    assert.equal(recovered.status, 200, 'a corrupt file with a good backup is read from the backup');
+    assert.equal((await recovered.json()).attempts.length, 1);
+
+    rmSync(`${file}.bak`);
+    assert.equal((await me()).status, 503, 'with nothing readable left, refuse rather than start empty');
+  } finally {
+    await new Promise<void>(resolve => server.close(() => resolve()));
+    rmSync(directory, { recursive: true, force: true });
+  }
 });

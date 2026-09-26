@@ -34,9 +34,21 @@ import { TaxCentre } from '../modules/tax/components/TaxCentre';
 import { startPracticeTask } from './PracticeTaskBanner';
 import { getPracticeAction } from '../data/practiceActions';
 import { StageExam } from './StageExam';
-import { getStageExam, EXAM_LENGTH, EXAM_PASS_MARK } from '../data/stageExams';
+import {
+  getStageExam,
+  EXAM_LENGTH,
+  EXAM_PASS_MARK,
+  EXAM_ATTEMPT_HISTORY,
+  emptyExamMemory,
+  memoryFromSeenIds,
+  recordPaper,
+  type ExamAttempt,
+  type ExamMemory,
+  type QuestionResult,
+} from '../data/stageExams';
+import { SectionSkipLinks } from './ui/section-skip-links';
 import type { AppTabType } from './Header';
-import { useAccessibility } from '../context/AccessibilityContext';
+import { useAccessibility } from '../modules/accessibility/context/AccessibilityContext';
 
 import { localizeLesson } from '../data/hindiLessons';
 import { readResume } from '../utils/academyProgress';
@@ -325,6 +337,41 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
     localStorage.setItem(`${academyKey}:exams`, JSON.stringify(examScores));
   }, [academyKey, examScores]);
 
+  // How each stage's questions have gone for this learner, so the next paper
+  // can bring back what they got wrong and rest what they did not.
+  const [examMemory, setExamMemory] = useState<Record<string, ExamMemory>>(() => {
+    try {
+      const stored = localStorage.getItem(`${academyKey}:examMemory`);
+      if (stored) return JSON.parse(stored);
+      // The older store remembered only which ids had been served. Carry it
+      // over rather than starting a returning learner back on repeats.
+      const legacy: Record<string, string[]> = JSON.parse(
+        localStorage.getItem(`${academyKey}:examSeen`) || '{}',
+      );
+      return Object.fromEntries(
+        Object.entries(legacy).map(([stageId, ids]) => [
+          stageId,
+          memoryFromSeenIds(Array.isArray(ids) ? ids : []),
+        ]),
+      );
+    } catch {
+      return {};
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem(`${academyKey}:examMemory`, JSON.stringify(examMemory));
+  }, [academyKey, examMemory]);
+
+  const recordExamPaper = (stageId: string, results: QuestionResult[]) => {
+    setExamMemory((previous) => ({
+      ...previous,
+      [stageId]: recordPaper(previous[stageId] ?? emptyExamMemory(), results),
+    }));
+  };
+
+  // The server's grades are final, so a best score it has recorded counts
+  // even when this device never saw the attempt.
   useEffect(() => {
     setExamScores(previous => {
       const next = { ...previous };
@@ -332,6 +379,19 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
       return next;
     });
   }, [attempts]);
+
+  // Every attempt at this stage, newest first. There is one history — the
+  // synced one — and the exam panel reads its slice of it rather than keeping
+  // a second, device-only list that could disagree with the History tab.
+  const stageAttempts = useMemo<ExamAttempt[]>(
+    () =>
+      attempts
+        .filter((attempt) => attempt.stageId === activeStageId)
+        .map((attempt) => ({ score: attempt.score, at: Date.parse(attempt.completedAt) || 0 }))
+        .sort((a, b) => b.at - a.at)
+        .slice(0, EXAM_ATTEMPT_HISTORY),
+    [attempts, activeStageId],
+  );
 
   const recordExamScore = (stageId: string, score: number, answers: Record<string, string>) => {
     recordAttempt(stageId, score, answers);
@@ -593,9 +653,22 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
       {/* VIEW 1: LESSONS & QUIZZES */}
       {activeSubTab === 'LESSONS' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          
+
+          {/*
+            The module list comes before the lesson in the source, so reaching
+            the lesson by keyboard meant tabbing past every module in the
+            stage, every time. These jump straight to either one.
+          */}
+          <SectionSkipLinks
+            label="Skip within the Academy"
+            targets={[
+              { id: 'academy-lesson', label: 'Skip to the lesson' },
+              { id: 'academy-modules', label: 'Skip to the module list' },
+            ]}
+          />
+
           {/* Left 4 Cols: Stage Modules & Search */}
-          <div className="lg:col-span-4 space-y-3">
+          <div id="academy-modules" tabIndex={-1} className="lg:col-span-4 space-y-3">
             <div className="rounded-2xl border border-indigo-200 bg-indigo-50 px-3 py-2.5 dark:border-indigo-900 dark:bg-indigo-950/40">
               <p className="text-[10px] font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-300">
                 {lessonQuery.trim() ? 'Searching all modules' : `Stage ${LEARNING_PATH.findIndex((stage) => stage.id === activeStageId) + 1} · ${activeStage.name}`}
@@ -702,7 +775,7 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
           </div>
 
           {/* Right 8 Cols: Active Lesson Reader & Interactive Quiz */}
-          <div className="lg:col-span-8 bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+          <div id="academy-lesson" tabIndex={-1} className="lg:col-span-8 bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
             
             {/* Lesson Title Header */}
             <div className="border-b border-slate-200 pb-4">
@@ -903,6 +976,9 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
             passed={hasPassedExam(activeStageId)}
             bestScore={examScores[activeStageId] ?? null}
             key={activeStageId}
+            attempts={stageAttempts}
+            memory={examMemory[activeStageId] ?? emptyExamMemory()}
+            onPaperGraded={(results) => recordExamPaper(activeStageId, results)}
             onRecordAttempt={(score, answers) => recordExamScore(activeStageId, score, answers)}
             onPass={(score) => {
               // The exam is worth XP in its own right, tracked like a lesson so
@@ -960,8 +1036,16 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <SectionSkipLinks
+              label="Skip within the case studies"
+              targets={[
+                { id: 'academy-case', label: 'Skip to the case study' },
+                { id: 'academy-case-list', label: 'Skip to the case study list' },
+              ]}
+            />
+
             {/* Left 4 Cols: Case Study Selector */}
-            <div className="lg:col-span-4 space-y-3">
+            <div id="academy-case-list" tabIndex={-1} className="lg:col-span-4 space-y-3">
               <div className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-5 shadow-xs space-y-3">
                 <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                   <div className="flex items-center gap-2">
@@ -1024,7 +1108,7 @@ export const InvestorAcademy: React.FC<InvestorAcademyProps> = ({ setActiveTab }
             </div>
 
             {/* Right 8 Cols: Detailed Case Study & Comparison Matrix */}
-            <div className="lg:col-span-8">
+            <div id="academy-case" tabIndex={-1} className="lg:col-span-8">
               {(() => {
                 const currentCase = CASE_STUDIES_DATA.find((c) => c.id === activeCaseStudyId) || CASE_STUDIES_DATA[0];
 

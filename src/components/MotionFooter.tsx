@@ -70,7 +70,7 @@ export const MotionFooter: React.FC<MotionFooterProps> = ({ onNavigate, onEnterA
                 <button 
                   type="button"
                   onClick={() => onNavigate ? onNavigate('screener') : onEnterAuth && onEnterAuth('LOGIN')}
-                  className="hover:text-mint transition-colors flex items-center gap-1.5 cursor-pointer text-left"
+                  className="hover:text-mint transition-colors flex items-center gap-1.5 cursor-pointer text-left py-1"
                 >
                   <BarChart3 className="w-3.5 h-3.5 text-mint" />
                   <span>Market Screener (75+ Stocks)</span>
@@ -80,7 +80,7 @@ export const MotionFooter: React.FC<MotionFooterProps> = ({ onNavigate, onEnterA
                 <button 
                   type="button"
                   onClick={() => onNavigate ? onNavigate('portfolio') : onEnterAuth && onEnterAuth('LOGIN')}
-                  className="hover:text-mint transition-colors flex items-center gap-1.5 cursor-pointer text-left"
+                  className="hover:text-mint transition-colors flex items-center gap-1.5 cursor-pointer text-left py-1"
                 >
                   <Layers className="w-3.5 h-3.5 text-sky-400" />
                   <span>Portfolio & Risk Hub</span>
@@ -90,7 +90,7 @@ export const MotionFooter: React.FC<MotionFooterProps> = ({ onNavigate, onEnterA
                 <button 
                   type="button"
                   onClick={() => onNavigate ? onNavigate('replay') : onEnterAuth && onEnterAuth('LOGIN')}
-                  className="hover:text-mint transition-colors flex items-center gap-1.5 cursor-pointer text-left"
+                  className="hover:text-mint transition-colors flex items-center gap-1.5 cursor-pointer text-left py-1"
                 >
                   <Activity className="w-3.5 h-3.5 text-purple-400" />
                   <span>Historical Replay Lab</span>
@@ -100,7 +100,7 @@ export const MotionFooter: React.FC<MotionFooterProps> = ({ onNavigate, onEnterA
                 <button 
                   type="button"
                   onClick={() => onNavigate ? onNavigate('watchlist') : onEnterAuth && onEnterAuth('LOGIN')}
-                  className="hover:text-mint transition-colors flex items-center gap-1.5 cursor-pointer text-left"
+                  className="hover:text-mint transition-colors flex items-center gap-1.5 cursor-pointer text-left py-1"
                 >
                   <Heart className="w-3.5 h-3.5 text-rose-400" />
                   <span>Interactive Watchlist</span>
@@ -119,7 +119,7 @@ export const MotionFooter: React.FC<MotionFooterProps> = ({ onNavigate, onEnterA
                 <button 
                   type="button"
                   onClick={() => onNavigate ? onNavigate('academy') : onEnterAuth && onEnterAuth('LOGIN')}
-                  className="hover:text-mint transition-colors flex items-center gap-1.5 cursor-pointer text-left"
+                  className="hover:text-mint transition-colors flex items-center gap-1.5 cursor-pointer text-left py-1"
                 >
                   <BookOpen className="w-3.5 h-3.5 text-amber-400" />
                   <span>12 Foundation Lessons</span>
@@ -129,7 +129,7 @@ export const MotionFooter: React.FC<MotionFooterProps> = ({ onNavigate, onEnterA
                 <button 
                   type="button"
                   onClick={() => onNavigate ? onNavigate('challenges') : onEnterAuth && onEnterAuth('LOGIN')}
-                  className="hover:text-mint transition-colors flex items-center gap-1.5 cursor-pointer text-left"
+                  className="hover:text-mint transition-colors flex items-center gap-1.5 cursor-pointer text-left py-1"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Trading Challenges & Badges</span>
@@ -139,7 +139,7 @@ export const MotionFooter: React.FC<MotionFooterProps> = ({ onNavigate, onEnterA
                 <button 
                   type="button"
                   onClick={() => onNavigate ? onNavigate('badges') : onEnterAuth && onEnterAuth('LOGIN')}
-                  className="hover:text-mint transition-colors flex items-center gap-1.5 cursor-pointer text-left"
+                  className="hover:text-mint transition-colors flex items-center gap-1.5 cursor-pointer text-left py-1"
                 >
                   <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
                   <span>XP Ranks & Certifications</span>
@@ -150,7 +150,7 @@ export const MotionFooter: React.FC<MotionFooterProps> = ({ onNavigate, onEnterA
                   href="https://www.sebi.gov.in" 
                   target="_blank" 
                   rel="noopener noreferrer" 
-                  className="hover:text-mint transition-colors flex items-center gap-1.5"
+                  className="hover:text-mint transition-colors flex items-center gap-1.5 py-1"
                 >
                   <span>SEBI Investor Guidelines</span>
                   <ExternalLink className="w-3 h-3 text-slate-500" />

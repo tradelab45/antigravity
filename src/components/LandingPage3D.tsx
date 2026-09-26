@@ -1,18 +1,18 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { motion, useReducedMotion, useScroll, useTransform } from 'motion/react';
+import { motion, useReducedMotion, useScroll } from 'motion/react';
 import { 
   ArrowUpRight, ArrowRight, ArrowDown, BookOpen, RotateCcw, 
   ShieldCheck, Sparkles, Pause, Play, TrendingUp, TrendingDown,
   Compass, CheckCircle2, Zap, BarChart3, Layers, Award, Activity
 } from 'lucide-react';
-import { useAccessibility } from '../context/AccessibilityContext';
+import { useAccessibility } from '../modules/accessibility/context/AccessibilityContext';
 import { useSimulator } from '../context/SimulatorContext';
 import type { AppTabType } from './Header';
 import './landing-3d.css';
 import { MetalButton } from './ui/liquid-glass-button';
 import { GlowCard, SpotlightCard } from './ui/spotlight-card';
 import { MotionFooter } from './MotionFooter';
-import { SpatialCandlestickChart } from './ui/spatial-candlestick-chart';
+import { LandingHeroPreview } from './LandingHeroPreview';
 
 const money = (value: number) => 
   new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value);
@@ -27,6 +27,12 @@ interface PopularShare {
   glow: 'green' | 'blue' | 'purple' | 'orange' | 'red';
   marketCap: string;
   peRatio: string;
+  /**
+   * Where the price came from. The simulator seeds its list from a static
+   * table before the feed answers, so having a price is not the same as
+   * having a market price; only 'live' and 'delayed' came from a quote.
+   */
+  quoteStatus?: 'live' | 'delayed' | 'simulated' | 'unavailable';
 }
 
 const POPULAR_SHARES: PopularShare[] = [
@@ -37,6 +43,43 @@ const POPULAR_SHARES: PopularShare[] = [
   { symbol: 'TATAMOTORS', name: 'Tata Motors', price: 303.80, change: -10.70, changePct: -3.40, sector: 'Automotive & EV', glow: 'red', marketCap: '₹1.1L Cr', peRatio: '11.2' },
   { symbol: 'ZOMATO', name: 'Zomato Limited', price: 326.85, change: 4.50, changePct: 1.40, sector: 'Quick Commerce & Food', glow: 'green', marketCap: '₹3.0L Cr', peRatio: '710.5' },
 ];
+
+interface MarketIndex {
+  name: string;
+  value: number;
+  change: number;
+  changePercent: number;
+}
+
+interface MarketBreadth {
+  advances: number;
+  declines: number;
+}
+
+const indexValue = (value: number) =>
+  new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+
+/** The three steps a new account actually goes through, in order. */
+const JOURNEY = [
+  {
+    step: '01',
+    title: 'Learn the idea',
+    body: 'Stage one of the Academy opens straight away. Short lessons on what a share is, how an order works and why price moves. Pass its 20-question paper and stage two unlocks.',
+    icon: BookOpen,
+  },
+  {
+    step: '02',
+    title: 'Place the trade',
+    body: 'Spend the ₹10,00,000 of practice capital on real NSE and BSE names. Orders fill against live-style prices, and the portfolio tracks every rupee of it.',
+    icon: BarChart3,
+  },
+  {
+    step: '03',
+    title: 'Read what happened',
+    body: 'The journal scores your process rather than your luck: position size, holding period, and the habits behind the trades that went wrong.',
+    icon: Activity,
+  },
+] as const;
 
 const features = [
   { 
@@ -73,8 +116,6 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
   const osReduced = useReducedMotion();
   const reduced = settings.reducedMotion || !!osReduced;
   const { scrollYProgress } = useScroll();
-  const coinTurn = useTransform(scrollYProgress, [0, 0.35], [-24, 28]);
-  const coinLift = useTransform(scrollYProgress, [0, 0.35], [0, 90]);
 
   const scene = useRef<HTMLDivElement>(null);
   const landingRef = useRef<HTMLDivElement>(null);
@@ -84,7 +125,6 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
   const [feature, setFeature] = useState(0);
   const [allocation, setAllocation] = useState(25);
   const [answer, setAnswer] = useState<number | null>(null);
-  const [coinFlipped, setCoinFlipped] = useState(false);
 
   // Directly derive live shares from SimulatorContext stocks so landing and signup pages are 100% in sync
   const liveShares = useMemo<PopularShare[]>(() => {
@@ -98,14 +138,11 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
           changePct: typeof match.changePercent === 'number' ? match.changePercent : share.changePct,
           peRatio: match.peRatio ? match.peRatio.toString() : share.peRatio,
           marketCap: match.marketCapCr ? `₹${(match.marketCapCr / 100000).toFixed(1)}L Cr` : share.marketCap,
+          quoteStatus: match.quoteStatus,
         };
       }
       return share;
     });
-  }, [stocks]);
-
-  const hasLivePrices = useMemo(() => {
-    return Boolean(stocks && stocks.length > 0);
   }, [stocks]);
 
   const selectedStock = useMemo<PopularShare>(() => {
@@ -129,6 +166,61 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
         }
       })
       .catch(() => {});
+  }, []);
+
+  // The index bar under the nav. A visitor sees where the Indian market
+  // actually stands before signing up for anything.
+  const [indices, setIndices] = useState<MarketIndex[] | null>(null);
+  const [breadth, setBreadth] = useState<MarketBreadth | null>(null);
+  // 'loading' holds the bar's height so the hero does not jump when the
+  // figures land. If the feed is unreachable the bar is removed instead of
+  // sitting there saying "loading" for the rest of the visit.
+  const [indexStatus, setIndexStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = () => {
+      fetch('/api/market/summary')
+        .then((res) => (res.ok ? res.json() : Promise.reject(new Error('unavailable'))))
+        .then((data: any) => {
+          if (cancelled) return;
+          const order = ['nifty50', 'sensex', 'niftyBank', 'niftyIT'];
+          const rows: MarketIndex[] = order
+            .map((key) => data?.indices?.[key])
+            .filter((row: any) => row && typeof row.value === 'number')
+            .map((row: any) => ({
+              name: String(row.name),
+              value: Number(row.value),
+              change: Number(row.change) || 0,
+              changePercent: Number(row.changePercent) || 0,
+            }));
+          if (rows.length === 0) {
+            setIndexStatus((status) => (status === 'ready' ? status : 'unavailable'));
+            return;
+          }
+          setIndices(rows);
+          setIndexStatus('ready');
+          const counts = data?.marketBreadth;
+          if (counts && typeof counts.advances === 'number') {
+            setBreadth({ advances: counts.advances, declines: counts.declines ?? 0 });
+          }
+        })
+        .catch(() => {
+          if (cancelled) return;
+          // A later poll can still succeed; only the first failure collapses it.
+          setIndexStatus((status) => (status === 'ready' ? status : 'unavailable'));
+        });
+    };
+
+    load();
+    // Slow enough to be polite to the quote provider, quick enough that a
+    // visitor reading the hero sees the figures move.
+    const timer = window.setInterval(load, 60000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
   }, []);
 
   const capital = 1000000;
@@ -213,11 +305,17 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
     };
   }, [reduced]);
 
-  const reveal = reduced ? {} : { 
-    initial: { opacity: 0, y: 24 }, 
-    whileInView: { opacity: 1, y: 0 }, 
-    viewport: { once: true, amount: 0.1 }, 
-    transition: { duration: 0.5 } 
+  // Opacity only, deliberately. The reveal used to lift each section 24px as
+  // it faded in, and every one of these sections is a nav anchor target: the
+  // browser worked out where to stop while the section still sat 24px low,
+  // then the animation pulled it up, leaving the heading tucked under the
+  // sticky header. A fade keeps the section's box where scroll-margin-top
+  // expects it.
+  const reveal = reduced ? {} : {
+    initial: { opacity: 0 },
+    whileInView: { opacity: 1 },
+    viewport: { once: true, amount: 0.1 },
+    transition: { duration: 0.5 },
   };
 
   return (
@@ -240,6 +338,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
         </a>
 
         <nav aria-label="Main navigation">
+          <a href="#rr-how">How it works</a>
           <a href="#rr-shares-box">Shares</a>
           <a href="#rr-practice">3D Sandbox</a>
           <a href="#rr-learn">Academy</a>
@@ -277,10 +376,10 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
             </p>
 
             <div className="rr-hero-actions">
-              <MetalButton variant="chrome" onClick={() => onEnter('SIGNUP', 'academy')}>
+              <MetalButton variant="jade" onClick={() => onEnter('SIGNUP', 'academy')}>
                 Start learning <ArrowUpRight size={20} />
               </MetalButton>
-              <MetalButton variant="graphite" onClick={() => { document.getElementById('rr-shares-box')?.scrollIntoView({ behavior: 'smooth' }); }}>
+              <MetalButton variant="chrome" onClick={() => { document.getElementById('rr-shares-box')?.scrollIntoView({ behavior: 'smooth' }); }}>
                 Explore live shares <ArrowRight size={17} />
               </MetalButton>
             </div>
@@ -291,29 +390,53 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
             </p>
           </div>
 
-          {/* 3D Spatial Canvas */}
-          <div className="rr-art" ref={scene} aria-label="3D Candlestick Graph & Moving Rupee Arena">
+          {/* What the app looks like: three cards, every figure real or labelled. */}
+          <div className="rr-art" ref={scene}>
             <div className="rr-grid-plane" />
             <div className="rr-orbit rr-orbit-one" />
             <div className="rr-orbit rr-orbit-two" />
             <div className="rr-orbit rr-orbit-three" />
 
-            <span className="rr-art-label">3D CANDLESTICKS · DALAL STREET ARENA</span>
-
-            {/* Interactive 3D Candlestick Graph & Rotating Rupee Symbol */}
-            <div className="absolute inset-0 flex items-center justify-center pt-8">
-              <SpatialCandlestickChart variant="hero" showRupee={true} showBadges={true} />
-            </div>
-
-            <div className="rr-star rr-star-one">✳</div>
-            <div className="rr-star rr-star-two">✳</div>
-            <span className="rr-art-coordinate">3D PERSPECTIVE: ACTIVE</span>
+            <LandingHeroPreview
+              share={selectedStock}
+              quoteStatus={selectedStock.quoteStatus}
+              reduced={reduced}
+            />
           </div>
 
           <a href="#rr-shares-box" className="rr-scroll-cue">
             <ArrowDown size={16} /> SCROLL TO SHARES
           </a>
         </section>
+
+        {/* Live index bar */}
+        {indexStatus !== 'unavailable' && (
+          <div className="rr-index-bar" aria-label="Indian market indices">
+            {indices && (
+              <>
+                <span className="rr-index-tag">
+                  <span className="rr-live-dot" /> MARKET NOW
+                </span>
+                <ul>
+                  {indices.map((index) => (
+                    <li key={index.name}>
+                      <span className="rr-index-name">{index.name}</span>
+                      <span className="rr-index-value">{indexValue(index.value)}</span>
+                      <span className={index.change < 0 ? 'rr-index-down' : 'rr-index-up'}>
+                        {index.change < 0 ? '▼' : '▲'} {index.changePercent.toFixed(2)}%
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                {breadth && (
+                  <span className="rr-index-breadth">
+                    {breadth.advances} advancing · {breadth.declines} declining
+                  </span>
+                )}
+              </>
+            )}
+          </div>
+        )}
 
         {/* Proof Strip */}
         <div className="rr-proof-strip">
@@ -326,6 +449,29 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
           <i>✳</i>
           <p>Zero financial anxiety</p>
         </div>
+
+        {/* What actually happens after signing up */}
+        <motion.section {...reveal} className="rr-section rr-journey" id="rr-how">
+          <div className="rr-section-heading">
+            <p className="rr-eyebrow">HOW IT WORKS</p>
+            <h2>Three steps.<br /><em>No money down.</em></h2>
+            <p>
+              Nothing here is a demo of a product you have to buy later. The whole
+              simulator is the product, and it is free for students.
+            </p>
+          </div>
+
+          <ol className="rr-journey-steps">
+            {JOURNEY.map((stage) => (
+              <li key={stage.step}>
+                <span className="rr-journey-step" aria-hidden="true">{stage.step}</span>
+                <stage.icon size={20} className="text-mint" aria-hidden="true" />
+                <h3>{stage.title}</h3>
+                <p>{stage.body}</p>
+              </li>
+            ))}
+          </ol>
+        </motion.section>
 
         {/* THE SHARES BOX SECTION: Full Spotlight Cards on Indian Shares */}
         <motion.section {...reveal} className="rr-section rr-shares-section" id="rr-shares-box">
@@ -388,13 +534,13 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                                 ACTIVE
                               </span>
                             )}
-                            {hasLivePrices && (
+                            {(stock.quoteStatus === 'live' || stock.quoteStatus === 'delayed') && (
                               <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-mint border border-emerald-500/30">
-                                LIVE
+                                {stock.quoteStatus === 'live' ? 'LIVE' : 'DELAYED'}
                               </span>
                             )}
                           </div>
-                          <span className="text-xs font-mono text-slate-500 bg-slate-800/80 px-2 py-0.5 rounded-md">
+                          <span className="text-xs font-mono text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
                             {stock.sector}
                           </span>
                         </div>
@@ -403,7 +549,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                         <p className="text-xs text-slate-500 font-medium mb-4">{stock.name}</p>
 
                         {/* Price & Change Pill */}
-                        <div className="flex items-baseline justify-between pt-2 border-t border-slate-800/80">
+                        <div className="flex items-baseline justify-between pt-2 border-t border-slate-200">
                           <div>
                             <span className="text-[10px] font-mono text-slate-500 uppercase">Share Price</span>
                             <div className="text-2xl font-bold font-mono text-slate-900">
@@ -423,7 +569,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                       </div>
 
                       {/* Micro Stats & Action Buttons */}
-                      <div className="pt-4 border-t border-slate-800/60 flex items-center justify-between text-xs font-mono">
+                      <div className="pt-4 border-t border-slate-200 flex items-center justify-between text-xs font-mono">
                         <div className="flex items-center gap-2 text-slate-500">
                           <span>M-Cap: {stock.marketCap}</span>
                           <span className="text-slate-500">P/E: {stock.peRatio}x</span>
@@ -490,7 +636,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
 
               {/* SHARES SPOTLIGHT BOX: Inside the Sandbox */}
               <div className="my-4">
-                <GlowCard glowColor={selectedStock.glow} customSize className="p-4 bg-slate-900/60 border border-slate-700/60">
+                <GlowCard glowColor={selectedStock.glow} customSize className="p-4 bg-white/70 border border-slate-200">
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <div>
                       <span className="text-[10px] font-mono text-slate-500 uppercase">Active Share in Focus</span>
@@ -508,7 +654,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-slate-800 text-xs font-mono">
+                  <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-slate-200 text-xs font-mono">
                     <div>
                       <span className="text-slate-500 text-[10px] block">PER SHARE</span>
                       <span className="text-slate-900 font-semibold">₹{selectedStock.price.toFixed(2)}</span>
@@ -536,7 +682,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                     className={`text-xs px-2.5 py-1 rounded-md border transition-all ${
                       allocation === pct 
                         ? 'bg-mint text-slate-950 border-mint font-bold shadow-md' 
-                        : 'border-slate-700 hover:bg-slate-800 text-slate-600'
+                        : 'border-slate-300 bg-white/70 hover:bg-slate-100 text-slate-700'
                     }`}
                   >
                     {pct}% Capital
@@ -612,7 +758,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                 </span>
               </div>
 
-              <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between flex-wrap gap-2">
+              <div className="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between flex-wrap gap-2">
                 <span className="text-xs text-slate-500 font-mono">
                   Portfolio balance: <strong className="text-slate-900">{money(capital + change)}</strong>
                 </span>
@@ -658,9 +804,9 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                   <h3 className="text-2xl font-bold tracking-tight mb-2 text-slate-900">{item.title}</h3>
                   <p className="text-sm text-slate-500 leading-relaxed">{item.text}</p>
                 </div>
-                <div className="pt-4 border-t border-slate-800/80">
+                <div className="pt-4 border-t border-slate-200">
                   <MetalButton
-                    variant="graphite"
+                    variant="jade"
                     className="w-full justify-between h-9 px-4 text-xs"
                     onClick={() => onEnter('SIGNUP', item.view as AppTabType)}
                   >
@@ -697,7 +843,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                       className={`px-4 py-2.5 text-xs font-semibold rounded-lg border transition-all ${
                         answer === 0 
                           ? 'bg-mint text-slate-950 border-mint font-bold shadow-md' 
-                          : 'border-slate-700 bg-slate-900/60 hover:bg-slate-800 text-slate-600'
+                          : 'border-slate-300 bg-white/70 hover:bg-slate-100 text-slate-700'
                       }`}
                     >
                       Yes, five companies is plenty
@@ -709,7 +855,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                       className={`px-4 py-2.5 text-xs font-semibold rounded-lg border transition-all ${
                         answer === 1 
                           ? 'bg-mint text-slate-950 border-mint font-bold shadow-md' 
-                          : 'border-slate-700 bg-slate-900/60 hover:bg-slate-800 text-slate-600'
+                          : 'border-slate-300 bg-white/70 hover:bg-slate-100 text-slate-700'
                       }`}
                     >
                       Not necessarily
@@ -717,11 +863,11 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                   </div>
 
                   <div 
-                    className="mt-4 p-3.5 rounded-xl bg-slate-900/80 text-xs text-slate-600 leading-relaxed border border-slate-800" 
+                    className="mt-4 p-3.5 rounded-xl bg-white/75 text-xs text-slate-700 leading-relaxed border border-slate-200" 
                     aria-live="polite"
                   >
                     {answer === null ? (
-                      <span className="text-slate-500 italic">Choose an answer above to reveal the insight.</span>
+                      <span className="text-slate-600 italic">Choose an answer above to reveal the insight.</span>
                     ) : answer === 1 ? (
                       <span className="flex items-start gap-2">
                         <CheckCircle2 size={16} className="text-mint shrink-0 mt-0.5" />
@@ -784,7 +930,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
                   </div>
 
                   <MetalButton 
-                    variant="graphite" 
+                    variant="jade" 
                     onClick={() => onEnter('SIGNUP', selected.view)}
                   >
                     Open {selected.name} after signup <ArrowRight size={18} />
@@ -834,21 +980,37 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
 
         {/* Final Call to Action */}
         <section className="rr-final-cta">
-          <span className="rr-eyebrow">YOUR JOURNEY AWAITS</span>
-          <h2>Stay curious.<br /><em>Start small.</em></h2>
-          <p className="text-sm text-slate-600 max-w-lg mb-6 leading-relaxed">
-            Join thousands of curious Indian learners mastering portfolio construction and trading psychology without financial anxiety.
-          </p>
+          <div>
+            <span className="rr-eyebrow">YOUR JOURNEY AWAITS</span>
+            <h2>Stay curious.<br /><em>Start small.</em></h2>
+            <p className="text-sm text-slate-600 max-w-lg mb-6 leading-relaxed">
+              Join thousands of curious Indian learners mastering portfolio construction and trading psychology without financial anxiety.
+            </p>
 
-          <div className="flex gap-4 items-center flex-wrap z-10">
-            <MetalButton variant="chrome" onClick={() => onEnter('SIGNUP', 'academy')}>
-              Let’s begin <ArrowUpRight size={21} />
-            </MetalButton>
-            <MetalButton variant="graphite" onClick={() => onEnter('LOGIN')}>
-              Existing user? Sign in
-            </MetalButton>
+            <div className="flex gap-4 items-center flex-wrap z-10">
+              <MetalButton variant="jade" onClick={() => onEnter('SIGNUP', 'academy')}>
+                Let’s begin <ArrowUpRight size={21} />
+              </MetalButton>
+              <MetalButton variant="chrome" onClick={() => onEnter('LOGIN')}>
+                Existing user? Sign in
+              </MetalButton>
+            </div>
           </div>
 
+          <dl className="rr-cta-facts">
+            {[
+              { k: 'PRACTICE CAPITAL', v: '₹10,00,000', note: 'Virtual money, reset whenever you want.' },
+              { k: 'TRACKED SHARES', v: '75+', note: 'NSE and BSE names with realistic price action.' },
+              { k: 'GUIDED STAGES', v: '6', note: 'Each one unlocks after a 20-question paper.' },
+              { k: 'REAL MONEY AT RISK', v: '₹0', note: 'Nothing here can be deposited or withdrawn.' },
+            ].map((fact) => (
+              <div key={fact.k}>
+                <dt>{fact.k}</dt>
+                <dd>{fact.v}</dd>
+                <p>{fact.note}</p>
+              </div>
+            ))}
+          </dl>
         </section>
       </main>
 
