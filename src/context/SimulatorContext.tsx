@@ -30,6 +30,7 @@ import { getNSEMarketTimeInfo, NSEMarketInfo } from '../modules/market-data/util
 import { enrichStockWithTechnicalsAndDuPont } from '../modules/market-data/utils/technicalCalculator';
 import { computeMarketIndicesFromStocks } from '../modules/market-data/utils/indexCalculator';
 import { mergeQuote } from '../modules/market-data/utils/quoteState';
+import { isAuthApiRejection } from '../utils/authResponse';
 
 export const ADMIN_EMAILS = ['aaravvjain23@gmail.com'];
 export const ADMIN_USERNAMES = ['aaravvjain23@gmail.com', 'aarav', 'aarav_trader'];
@@ -230,6 +231,8 @@ interface SimulatorContextType {
   marketHoursMode: 'STRICT_NSE_HOURS' | 'PRACTICE_24x7';
   setMarketHoursMode: (mode: 'STRICT_NSE_HOURS' | 'PRACTICE_24x7') => void;
   notifyUser: (title: string, message: string, type: 'INFO' | 'SUCCESS' | 'WARNING' | 'ALERT', symbol?: string) => void;
+  backupPortfolio: () => string;
+  restorePortfolioBackup: (backupJson: string) => { success: boolean; message: string };
   refreshStocks: () => Promise<void>;
   syncHoldingsRealTime: () => Promise<void>;
   isSyncingHoldings: boolean;
@@ -548,10 +551,15 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }),
       });
       if (!res.ok) {
-        const error = await res.json().catch(() => null);
-        return { success: false, message: error?.message || (res.status === 429 ? 'Too many attempts. Please wait before trying again.' : 'Sign-in was rejected. Please check your details.') };
-      }
-      if (res.ok) {
+        // The server's answer is final. Only a static host's HTML 404 or 405,
+        // which means there is no API here at all, falls through to the
+        // offline registration below. It used to be reported as "Sign-in was
+        // rejected", which is neither what happened nor the right word.
+        if (isAuthApiRejection(res.status, res.headers.get('content-type'))) {
+          const error = await res.json().catch(() => null);
+          return { success: false, message: error?.message || (res.status === 429 ? 'Too many attempts. Please wait before trying again.' : 'We could not create your account. Please check your details.') };
+        }
+      } else {
         const contentType = res.headers.get('content-type') || '';
         if (contentType.includes('application/json')) {
           const data = await res.json();
@@ -2527,6 +2535,68 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
+  const backupPortfolio = useCallback((): string => {
+    const backupData = {
+      version: 1,
+      appName: 'RupeeRookie',
+      exportedAt: new Date().toISOString(),
+      user: currentUser,
+      cashBalance,
+      holdings,
+      orders,
+      watchlist,
+      badges,
+      portfolioHistory,
+    };
+    return JSON.stringify(backupData, null, 2);
+  }, [currentUser, cashBalance, holdings, orders, watchlist, badges, portfolioHistory]);
+
+  const restorePortfolioBackup = useCallback((backupJson: string): { success: boolean; message: string } => {
+    try {
+      const parsed = JSON.parse(backupJson);
+      if (!parsed || typeof parsed !== 'object') {
+        return { success: false, message: 'Invalid backup file format' };
+      }
+      // A signed-in account's cash, holdings and orders are the server's
+      // ledger, and the next sync replaces this browser's copy with it. So a
+      // restore here would announce success and then quietly revert. Worse,
+      // until it did, an edited backup file would show cash and positions no
+      // trade ever produced. Only the parts this browser owns are restored.
+      const ledgerIsServers = sessionVerified === true;
+      if (!ledgerIsServers && typeof parsed.cashBalance === 'number' && Number.isFinite(parsed.cashBalance)) {
+        setCashBalance(parsed.cashBalance);
+      }
+      if (!ledgerIsServers && parsed.holdings && typeof parsed.holdings === 'object') {
+        setHoldings(parsed.holdings);
+      }
+      if (!ledgerIsServers && Array.isArray(parsed.orders)) {
+        setOrders(parsed.orders);
+      }
+      if (Array.isArray(parsed.watchlist)) {
+        // `watchlist` is derived from the active group, so restore into it.
+        const restored = parsed.watchlist.filter((s: unknown): s is string => typeof s === 'string');
+        setWatchlistGroups(prev => prev.map(g =>
+          g.id === activeWatchlistGroupId ? { ...g, symbols: restored } : g
+        ));
+      }
+      if (ledgerIsServers) {
+        const message = 'Your watchlist was restored. Cash, holdings, orders and badges are kept by the server for this account, so a backup file cannot change them.';
+        notifyUser('Watchlist restored', message, 'INFO');
+        return { success: true, message };
+      }
+      if (Array.isArray(parsed.badges)) {
+        setBadges(parsed.badges);
+      }
+      if (Array.isArray(parsed.portfolioHistory)) {
+        setPortfolioHistory(parsed.portfolioHistory);
+      }
+      notifyUser('Portfolio Restored! 🎉', 'Your holdings, cash balance, and orders were restored from backup.', 'SUCCESS');
+      return { success: true, message: 'Portfolio restored successfully!' };
+    } catch (err: any) {
+      return { success: false, message: `Failed to restore portfolio: ${err?.message || 'Invalid JSON'}` };
+    }
+  }, [notifyUser, sessionVerified, activeWatchlistGroupId]);
+
   const undoLastReset = (): boolean => {
     const snapshot = resetSnapshot.current;
     if (!snapshot || !resetUndoExpiresAt || Date.now() > resetUndoExpiresAt) return false;
@@ -2638,6 +2708,8 @@ export const SimulatorProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         nseMarketInfo,
         marketHoursMode,
         setMarketHoursMode,
+        backupPortfolio,
+        restorePortfolioBackup,
         notifyUser,
         refreshStocks: async () => {
           await Promise.allSettled([fetchStocks(), syncHoldingsRealTime(), fetchMarketSummary()]);

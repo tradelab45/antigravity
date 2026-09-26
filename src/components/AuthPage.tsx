@@ -32,6 +32,7 @@ import {
   ArrowDown
 } from 'lucide-react';
 import { useSimulator } from '../context/SimulatorContext';
+import { validateEmail, validateUsername } from '../utils/authResponse';
 import { checkPassword } from '../utils/passwordPolicy';
 import { GoogleSignInButton, AuthOrDivider } from './GoogleSignInButton';
 import { AuthFormData, UserAccount } from '../types';
@@ -293,12 +294,14 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
       setErrorMsg('Please enter your full name');
       return;
     }
-    if (!formData.email.trim() || !formData.email.includes('@')) {
-      setErrorMsg('Please provide a valid email address');
+    const emailError = validateEmail(formData.email);
+    if (emailError) {
+      setErrorMsg(emailError);
       return;
     }
-    if (!formData.username.trim()) {
-      setErrorMsg('Please choose a username');
+    const usernameError = validateUsername(formData.username);
+    if (usernameError) {
+      setErrorMsg(usernameError);
       return;
     }
     // The same rule the server applies, so the form says what is wrong

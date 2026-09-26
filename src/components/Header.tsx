@@ -45,7 +45,7 @@ import {
 } from 'lucide-react';
 import { useSimulator, isUserAdmin } from '../context/SimulatorContext';
 import { useTheme } from '../context/ThemeContext';
-import { formatINR, formatPercent } from '../utils/formatters';
+import { formatINR, formatPercent, getDynamicMarketSessionBadge } from '../utils/formatters';
 import { isSoundEnabled, setSoundEnabled, playNseBellSound } from '../utils/soundEffects';
 import { NotificationCenter } from './NotificationCenter';
 import { AuthModal } from './AuthModal';
@@ -98,6 +98,8 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
       (isAdmin && currentUser.email && currentUser.email.trim().toLowerCase() === 'aaravvjain23@gmail.com')
     )
   );
+
+  const marketSession = getDynamicMarketSessionBadge();
 
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showSignoutConfirm, setShowSignoutConfirm] = useState(false);
@@ -290,6 +292,12 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
               <span className="text-slate-100 font-semibold">{nseMarketInfo.istTimeString}</span>
             </div>
 
+            {/* Dynamic Market Context Badge */}
+            <span className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black border ${marketSession.style}`}>
+              <span>{marketSession.dot}</span>
+              <span>{marketSession.label}</span>
+            </span>
+
             {/* Benchmark Indices */}
             {renderIndexPill('NIFTY 50', marketIndices?.nifty50)}
             {renderIndexPill('SENSEX', marketIndices?.sensex)}
@@ -330,6 +338,12 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenA
               <span className="font-bold">IST:</span>
               <span className="text-slate-100 font-semibold">{nseMarketInfo.istTimeString}</span>
             </div>
+
+            {/* Dynamic Market Context Badge */}
+            <span className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black border ${marketSession.style}`}>
+              <span>{marketSession.dot}</span>
+              <span>{marketSession.label}</span>
+            </span>
 
             {/* Benchmark Indices */}
             {renderIndexPill('NIFTY 50', marketIndices?.nifty50)}
