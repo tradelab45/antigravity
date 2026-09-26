@@ -8,6 +8,8 @@ import yfPackage from "yahoo-finance2";
 import { UpstoxService } from './src/server/upstoxService';
 import { catalogPage, listedStockDetail } from './src/server/stockCatalog';
 import { createAuthLimiter } from './src/server/authRateLimit';
+import { configureTrustProxy } from './src/server/proxy';
+import { FALLBACK_GOOGLE_CLIENT_ID, isGoogleClientId } from './src/config/google';
 import { createAcademyService } from './src/server/academyService';
 import { TOP_100_INDIAN_COMPANIES } from "./src/data/indianCompanies";
 import { 
@@ -78,8 +80,9 @@ app.get("/livez", (req, res) => {
 });
 
 app.use(express.json());
-const proxyHops = Number(process.env.TRUST_PROXY_HOPS || 0);
-if (Number.isInteger(proxyHops) && proxyHops > 0 && proxyHops <= 5) app.set('trust proxy', proxyHops);
+// Who the caller is, when the app sits behind a hosting provider's proxy. See
+// src/server/proxy.ts: without it every visitor shared the proxy's address.
+configureTrustProxy(app);
 // The Academy authenticates through the same signed session as everything
 // else. It had a session store and a logout route of its own, and that route
 // was registered here, ahead of the real one: signing out answered from the
@@ -2743,15 +2746,27 @@ interface StoredUser {
 
 const USERS_FILE = path.join(process.cwd(), "data", "users.json");
 /**
- * Password for the seeded demo account.
+ * Password for the seeded account — which is the owner's, since it carries
+ * the address in ADMIN_EMAILS.
  *
- * This was a hardcoded literal, and the seeded account uses the address in
- * ADMIN_EMAILS — so any fresh deployment shipped with the owner account
- * logged-in-able by anyone who read the source or the client bundle. With no
- * DEMO_ACCOUNT_PASSWORD configured it is now random per process, which leaves
- * the account present for display but not sign-in-able.
+ * It was a hardcoded literal, so every deployment shipped with the owner
+ * account open to anyone who read the source. It then became random per
+ * process unless DEMO_ACCOUNT_PASSWORD was set, and that locked the owner out
+ * for good: the random hash was written to users.json the first time anyone
+ * signed up, and a stored hash always won, so setting the variable afterwards
+ * changed nothing.
+ *
+ * OWNER_PASSWORD (or the older DEMO_ACCOUNT_PASSWORD) is now authoritative
+ * whenever it is set, over any stored hash — it is the operator's way back
+ * into the owner account. Without it the account keeps whatever password it
+ * has, or, having none, one nobody knows. Hashed once here rather than on
+ * every read of the user file.
  */
-const DEMO_PASSWORD = process.env.DEMO_ACCOUNT_PASSWORD || randomBytes(24).toString("hex");
+const CONFIGURED_OWNER_PASSWORD = (process.env.OWNER_PASSWORD || process.env.DEMO_ACCOUNT_PASSWORD || "").trim() || null;
+if (CONFIGURED_OWNER_PASSWORD && CONFIGURED_OWNER_PASSWORD.length < 12) {
+  console.warn("[auth] OWNER_PASSWORD is shorter than 12 characters. It protects an administrator account.");
+}
+const OWNER_PASSWORD_HASH = hashPassword(CONFIGURED_OWNER_PASSWORD || randomBytes(24).toString("hex"));
 
 const ADMIN_EMAILS = ["aaravvjain23@gmail.com"];
 const ADMIN_USERNAMES = ["aaravvjain23@gmail.com", "aarav", "aarav_trader"];
@@ -2811,8 +2826,9 @@ function loadUsers(): StoredUser[] {
       const data = fs.readFileSync(USERS_FILE, "utf-8");
       const users = JSON.parse(data) as StoredUser[];
       return users.map((user) => {
-        if (user.id === "usr_rookie_demo" && !user.passwordHash && !user.password) {
-          return { ...user, passwordHash: hashPassword(DEMO_PASSWORD), phone: "" };
+        if (user.id === "usr_rookie_demo" && (CONFIGURED_OWNER_PASSWORD || (!user.passwordHash && !user.password))) {
+          const { password: _legacy, ...rest } = user;
+          return { ...rest, passwordHash: OWNER_PASSWORD_HASH };
         }
         return user;
       });
@@ -2826,7 +2842,7 @@ function loadUsers(): StoredUser[] {
       fullName: "Aarav Jain",
       email: "aaravvjain23@gmail.com",
       username: "aarav_trader",
-      passwordHash: hashPassword(DEMO_PASSWORD),
+      passwordHash: OWNER_PASSWORD_HASH,
       phone: "",
       ageGroup: "16-18 (Teen Investor)",
       experienceLevel: "BEGINNER",
@@ -3119,13 +3135,20 @@ async function beginVerification(
 /** The AI routes spend the operator's quota, so they get a cap of their own. */
 const AI_LIMIT: RateLimitRule = { limit: 40, windowMs: 60 * 60_000 };
 
+// The address rules are sized for a classroom, not a person. A school or
+// college puts every learner behind one network address, so a rule that
+// assumed one person per address blocked the thirty-first student in the room
+// — and before the proxy fix, the whole site. What stops a password being
+// guessed is the per-account rule, which stays tight; the address rules are a
+// flood guard.
 const AUTH_LIMITS: Record<string, RateLimitRule> = {
-  loginIp: { limit: 30, windowMs: 15 * 60_000 },
+  loginIp: { limit: 200, windowMs: 15 * 60_000 },
   loginAccount: { limit: 8, windowMs: 15 * 60_000 },
-  signupIp: { limit: 10, windowMs: 60 * 60_000 },
-  googleIp: { limit: 30, windowMs: 15 * 60_000 },
-  otpRequest: { limit: 5, windowMs: 15 * 60_000 },
-  otpVerify: { limit: 10, windowMs: 15 * 60_000 },
+  signupIp: { limit: 120, windowMs: 60 * 60_000 },
+  googleIp: { limit: 200, windowMs: 15 * 60_000 },
+  otpRequest: { limit: 60, windowMs: 15 * 60_000 },
+  otpVerify: { limit: 200, windowMs: 15 * 60_000 },
+  classJoin: { limit: 120, windowMs: 15 * 60_000 },
 };
 
 /**
@@ -3149,7 +3172,7 @@ function rateLimited(
   return true;
 }
 
-app.post("/api/auth/signup", createAuthLimiter(5, 60 * 60 * 1000), async (req, res) => {
+app.post("/api/auth/signup", createAuthLimiter(150, 60 * 60 * 1000), async (req, res) => {
   try {
     const caller = clientKey(req.ip);
     if (rateLimited(res, `signup:ip:${caller}`, AUTH_LIMITS.signupIp,
@@ -3258,7 +3281,7 @@ app.post("/api/auth/signup", createAuthLimiter(5, 60 * 60 * 1000), async (req, r
 });
 
 // User Login
-app.post("/api/auth/login", createAuthLimiter(10), async (req, res) => {
+app.post("/api/auth/login", createAuthLimiter(300), async (req, res) => {
   try {
     const caller = clientKey(req.ip);
     if (rateLimited(res, `login:ip:${caller}`, AUTH_LIMITS.loginIp,
@@ -3451,7 +3474,7 @@ const boardDisplayName = (fullName: string): string => {
 
 app.post("/api/class/join", (req, res) => {
   const caller = clientKey(req.ip);
-  if (rateLimited(res, `class:join:${caller}`, AUTH_LIMITS.otpRequest,
+  if (rateLimited(res, `class:join:${caller}`, AUTH_LIMITS.classJoin,
     "Too many attempts. Try again later.")) return;
 
   // The account comes from the session, never from the body: a userId in a
@@ -3459,6 +3482,12 @@ app.post("/api/class/join", (req, res) => {
   // join, report for or remove any other learner.
   const signedIn = sessionUser(req);
   if (!signedIn) return res.status(401).json({ success: false, message: "Sign in first." });
+  if (isPublicDemo(signedIn)) {
+    return res.status(403).json({
+      success: false,
+      message: "The demo account is shared, so it can't join a class board. Sign up to join yours.",
+    });
+  }
 
   const code = normaliseClassCode(req.body?.classCode);
   if (!code) {
@@ -3581,11 +3610,12 @@ app.post("/api/class/leave", (req, res) => {
 
 /** The learner's own device reports where it has got to. */
 app.post("/api/class/report", (req, res) => {
-  const caller = clientKey(req.ip);
-  if (rateLimited(res, `class:report:${caller}`, { limit: 60, windowMs: 60 * 60_000 },
+  // Per learner. Keyed on the address, one school's network shared sixty
+  // reports an hour between every student in it.
+  const signedIn = sessionUser(req);
+  if (signedIn && rateLimited(res, `class:report:${signedIn.id}`, { limit: 60, windowMs: 60 * 60_000 },
     "Too many updates. Try again later.")) return;
 
-  const signedIn = sessionUser(req);
   if (!signedIn) return res.status(401).json({ success: false, message: "Sign in first." });
 
   const { portfolioValue, totalTrades } = req.body || {};
@@ -3840,6 +3870,61 @@ app.get("/api/auth/session", (req, res) => {
   });
 });
 
+/**
+ * The shared practice account behind the landing page's demo button.
+ *
+ * The button used to sign in to xyz@gmail.com with the password "demo". That
+ * alias belonged to the seeded account, which is the owner's — administrator
+ * email and all — so the button could only ever have worked by publishing the
+ * owner's password, and once that password stopped being a literal it never
+ * worked at all.
+ *
+ * This account is separate. It has no password, because there is nothing to
+ * protect with one: anybody may use it, and the button says so. It is not an
+ * administrator, it cannot be deleted or have a password set, it cannot join a
+ * class board, and its address is on the reserved .invalid domain, so no
+ * Google account or mailbox can ever claim it.
+ */
+const PUBLIC_DEMO_ID = "usr_public_demo";
+const isPublicDemo = (user: { id?: string } | null | undefined) => user?.id === PUBLIC_DEMO_ID;
+
+app.post("/api/auth/demo", (req, res) => {
+  try {
+    const caller = clientKey(req.ip);
+    if (rateLimited(res, `demo:ip:${caller}`, AUTH_LIMITS.loginIp,
+      "Too many sign-ins from here. Try again later.")) return;
+
+    const users = loadUsers();
+    let demo = users.find(u => u.id === PUBLIC_DEMO_ID);
+    if (!demo) {
+      demo = {
+        id: PUBLIC_DEMO_ID,
+        fullName: "Demo Trader",
+        email: "demo@rupeerookie.invalid",
+        username: "demo_trader",
+        phone: "",
+        ageGroup: "13-17 (Teen)",
+        experienceLevel: "BEGINNER",
+        initialCapital: 1000000,
+        registeredAt: new Date().toISOString(),
+        lastLoginAt: new Date().toISOString(),
+        portfolioValue: 1000000,
+        totalTrades: 0,
+      };
+      users.push(demo);
+    }
+    demo.lastLoginAt = new Date().toISOString();
+    saveUsers(users);
+
+    grantSession(res, demo, {
+      message: "You're in the shared demo account. Sign up to keep your own portfolio.",
+      demo: true,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || "The demo is unavailable." });
+  }
+});
+
 /** Ends this session on the server, not only in the browser. */
 app.post("/api/auth/logout", (req, res) => {
   revokeSession(readCookie(req, SESSION_COOKIE));
@@ -3851,6 +3936,13 @@ app.post("/api/auth/logout", (req, res) => {
 app.post("/api/auth/logout-everywhere", (req, res) => {
   const user = sessionUser(req);
   if (!user) return res.status(401).json({ success: false, message: "Not signed in." });
+  // Everyone using the shared demo is signed in to the same account. Signing
+  // it out everywhere would sign out every other visitor too.
+  if (isPublicDemo(user)) {
+    revokeSession(readCookie(req, SESSION_COOKIE));
+    res.clearCookie(SESSION_COOKIE, { path: "/" });
+    return res.json({ success: true, message: "Signed out of the demo." });
+  }
 
   revokeAllSessionsForUser(user.id);
   res.clearCookie(SESSION_COOKIE, { path: "/" });
@@ -3884,6 +3976,9 @@ app.delete("/api/account", (req, res) => {
   }
 
   const user = users[index];
+  if (isPublicDemo(user)) {
+    return res.status(403).json({ success: false, message: "The shared demo account can't be deleted." });
+  }
   const { password, confirmation } = req.body || {};
 
   if (user.passwordHash || user.password) {
@@ -3976,11 +4071,12 @@ app.get("/api/portfolio", (req, res) => {
  * another's ledger.
  */
 app.post("/api/portfolio/execute", (req, res) => {
-  const caller = clientKey(req.ip);
-  if (rateLimited(res, `trade:${caller}`, { limit: 240, windowMs: 60 * 60_000 },
+  const user = sessionUser(req);
+  // Per learner. Keyed on the address, a class trading from one school network
+  // shared 240 orders an hour between all of them.
+  if (user && rateLimited(res, `trade:${user.id}`, { limit: 240, windowMs: 60 * 60_000 },
     "Too many orders. Try again shortly.")) return;
 
-  const user = sessionUser(req);
   if (!user) return res.status(401).json({ success: false, message: "Sign in first." });
 
   const { symbol, quantity, side, product } = req.body || {};
@@ -4094,6 +4190,18 @@ app.get("/api/auth/otp/status", (_req, res) => {
 });
 
 // Helper to resolve current Google Client ID (re-reading from .env if updated)
+/**
+ * The Google client a credential must have been issued to.
+ *
+ * The browser obtains its credential from the client the page is configured
+ * with — the build-time VITE_GOOGLE_CLIENT_ID, or the shared fallback when
+ * neither is set. The server used to accept only GOOGLE_CLIENT_ID, so a
+ * deployment that set the browser's id but not the server's showed a working
+ * Google button whose every sign-in was then refused as "not configured". The
+ * server now checks against the same id the browser used, in the same order.
+ * The audience check in verifyGoogleCredential still binds the credential to
+ * that one client.
+ */
 function getGoogleClientId(): string | null {
   try {
     const envPath = path.join(process.cwd(), ".env");
@@ -4106,11 +4214,10 @@ function getGoogleClientId(): string | null {
     }
   } catch {}
 
-  const rawId = (process.env.GOOGLE_CLIENT_ID || "").trim();
-  if (rawId && rawId.includes("apps.googleusercontent.com") && !rawId.includes("YOUR_GOOGLE_CLIENT_ID")) {
-    return rawId;
+  for (const candidate of [process.env.GOOGLE_CLIENT_ID, process.env.VITE_GOOGLE_CLIENT_ID]) {
+    if (isGoogleClientId(candidate)) return candidate.trim();
   }
-  return null;
+  return FALLBACK_GOOGLE_CLIENT_ID;
 }
 
 // Google Sign-In: the client ID is public, so the browser reads it from here
@@ -4152,7 +4259,7 @@ function uniqueUsernameFromEmail(email: string, users: StoredUser[]): string {
 
 // Google Sign-In / Sign-Up: logs in an existing account (linking it by verified
 // email on first use) or creates a new one.
-app.post("/api/auth/google", createAuthLimiter(20), async (req, res) => {
+app.post("/api/auth/google", createAuthLimiter(300), async (req, res) => {
   try {
     const caller = clientKey(req.ip);
     if (rateLimited(res, `google:ip:${caller}`, AUTH_LIMITS.googleIp,
