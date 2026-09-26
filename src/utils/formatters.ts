@@ -50,3 +50,47 @@ export function formatNumberIndian(val: number): string {
   if (!Number.isFinite(val) || val === 0) return '0';
   return new Intl.NumberFormat('en-IN', { maximumFractionDigits: 4 }).format(val);
 }
+
+export function getDynamicMarketSessionBadge(): { label: string; dot: string; style: string; fullTitle: string } {
+  const now = new Date();
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+  const istDate = new Date(utc + (3600000 * 5.5));
+  const day = istDate.getDay();
+  const mins = istDate.getHours() * 60 + istDate.getMinutes();
+
+  if (day === 0 || day === 6) {
+    return {
+      dot: '🌙',
+      label: 'Closed · Prices As Of Last Trade (Night & Weekends)',
+      style: 'bg-slate-100 text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700',
+      fullTitle: '🌙 Closed · Prices As Of Last Trade (Night & Weekends)'
+    };
+  }
+
+  // 09:15 to 15:30 IST (555 to 930 mins)
+  if (mins >= 555 && mins <= 930) {
+    return {
+      dot: '🟢',
+      label: 'NSE Normal Session (09:15 – 15:30 IST)',
+      style: 'bg-emerald-100 text-emerald-950 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-600',
+      fullTitle: '🟢 NSE Normal Session (09:15 – 15:30 IST)'
+    };
+  }
+
+  // 15:40 to 16:00 IST (940 to 960 mins)
+  if (mins >= 940 && mins <= 960) {
+    return {
+      dot: '🟡',
+      label: 'Post-Market Closing Session (15:40 – 16:00 IST)',
+      style: 'bg-amber-100 text-amber-950 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-600',
+      fullTitle: '🟡 Post-Market Closing Session (15:40 – 16:00 IST)'
+    };
+  }
+
+  return {
+    dot: '🌙',
+    label: 'Closed · Prices As Of Last Trade (Night & Weekends)',
+    style: 'bg-slate-100 text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700',
+    fullTitle: '🌙 Closed · Prices As Of Last Trade (Night & Weekends)'
+  };
+}

@@ -144,7 +144,7 @@ const GlowCard: React.FC<GlowCardProps> = ({
       );
     }
     
-    [data-glow] [data-glow] {
+    [data-glow] [data-glow-halo] {
       position: absolute;
       inset: 0;
       will-change: filter;
@@ -157,7 +157,7 @@ const GlowCard: React.FC<GlowCardProps> = ({
       border: none;
     }
     
-    [data-glow] > [data-glow]::before {
+    [data-glow] [data-glow-halo]::before {
       inset: -10px;
       border-width: 10px;
     }
@@ -184,7 +184,7 @@ const GlowCard: React.FC<GlowCardProps> = ({
           ${className}
         `}
       >
-        <div ref={innerRef} data-glow></div>
+        <div ref={innerRef} data-glow data-glow-halo></div>
         {children}
       </div>
     </>

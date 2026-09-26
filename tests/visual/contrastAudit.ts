@@ -71,6 +71,23 @@ const DEMO_USER = {
  * otherwise cover the page and hide most of what needs measuring.
  */
 export async function seedSession(page: Page, theme: Theme, palette: Palette = 'classic'): Promise<void> {
+  // The app asks the server who is signed in and drops its cached copy if the
+  // answer is no, so seeding localStorage alone now lands on the signed-out
+  // landing page — which would quietly leave these checks measuring the wrong
+  // thing. The stub stands in for the session the server would have issued.
+  await page.route('**/api/auth/session', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        authenticated: true,
+        user: { ...DEMO_USER, registeredAt: new Date().toISOString(), lastLoginAt: new Date().toISOString() },
+        session: { expiresAt: Date.now() + 86_400_000, verified: true, durable: true, ttlMs: 86_400_000 },
+      }),
+    }),
+  );
+
   // tsx transpiles with esbuild, which wraps named functions in a `__name`
   // helper. That helper does not travel with a function serialised into
   // page.evaluate, so it is defined in the page first. Passed as raw content
@@ -206,27 +223,71 @@ export async function auditContrast(page: Page, minimum: number = MINIMUM_CONTRA
       return radial ? stops.slice(0, 1) : stops;
     };
 
+    /** Standard source-over compositing of one translucent layer on another. */
+    const over = (top: Rgba, bottom: Rgba): Rgba => {
+      const alpha = top.a + bottom.a * (1 - top.a);
+      if (alpha === 0) return { r: 0, g: 0, b: 0, a: 0 };
+      const channel = (t: number, b: number) =>
+        (t * top.a + b * bottom.a * (1 - top.a)) / alpha;
+      return {
+        r: channel(top.r, bottom.r),
+        g: channel(top.g, bottom.g),
+        b: channel(top.b, bottom.b),
+        a: alpha,
+      };
+    };
+
     /**
      * The colour actually painted behind an element. A gradient returns its
      * stops so the caller can test the least favourable one; `null` means
      * genuinely unmeasurable (an image, or a gradient of no solid stops).
+     *
+     * Translucent layers are composited rather than skipped. Treating anything
+     * under 0.85 alpha as "not a background" and reading through it let a whole
+     * class of bug past: the landing page's insight callout kept a
+     * `rgba(20, 25, 50, 0.72)` slab from the dark design, so ink-coloured text
+     * sat on near-black while the audit measured it against the white section
+     * behind and called it 8:1.
      */
     const backdrop = (element: Element): Rgba | Rgba[] | null => {
+      // Translucent layers between the text and the first opaque surface,
+      // nearest the text first.
+      const layers: Rgba[] = [];
+      let bases: Rgba[] | null = null;
       let node: Element | null = element;
       let depth = 0;
+
       while (node && node !== document.documentElement) {
         const styles = getComputedStyle(node);
         const colour = parse(styles.backgroundColor);
         if (styles.backgroundImage && styles.backgroundImage !== 'none') {
           const stops = depth <= 1 ? gradientStops(styles.backgroundImage) : [];
-          if (stops.length > 0) return stops;
-          return colour && colour.a > 0.85 ? colour : null;
+          if (stops.length > 0) {
+            bases = stops;
+            break;
+          }
+          if (colour && colour.a > 0.85) {
+            bases = [colour];
+            break;
+          }
+          return null; // an image, or a ramp of no solid stops
         }
-        if (colour && colour.a > 0.85) return colour;
+        if (colour && colour.a >= 0.995) {
+          bases = [colour];
+          break;
+        }
+        if (colour && colour.a > 0.02) layers.push(colour);
         node = node.parentElement;
         depth += 1;
       }
-      return { r: 255, g: 255, b: 255, a: 1 };
+
+      // Nothing opaque before the root: the page itself paints white.
+      const resolved = bases ?? [{ r: 255, g: 255, b: 255, a: 1 }];
+      // Bottom-most layer first, so each one is composited onto what shows
+      // through it.
+      return resolved.map((base) =>
+        layers.reduceRight((beneath, layer) => over(layer, beneath), base),
+      );
     };
 
     const findings: Array<{ text: string; ratio: number; color: string; background: string; selector: string }> = [];
@@ -283,7 +344,7 @@ export async function auditContrast(page: Page, minimum: number = MINIMUM_CONTRA
         text: ownText.slice(0, 60),
         ratio: Number(measured.toFixed(2)),
         color: styles.color,
-        background: `rgb(${worst.r}, ${worst.g}, ${worst.b})`,
+        background: `rgb(${Math.round(worst.r)}, ${Math.round(worst.g)}, ${Math.round(worst.b)})`,
         selector: typeof element.className === 'string' ? element.className.slice(0, 120) : element.tagName,
       });
     });

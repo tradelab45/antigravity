@@ -29,7 +29,8 @@ import {
   ShieldAlert,
   Percent,
   Clock,
-  Save
+  Save,
+  ArrowRight
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -44,12 +45,32 @@ import {
   Bar,
   ReferenceLine
 } from 'recharts';
-import { StockDetail, ProductType, BracketOrderParams } from '../types';
-import { useSimulator } from '../context/SimulatorContext';
+import { StockDetail, ProductType, BracketOrderParams } from '../../../types';
+import { useSimulator } from '../../../context/SimulatorContext';
 import { getStockWithTechnicals } from '../data/indianCompanies';
 import { calculateDuPontAnalysis } from '../utils/technicalCalculator';
-import { formatINR, formatPercent, formatIndianShort, formatNumberIndian } from '../utils/formatters';
-import { playOrderFilledSound, playStopLossTriggeredSound } from '../utils/soundEffects';
+import { formatINR, formatPercent, formatIndianShort, formatNumberIndian } from '../../../utils/formatters';
+import { ChartFigure } from '../../../components/ui/chart-figure';
+import { describeSeries, seriesRows } from '../../../utils/chartSummary';
+import { playOrderFilledSound, playStopLossTriggeredSound } from '../../../utils/soundEffects';
+import { useModalDialog } from '../../../hooks/useModalDialog';
+import { estimateTradeCharges } from '../../../utils/tradeCharges';
+
+/**
+ * Rounds a price to the NSE tick of five paise.
+ *
+ * The stop-loss field is `step="0.05"`, which is the real tick size, but it
+ * was seeded with `price * 0.95` — ₹1226.40 becomes ₹1165.08, which that same
+ * step rejects. The browser then refused to submit the whole ticket with
+ * "the two nearest valid values are 1165.05 and 1165.1", and the order could
+ * not be placed until the field was edited by hand.
+ */
+const TICK_SIZE = 0.05;
+export const snapToTick = (value: number): number => {
+  if (!Number.isFinite(value) || value <= 0) return 0;
+  return Number((Math.round(value / TICK_SIZE) * TICK_SIZE).toFixed(2));
+};
+
 
 interface StockDetailModalProps {
   stock: StockDetail | null;
@@ -101,6 +122,8 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
   const [investmentAmount, setInvestmentAmount] = useState<number | string>(stock ? (stock.price * 10).toFixed(0) : 10000);
   const [limitPrice, setLimitPrice] = useState<number>(stock ? stock.price : 0);
   const [showConfirmModal, setShowConfirmModal] = useState<boolean>(false);
+  const [sliderProgress, setSliderProgress] = useState<number>(0);
+  const [isDraggingSlider, setIsDraggingSlider] = useState<boolean>(false);
   const [tradeMessage, setTradeMessage] = useState<{ text: string; isError: boolean } | null>(null);
   const [chartData, setChartData] = useState<Record<string, any[]> | null>(null);
   const [screenerMeta, setScreenerMeta] = useState<any>(null);
@@ -108,7 +131,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
   const [orderBook, setOrderBook] = useState<{ bids: any[]; asks: any[]; totalBuyQty: number; totalSellQty: number } | null>(null);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [loadingAi, setLoadingAi] = useState<boolean>(false);
-  const [invalidationLevel, setInvalidationLevel] = useState<number>(stock ? Number((stock.price * 0.95).toFixed(2)) : 0);
+  const [invalidationLevel, setInvalidationLevel] = useState<number>(stock ? snapToTick(stock.price * 0.95) : 0);
   const [maximumAllocationPct, setMaximumAllocationPct] = useState<number>(10);
   const [expectedCatalyst, setExpectedCatalyst] = useState<string>('');
   const [draftMessage, setDraftMessage] = useState('');
@@ -169,11 +192,11 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
       try {
         const saved = JSON.parse(localStorage.getItem(`rr_trade_plan_${currentUser?.id || 'guest'}_${stock.symbol}`) || 'null');
         if (saved) {
-          if (Number.isFinite(saved.invalidationLevel)) setInvalidationLevel(saved.invalidationLevel);
+          if (Number.isFinite(saved.invalidationLevel)) setInvalidationLevel(snapToTick(saved.invalidationLevel));
           if (Number.isFinite(saved.maximumAllocationPct)) setMaximumAllocationPct(saved.maximumAllocationPct);
           if (typeof saved.expectedCatalyst === 'string') setExpectedCatalyst(saved.expectedCatalyst);
         } else {
-          setInvalidationLevel(Number((stock.price * 0.95).toFixed(2)));
+          setInvalidationLevel(snapToTick(stock.price * 0.95));
           setMaximumAllocationPct(10);
           setExpectedCatalyst('');
         }
@@ -316,6 +339,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
     }
 
     // Open confirmation popup
+    setSliderProgress(0);
     setShowConfirmModal(true);
   };
 
@@ -631,6 +655,22 @@ function generateRealisticChartSeries(
     });
   }, [chartData, timeframe, stock]);
 
+  /**
+   * The chart in words, built from the same points it plots.
+   *
+   * Drawn as SVG, the price history was announced by a screen reader as
+   * nothing at all — a learner was told a chart was there and never what it
+   * did.
+   */
+  const chartPoints = useMemo(
+    () =>
+      (activeChartSeries || []).map((point: any) => ({
+        label: String(point.displayTime ?? ''),
+        value: Number(point.price),
+      })),
+    [activeChartSeries],
+  );
+
   // Exact dynamic Y-axis bounds so price variations fill 75-80% of canvas
   const chartBounds = useMemo(() => {
     if (!activeChartSeries || activeChartSeries.length === 0) {
@@ -700,18 +740,24 @@ function generateRealisticChartSeries(
       })
     : null;
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  // Recomputed as the ticket changes, so the preview always matches what the
+  // confirm button is about to do.
+  const chargeEstimate = useMemo(
+    () => estimateTradeCharges(executionPrice, quantity, orderAction, productType === 'MIS' ? 'MIS' : 'CNC'),
+    [executionPrice, quantity, orderAction, productType],
+  );
+
+  const { ref: dialogRef, dialogProps } = useModalDialog({
+    onClose,
+    label: stock ? `${stock.symbol} details` : 'Stock details',
+  });
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/40 dark:bg-black/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 overflow-hidden">
+    <div
+      ref={dialogRef}
+      {...dialogProps}
+      className="fixed inset-0 z-50 bg-slate-900/40 dark:bg-black/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 overflow-hidden"
+    >
       <div className="bg-white dark:bg-[#081219] border border-slate-200 dark:border-white/15 rounded-3xl w-full max-w-5xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden text-slate-900 dark:text-slate-100">
         
         {/* Modal Header */}
@@ -1199,6 +1245,12 @@ function generateRealisticChartSeries(
                   </div>
 
                   {/* Main Chart Graphic Canvas */}
+                  <ChartFigure
+                    title={`${stock.symbol} price over the ${timeframe} view`}
+                    summary={describeSeries(`${stock.symbol} price`, chartPoints, (value) => `₹${value.toFixed(2)}`)}
+                    columns={['Point', 'Price']}
+                    rows={seriesRows(chartPoints, (value) => `₹${value.toFixed(2)}`)}
+                  >
                   <div className="h-64 sm:h-72 w-full pt-2">
                     {activeChartSeries.length > 0 ? (
                       <ResponsiveContainer width="100%" height="100%">
@@ -1349,6 +1401,7 @@ function generateRealisticChartSeries(
                       </div>
                     )}
                   </div>
+                  </ChartFigure>
 
                   {/* Chart Indicator Legend & Footnotes */}
                   <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-500 pt-2.5 border-t border-slate-200 gap-2">
@@ -2965,7 +3018,7 @@ function generateRealisticChartSeries(
                     <legend className="px-1 text-xs font-black text-indigo-950">Your trade plan · required</legend>
                     <p className="mb-3 text-[10px] leading-relaxed text-indigo-800">Define the risk before the order. These notes stay on this device and feed your journal reflection.</p>
                     <div className="grid gap-3 sm:grid-cols-2">
-                      <label className="text-[11px] font-bold text-slate-700">Stop-loss / invalidation level (₹)<input type="number" min="0.05" step="0.05" value={invalidationLevel} onChange={(event) => setInvalidationLevel(Number(event.target.value))} className="mt-1 w-full rounded-xl border border-indigo-200 bg-white px-3 py-2 font-mono text-sm font-black outline-none focus:border-indigo-600" /></label>
+                      <label className="text-[11px] font-bold text-slate-700">Stop-loss / invalidation level (₹)<input type="number" min="0.05" step="0.05" value={invalidationLevel} onChange={(event) => setInvalidationLevel(Number(event.target.value))} onBlur={(event) => setInvalidationLevel(snapToTick(Number(event.target.value)))} className="mt-1 w-full rounded-xl border border-indigo-200 bg-white px-3 py-2 font-mono text-sm font-black outline-none focus:border-indigo-600" /></label>
                       <label className="text-[11px] font-bold text-slate-700">Maximum portfolio allocation<select value={maximumAllocationPct} onChange={(event) => setMaximumAllocationPct(Number(event.target.value))} className="mt-1 w-full rounded-xl border border-indigo-200 bg-white px-3 py-2 text-sm font-black outline-none focus:border-indigo-600"><option value={5}>5% · cautious</option><option value={10}>10% · standard cap</option><option value={15}>15% · elevated</option><option value={20}>20% · concentrated</option></select></label>
                     </div>
                     <label className="mt-3 block text-[11px] font-bold text-slate-700">Expected catalyst<textarea value={expectedCatalyst} onChange={(event) => setExpectedCatalyst(event.target.value)} maxLength={180} placeholder="Example: quarterly margin improvement, product launch, or debt reduction" className="mt-1 min-h-20 w-full resize-none rounded-xl border border-indigo-200 bg-white p-3 text-xs outline-none focus:border-indigo-600" /></label>
@@ -2988,9 +3041,17 @@ function generateRealisticChartSeries(
                       <span>80% Margin Funded (₹{formatINR(totalTradeAmount * 0.8)})</span>
                     </div>
                   )}
+                  {/* The ticket used to claim "₹0.00 (Zero Fee)" here. The
+                      simulator charges nothing, which is true, but a learner
+                      reading that takes away that trading is free. Say both. */}
                   <div className="flex justify-between text-slate-500">
-                    <span>Brokerage & Statutory Charges:</span>
-                    <span className="text-emerald-700 font-bold">₹0.00 (Zero Fee)</span>
+                    <span>Brokerage &amp; statutory charges:</span>
+                    <span className="text-right font-bold text-slate-900">
+                      {formatINR(chargeEstimate.totalCharges)}
+                      <span className="block text-[10px] font-medium text-slate-500">
+                        at a real broker · not charged here
+                      </span>
+                    </span>
                   </div>
                   <div className="border-t border-slate-200 pt-2 flex justify-between items-center font-bold">
                     <span className="text-slate-900 font-black">
@@ -3205,118 +3266,262 @@ function generateRealisticChartSeries(
       </div>
 
       {/* TRADE CONFIRMATION DETAIL POP-UP MODAL */}
+      {/* TRADE CONFIRMATION DRAWER & SWIPE SLIDER */}
       {showConfirmModal && (
         <div 
           id="trade-confirmation-modal-backdrop"
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in duration-200"
+          className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setShowConfirmModal(false)}
         >
           <div 
             id="trade-confirmation-modal-card"
-            className="bg-white border-2 border-slate-900 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-5 text-slate-900 relative"
+            className="bg-white dark:bg-slate-900 border-t-2 sm:border-2 border-slate-300 dark:border-slate-800 rounded-t-[32px] sm:rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-4 text-slate-900 dark:text-white relative animate-in slide-in-from-bottom duration-300 max-h-[92vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
+            {/* Drawer Drag Bar Handle for Mobile */}
+            <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto sm:hidden -mt-1 mb-2" />
+
             {/* Modal Header */}
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className={`p-2.5 rounded-2xl ${orderAction === 'BUY' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                <div className={`p-2.5 rounded-2xl ${orderAction === 'BUY' ? 'bg-emerald-100 text-[#047857] dark:bg-emerald-950/40 dark:text-emerald-400' : 'bg-rose-100 text-[#be123c] dark:bg-rose-950/40 dark:text-rose-400'}`}>
                   {orderAction === 'BUY' ? <TrendingUp className="w-6 h-6" /> : <TrendingDown className="w-6 h-6" />}
                 </div>
                 <div>
-                  <h3 className="text-lg font-black text-slate-900">
-                    Confirm {orderAction === 'BUY' ? 'Buy Order' : 'Sell Order'}
+                  <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                    <span>Confirm {orderAction === 'BUY' ? 'Buy Order' : 'Sell Order'}</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-md font-mono font-bold uppercase bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                      {productType}
+                    </span>
                   </h3>
-                  <p className="text-xs text-slate-500 font-medium">
-                    NSE Virtual Simulator • Order Verification
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                    NSE Virtual Exchange • Trade Verification Drawer
                   </p>
                 </div>
               </div>
               <button 
                 onClick={() => setShowConfirmModal(false)}
-                className="p-1.5 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-200/50 transition-colors"
+                className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
+                aria-label="Close trade confirmation drawer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Prompt Notice */}
-            <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-xs text-zinc-700 font-medium">
-              Are you sure you want to <strong className={orderAction === 'BUY' ? 'text-emerald-700 font-black' : 'text-rose-700 font-black'}>
-                {orderAction === 'BUY' ? 'BUY' : 'SELL'} {quantity} share(s)
-              </strong> of <strong className="text-slate-900 font-black">{stock.name} ({stock.symbol})</strong> at the price of <strong className="text-slate-900 font-black">₹{executionPrice.toFixed(2)}</strong>?
+            {/* Estimated Order Value & Zero Fee Banner */}
+            <div className="rounded-2xl p-4 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800/80 dark:to-slate-800/40 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">Estimated Order Value</span>
+                <span className="text-2xl font-black font-mono text-slate-900 dark:text-white mt-0.5 block">
+                  {formatINR(totalTradeAmount)}
+                </span>
+                {productType === 'MIS' && (
+                  <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold font-mono">
+                    Required Margin (5x leverage): {formatINR(totalTradeAmount / 5)}
+                  </span>
+                )}
+              </div>
+              <div className="text-right">
+                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">Real-broker charges</span>
+                {/* Was "₹0.00 (Simulated Free)". The simulator charges nothing, but
+                    a learner reading that takes away that trading is free; show
+                    the estimate and say it is not charged here. */}
+                <span className="inline-flex items-center gap-1 text-xs font-black font-mono px-2.5 py-1 rounded-xl bg-slate-100 text-slate-900 dark:bg-slate-900/60 dark:text-slate-100 border border-slate-300/60 mt-1">
+                  {formatINR(chargeEstimate.totalCharges)}
+                </span>
+                <span className="block text-[10px] font-medium text-slate-500 dark:text-slate-400 mt-0.5">not charged here</span>
+              </div>
             </div>
 
-            {/* Order Breakdown Details */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-2.5 text-xs">
-              <div className="flex justify-between items-center pb-2 border-b border-slate-200/60 font-medium">
-                <span className="text-slate-500">Stock Asset</span>
-                <span className="font-extrabold text-slate-900 text-right">
-                  {stock.symbol} <span className="text-slate-500 font-normal">• {stock.sector}</span>
+            {/* Order Specification Breakdown */}
+            <div className="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-2xl p-3.5 space-y-2 text-xs">
+              <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-700/60">
+                <span className="text-slate-500 dark:text-slate-400">Stock Asset</span>
+                <span className="font-extrabold text-slate-900 dark:text-white font-mono">
+                  {stock.symbol} <span className="text-slate-500 font-normal">({stock.name})</span>
                 </span>
               </div>
-              <div className="flex justify-between items-center pb-2 border-b border-slate-200/60 font-medium">
-                <span className="text-slate-500">Order Type</span>
-                <span className="font-extrabold text-slate-900 bg-slate-50 px-2 py-0.5 rounded-lg border border-slate-200">
-                  {orderType === 'MARKET' ? 'Market (Instant LTP)' : `Limit (@ ₹${limitPrice.toFixed(2)})`}
+              <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-700/60">
+                <span className="text-slate-500 dark:text-slate-400">Order & Product Type</span>
+                <div className="flex items-center gap-1.5 font-bold">
+                  <span className="bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded text-slate-800 dark:text-slate-200 font-mono">
+                    {orderType === 'MARKET' ? 'Market (Instant LTP)' : isGttOrder ? `GTT Trigger (@ ₹${(gttTriggerPrice || executionPrice).toFixed(2)})` : `Limit (@ ₹${limitPrice.toFixed(2)})`}
+                  </span>
+                  <span className="bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 px-2 py-0.5 rounded font-mono">
+                    {productType === 'MIS' ? 'Intraday (MIS 5x)' : 'Delivery (CNC)'}
+                  </span>
+                </div>
+              </div>
+              <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-700/60">
+                <span className="text-slate-500 dark:text-slate-400">Quantity & Price</span>
+                <span className="font-extrabold text-slate-900 dark:text-white font-mono">
+                  {quantity} share{quantity > 1 ? 's' : ''} @ ₹{executionPrice.toFixed(2)}
                 </span>
               </div>
-              <div className="flex justify-between items-center pb-2 border-b border-slate-200/60 font-medium">
-                <span className="text-slate-500">Quantity</span>
-                <span className="font-extrabold text-slate-900 font-mono text-sm">
-                  {quantity} Shares
-                </span>
-              </div>
-              <div className="flex justify-between items-center pb-2 border-b border-slate-200/60 font-medium">
-                <span className="text-slate-500">Execution Price</span>
-                <span className="font-extrabold text-slate-900 font-mono text-sm">
-                  ₹{executionPrice.toFixed(2)} / share
-                </span>
-              </div>
-              <div className="flex justify-between items-center pb-2 border-b border-slate-200/60 font-medium">
-                <span className="text-slate-500">Order Execution State</span>
-                <span className={`font-extrabold text-[11px] px-2 py-0.5 rounded-lg border ${
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 dark:text-slate-400">Execution Timing</span>
+                <span className={`text-[11px] font-black px-2 py-0.5 rounded-lg border ${
                   nseMarketInfo.isNSEMarketOpen || marketHoursMode === 'PRACTICE_24x7'
-                    ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
-                    : 'bg-amber-100 text-amber-900 border-amber-300'
+                    ? 'bg-emerald-100 text-[#047857] border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-400'
+                    : 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300'
                 }`}>
                   {nseMarketInfo.isNSEMarketOpen || marketHoursMode === 'PRACTICE_24x7'
                     ? '🟢 Immediate Execution'
-                    : '⏳ Queued in Pending List (Executes 09:15 AM IST)'}
+                    : '⏳ Queued for Market Open (09:15 AM IST)'}
                 </span>
-              </div>
-              <div className="flex justify-between items-center pt-1 font-bold">
-                <span className="text-sm text-slate-900 font-black">Total Investment / Value</span>
-                <span className="text-base font-black font-mono text-slate-900">
-                  {formatINR(totalTradeAmount)}
-                </span>
-              </div>
-              {orderAction === 'BUY' && <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-3 text-[11px]"><p className="font-black text-indigo-950">Plan check</p><div className="mt-1 grid grid-cols-2 gap-2"><span>Invalid below <strong>₹{invalidationLevel.toFixed(2)}</strong></span><span>Max allocation <strong>{maximumAllocationPct}%</strong></span></div><p className="mt-2 leading-relaxed"><strong>Catalyst:</strong> {expectedCatalyst}</p></div>}
-            </div>
-
-            {/* Balance Impact / Post-Trade Projection */}
-            <div className="bg-slate-50/80 rounded-2xl p-3.5 border border-slate-200 text-xs space-y-1.5 font-medium">
-              <div className="flex justify-between text-slate-500">
-                <span>Current Cash Balance:</span>
-                <span className="font-bold text-slate-900 font-mono">{formatINR(cashBalance)}</span>
-              </div>
-              <div className="flex justify-between text-slate-500">
-                <span>{orderAction === 'BUY' ? 'Cash Balance After Trade:' : 'Cash Balance After Sale Proceeds:'}</span>
-                <span className="font-extrabold text-slate-900 font-mono">
-                  {formatINR(orderAction === 'BUY' ? cashBalance - totalTradeAmount : cashBalance + totalTradeAmount)}
-                </span>
-              </div>
-              <div className="flex justify-between text-slate-500">
-                <span>Simulated Brokerage & STT:</span>
-                <span className="text-emerald-700 font-bold">₹0.00 (Zero Fee)</span>
               </div>
             </div>
 
-            {/* Confirmation Buttons */}
+            {/* What this order would cost at a real broker.
+                The old copy here read "Simulated Brokerage & STT: ₹0.00 (Zero
+                Fee)", which taught the opposite of the truth: delivery carries
+                no brokerage but does carry STT, stamp duty and GST, and a
+                learner who never sees them is surprised by their first real
+                contract note. */}
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3.5 text-xs font-medium">
+              <div className="flex items-baseline justify-between gap-2">
+                <h4 className="text-[11px] font-black uppercase tracking-wider text-slate-700">
+                  What this would cost for real
+                </h4>
+                <span className="text-[10px] font-bold text-slate-500">
+                  {productType === 'CNC' ? 'Delivery' : 'Intraday'} · {chargeEstimate.ratesAsOf}
+                </span>
+              </div>
+
+              <dl className="mt-2.5 space-y-1">
+                {chargeEstimate.lines.map((line) => (
+                  <div key={line.label} className="flex items-baseline justify-between gap-3">
+                    <dt className="text-slate-500" title={line.note}>{line.label}</dt>
+                    <dd className="font-mono font-bold text-slate-900 tabular-nums">
+                      {formatINR(line.amount)}
+                    </dd>
+                  </div>
+                ))}
+                <div className="flex items-baseline justify-between gap-3 border-t border-slate-200 pt-1.5">
+                  <dt className="font-black text-slate-900">Total charges</dt>
+                  <dd className="font-mono font-black text-slate-900 tabular-nums">
+                    {formatINR(chargeEstimate.totalCharges)}
+                  </dd>
+                </div>
+                <div className="flex items-baseline justify-between gap-3">
+                  <dt className="font-black text-slate-900">
+                    {orderAction === 'BUY' ? 'You would pay' : 'You would receive'}
+                  </dt>
+                  <dd className="font-mono text-sm font-black text-slate-900 tabular-nums">
+                    {formatINR(chargeEstimate.netAmount)}
+                  </dd>
+                </div>
+              </dl>
+
+              <p className="mt-2 border-t border-slate-200 pt-2 text-[10px] leading-relaxed text-slate-500">
+                Indicative only. The simulator does not charge these — your practice
+                cash moves by the {formatINR(totalTradeAmount)} turnover alone.
+              </p>
+
+              <div className="mt-2.5 space-y-1 border-t border-slate-200 pt-2">
+                <div className="flex justify-between text-slate-500">
+                  <span>Practice cash now</span>
+                  <span className="font-mono font-bold text-slate-900 tabular-nums">{formatINR(cashBalance)}</span>
+                </div>
+                <div className="flex justify-between text-slate-500">
+                  <span>{orderAction === 'BUY' ? 'After this order' : 'After these proceeds'}</span>
+                  <span className="font-mono font-extrabold text-slate-900 tabular-nums">
+                    {formatINR(orderAction === 'BUY' ? cashBalance - totalTradeAmount : cashBalance + totalTradeAmount)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Intraday leverage warning. This used to promise an automatic
+                stop-loss that "guaranteed capital cannot drop below zero". No
+                such guard exists: the ledger blocks a fifth of the value as
+                margin and settles the whole loss on exit, so a loss can exceed
+                the margin. Telling a learner leverage is protected teaches the
+                opposite of the lesson. */}
+            {productType === 'MIS' && (
+              <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 text-[11px] text-amber-900 dark:text-amber-300 flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" aria-hidden="true" />
+                <div>
+                  <strong>Intraday, 5× leverage:</strong> only a fifth of the order value is blocked as margin, so a loss can be larger than the cash set aside. Nothing closes the position early unless you set a stop-loss; open intraday positions are squared off at 3:20pm.
+                </div>
+              </div>
+            )}
+
+            {/* Anti-Fat Finger Slider Confirmation */}
+            <div className="space-y-2 pt-1">
+              <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                <span>Prevent Fat-Finger Error</span>
+                <span className="font-mono">{sliderProgress}% confirmed</span>
+              </div>
+
+              <div className="relative rounded-2xl bg-slate-100 dark:bg-slate-800 p-1 border border-slate-300 dark:border-slate-700 overflow-hidden select-none">
+                {/* Drag progress fill background */}
+                <div 
+                  className={`absolute inset-y-0 left-0 transition-all ${
+                    orderAction === 'BUY'
+                      ? 'bg-gradient-to-r from-emerald-500/20 to-emerald-500/50'
+                      : 'bg-gradient-to-r from-rose-500/20 to-rose-500/50'
+                  }`}
+                  style={{ width: `${Math.max(sliderProgress, 8)}%` }}
+                />
+
+                {/* Prompt Label */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">
+                  <span>{sliderProgress >= 90 ? 'Release to Place Order!' : `Swipe to ${orderAction === 'BUY' ? 'Buy' : 'Sell'} / Confirm Order ➔`}</span>
+                </div>
+
+                {/* Interactive Slider Input */}
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={sliderProgress}
+                  onMouseDown={() => setIsDraggingSlider(true)}
+                  onTouchStart={() => setIsDraggingSlider(true)}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    setSliderProgress(val);
+                    if (val >= 92) {
+                      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+                        try { navigator.vibrate([20, 50, 20]); } catch {}
+                      }
+                      handleConfirmAndExecuteTrade();
+                      setSliderProgress(0);
+                      setIsDraggingSlider(false);
+                    }
+                  }}
+                  onMouseUp={() => {
+                    setIsDraggingSlider(false);
+                    if (sliderProgress < 92) setSliderProgress(0);
+                  }}
+                  onTouchEnd={() => {
+                    setIsDraggingSlider(false);
+                    if (sliderProgress < 92) setSliderProgress(0);
+                  }}
+                  className="relative z-10 w-full h-14 opacity-0 cursor-ew-resize"
+                  aria-label={`Swipe to confirm ${orderAction === 'BUY' ? 'buy' : 'sell'} order of ${stock.symbol}`}
+                />
+
+                {/* Visible Slider Handle Icon */}
+                <div 
+                  className={`absolute top-1 bottom-1 w-12 rounded-xl flex items-center justify-center text-white shadow-lg pointer-events-none transition-transform ${
+                    orderAction === 'BUY' ? 'bg-emerald-600' : 'bg-rose-600'
+                  }`}
+                  style={{
+                    left: `calc(${sliderProgress}% * 0.85 + 4px)`,
+                  }}
+                >
+                  <ArrowRight className="w-5 h-5 font-black" />
+                </div>
+              </div>
+            </div>
+
+            {/* Confirmation Buttons: Accessible Fallback & Back */}
             <div className="grid grid-cols-2 gap-3 pt-1">
               <button
                 type="button"
                 onClick={() => setShowConfirmModal(false)}
-                className="py-3 px-4 rounded-2xl bg-slate-50 hover:bg-slate-200 text-slate-900 font-extrabold text-xs border border-slate-200 transition-colors cursor-pointer"
+                className="min-h-[48px] py-3 px-4 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-extrabold text-xs border border-slate-300 dark:border-slate-700 transition-colors cursor-pointer flex items-center justify-center"
               >
                 Back & Edit
               </button>
@@ -3324,14 +3529,15 @@ function generateRealisticChartSeries(
                 type="button"
                 id="confirm-trade-execute"
                 onClick={handleConfirmAndExecuteTrade}
-                className={`py-3 px-4 rounded-2xl font-black text-xs text-white shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                className={`min-h-[48px] py-3 px-4 rounded-2xl font-black text-xs text-white shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                   orderAction === 'BUY'
                     ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30'
                     : 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/30'
                 }`}
+                title="Instant 1-click confirmation alternative"
               >
                 <CheckCircle2 className="w-4 h-4" />
-                <span>Yes, Confirm & Place</span>
+                <span>Instant 1-Click Confirm</span>
               </button>
             </div>
           </div>

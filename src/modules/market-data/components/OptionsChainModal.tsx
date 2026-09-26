@@ -23,17 +23,21 @@ import {
   ResponsiveContainer, 
   AreaChart, 
   Area, 
+  LineChart,
+  Line,
   XAxis, 
   YAxis, 
   Tooltip as RechartsTooltip, 
   ReferenceLine,
-  CartesianGrid
+  CartesianGrid,
+  Legend
 } from 'recharts';
-import { useSimulator } from '../context/SimulatorContext';
+import { useSimulator } from '../../../context/SimulatorContext';
 import { generateOptionChain } from '../utils/optionsCalculator';
-import { playOrderFilledSound } from '../utils/soundEffects';
-import { formatINR } from '../utils/formatters';
-import { OptionContract } from '../types';
+import { playOrderFilledSound } from '../../../utils/soundEffects';
+import { formatINR } from '../../../utils/formatters';
+import { OptionContract } from '../../../types';
+import { useModalDialog } from '../../../hooks/useModalDialog';
 
 interface OptionsChainModalProps {
   isOpen: boolean;
@@ -50,7 +54,7 @@ export const OptionsChainModal: React.FC<OptionsChainModalProps> = ({ isOpen, on
     action: 'BUY' | 'SELL';
   } | null>(null);
   const [lotCount, setLotCount] = useState(1);
-  const [activeSubtab, setActiveSubtab] = useState<'CHAIN' | 'POSITIONS' | 'PAYOFF'>('CHAIN');
+  const [activeSubtab, setActiveSubtab] = useState<'CHAIN' | 'GREEKS_SMILE' | 'POSITIONS' | 'PAYOFF'>('CHAIN');
 
   // Spot prices
   const spotPrice = useMemo(() => {
@@ -67,6 +71,23 @@ export const OptionsChainModal: React.FC<OptionsChainModalProps> = ({ isOpen, on
   const chain = useMemo(() => {
     return generateOptionChain(selectedUnderlying, spotPrice);
   }, [selectedUnderlying, spotPrice]);
+
+  // Data for Greeks & IV Smile visualization
+  const greeksSmileData = useMemo(() => {
+    return chain.map((c) => ({
+      strike: c.strikePrice,
+      ceIv: Number(c.ceIv.toFixed(1)),
+      peIv: Number(c.peIv.toFixed(1)),
+      avgIv: Number(((c.ceIv + c.peIv) / 2).toFixed(1)),
+      ceDelta: Number(c.ceDelta.toFixed(2)),
+      peDelta: Number(c.peDelta.toFixed(2)),
+      ceTheta: Number(Math.abs(c.ceTheta).toFixed(1)),
+      peTheta: Number(Math.abs(c.peTheta).toFixed(1)),
+      ceOi: c.ceOi,
+      peOi: c.peOi,
+      isAtm: Math.abs(c.strikePrice - spotPrice) <= (selectedUnderlying === 'NIFTY' ? 25 : 50),
+    }));
+  }, [chain, spotPrice, selectedUnderlying]);
 
   // Payoff calculation points for interactive payoff chart
   const payoffData = useMemo(() => {
@@ -119,6 +140,12 @@ export const OptionsChainModal: React.FC<OptionsChainModalProps> = ({ isOpen, on
     };
   }, [selectedContract, lotSize, lotCount]);
 
+  const { ref: dialogRef, dialogProps } = useModalDialog({
+    onClose,
+    open: isOpen,
+    label: 'Index options chain',
+  });
+
   if (!isOpen) return null;
 
   const handlePlaceOptionTrade = () => {
@@ -144,7 +171,7 @@ export const OptionsChainModal: React.FC<OptionsChainModalProps> = ({ isOpen, on
   };
 
   return (
-    <div id="options-chain-modal" className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/70 backdrop-blur-xs overflow-y-auto">
+    <div id="options-chain-modal" ref={dialogRef} {...dialogProps} className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/70 backdrop-blur-xs overflow-y-auto">
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -258,6 +285,16 @@ export const OptionsChainModal: React.FC<OptionsChainModalProps> = ({ isOpen, on
                 }`}
               >
                 Payoff Diagram
+              </button>
+              <button
+                onClick={() => setActiveSubtab('GREEKS_SMILE')}
+                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 ${
+                  activeSubtab === 'GREEKS_SMILE'
+                    ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400'
+                }`}
+              >
+                <span>⚡ IV Smile & Greeks</span>
               </button>
             </div>
 
@@ -529,6 +566,238 @@ export const OptionsChainModal: React.FC<OptionsChainModalProps> = ({ isOpen, on
                     <Zap className="w-3.5 h-3.5 text-amber-300" />
                     <span>Confirm Simulated Trade</span>
                   </button>
+                </div>
+              </div>
+            </div>
+          ) : activeSubtab === 'GREEKS_SMILE' ? (
+            // Options Chain Greek & IV Smile Visualizer Subview
+            <div className="space-y-5">
+              {/* Overview Card */}
+              <div className="backdrop-blur-md bg-slate-900/70 border border-slate-700/60 rounded-3xl p-5 text-white shadow-xl space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold">
+                      ⚡
+                    </div>
+                    <div>
+                      <h3 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
+                        <span>{selectedUnderlying} Implied Volatility (IV) Smile & Greeks Visualizer</span>
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-bold uppercase">
+                          Black-Scholes Surface
+                        </span>
+                      </h3>
+                      <p className="text-xs text-slate-400">
+                        Empirical volatility skew, Delta exposure across moneyness, and Theta time-decay erosion curves.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-xs font-mono">
+                    <span className="text-slate-400">Current Spot:</span>
+                    <span className="px-2.5 py-1 rounded-xl bg-slate-800 border border-slate-700 font-black text-amber-400">
+                      ₹{spotPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 3 Summary Concept Badges */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs pt-1">
+                  <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-1">
+                    <div className="font-bold text-amber-300 flex items-center gap-1.5">
+                      <span>📈 Volatility Smile / Skew</span>
+                    </div>
+                    <p className="text-slate-400 text-[11px] leading-relaxed">
+                      OTM Puts trade at higher IV due to institutional crash hedging demand, forming an asymmetric &quot;smile&quot; or volatility smirk.
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-1">
+                    <div className="font-bold text-emerald-400 flex items-center gap-1.5">
+                      <span>🎯 Delta (Δ) Gradient</span>
+                    </div>
+                    <p className="text-slate-400 text-[11px] leading-relaxed">
+                      Call Delta moves from 0 (OTM) to 0.5 (ATM) to 1.0 (ITM). Put Delta mirrors inversely from 0 to -1.0.
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-1">
+                    <div className="font-bold text-rose-400 flex items-center gap-1.5">
+                      <span>⏳ Theta (Θ) Decay Peak</span>
+                    </div>
+                    <p className="text-slate-400 text-[11px] leading-relaxed">
+                      Time decay operates non-linearly, accelerating exponentially for At-The-Money (ATM) strikes into expiry week.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Chart 1: IV Smile Curve */}
+              <div className="backdrop-blur-md bg-slate-900/60 border border-slate-700/50 rounded-3xl p-5 shadow-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-xs sm:text-sm font-black text-white flex items-center gap-2">
+                      <span>1. Implied Volatility (IV) Smile & Skew Curve</span>
+                      <span className="text-[10px] text-slate-400 font-mono font-normal">
+                        (Strike Price vs IV %)
+                      </span>
+                    </h4>
+                    <p className="text-[11px] text-slate-400">
+                      Observe the classic Dalal Street smirk: deep out-of-the-money puts trade at elevated implied volatility.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-3 text-xs font-mono">
+                    <span className="flex items-center gap-1 text-emerald-400">
+                      <span className="w-2.5 h-0.5 bg-emerald-400" /> Call IV
+                    </span>
+                    <span className="flex items-center gap-1 text-rose-400">
+                      <span className="w-2.5 h-0.5 bg-rose-400" /> Put IV
+                    </span>
+                    <span className="flex items-center gap-1 text-indigo-400">
+                      <span className="w-2.5 h-0.5 bg-indigo-400" /> Average IV
+                    </span>
+                  </div>
+                </div>
+
+                <div className="h-64 w-full pt-2">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={greeksSmileData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
+                      <XAxis
+                        dataKey="strike"
+                        tick={{ fontSize: 10, fill: '#94a3b8' }}
+                        tickFormatter={(v) => `${v}`}
+                      />
+                      <YAxis
+                        tick={{ fontSize: 10, fill: '#94a3b8' }}
+                        tickFormatter={(v) => `${v}%`}
+                        domain={['dataMin - 2', 'dataMax + 2']}
+                      />
+                      <RechartsTooltip
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const d = payload[0].payload as any;
+                            return (
+                              <div className="backdrop-blur-md bg-slate-950/90 border border-slate-700 p-2.5 rounded-xl text-white text-xs font-mono shadow-xl space-y-1">
+                                <div className="font-bold text-amber-300">Strike: ₹{d.strike} {d.isAtm ? '(ATM)' : ''}</div>
+                                <div className="text-emerald-400">Call IV: {d.ceIv}%</div>
+                                <div className="text-rose-400">Put IV: {d.peIv}%</div>
+                                <div className="text-indigo-300">Mean IV: {d.avgIv}%</div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <ReferenceLine
+                        x={chain.find(c => Math.abs(c.strikePrice - spotPrice) <= (selectedUnderlying === 'NIFTY' ? 25 : 50))?.strikePrice}
+                        stroke="#f59e0b"
+                        strokeDasharray="4 4"
+                        label={{ value: 'ATM Spot', fill: '#f59e0b', fontSize: 10, position: 'top' }}
+                      />
+                      <Line type="monotone" dataKey="ceIv" stroke="#10b981" strokeWidth={2.5} dot={{ r: 3 }} name="Call IV" />
+                      <Line type="monotone" dataKey="peIv" stroke="#f43f5e" strokeWidth={2.5} dot={{ r: 3 }} name="Put IV" />
+                      <Line type="monotone" dataKey="avgIv" stroke="#818cf8" strokeWidth={1.5} strokeDasharray="4 4" dot={false} name="Mean IV" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Chart 2: Delta Sensitivity & Theta Decay Dual Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                {/* Delta Curve */}
+                <div className="backdrop-blur-md bg-slate-900/60 border border-slate-700/50 rounded-3xl p-5 shadow-xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs sm:text-sm font-black text-white">
+                        2. Option Delta (Δ) Sensitivity
+                      </h4>
+                      <p className="text-[11px] text-slate-400">
+                        Directional sensitivity per ₹1 move in spot.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 text-[10px] font-mono">
+                      <span className="text-emerald-400 font-bold">CE (0 to 1)</span>
+                      <span className="text-rose-400 font-bold">PE (0 to -1)</span>
+                    </div>
+                  </div>
+
+                  <div className="h-56 w-full pt-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={greeksSmileData} margin={{ top: 10, right: 15, left: -15, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
+                        <XAxis dataKey="strike" tick={{ fontSize: 9, fill: '#94a3b8' }} />
+                        <YAxis domain={[-1, 1]} ticks={[-1, -0.5, 0, 0.5, 1]} tick={{ fontSize: 9, fill: '#94a3b8' }} />
+                        <ReferenceLine y={0} stroke="#64748b" strokeWidth={1} />
+                        <RechartsTooltip
+                          content={({ active, payload }) => {
+                            if (active && payload && payload.length) {
+                              const d = payload[0].payload as any;
+                              return (
+                                <div className="backdrop-blur-md bg-slate-950/90 border border-slate-700 p-2.5 rounded-xl text-white text-xs font-mono shadow-xl space-y-1">
+                                  <div className="font-bold text-amber-300">Strike: ₹{d.strike}</div>
+                                  <div className="text-emerald-400">Call Delta: +{d.ceDelta}</div>
+                                  <div className="text-rose-400">Put Delta: {d.peDelta}</div>
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
+                        />
+                        <Line type="monotone" dataKey="ceDelta" stroke="#10b981" strokeWidth={2} dot={false} />
+                        <Line type="monotone" dataKey="peDelta" stroke="#f43f5e" strokeWidth={2} dot={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Theta Decay Curve */}
+                <div className="backdrop-blur-md bg-slate-900/60 border border-slate-700/50 rounded-3xl p-5 shadow-xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs sm:text-sm font-black text-white">
+                        3. Theta (Θ) Daily Time Decay
+                      </h4>
+                      <p className="text-[11px] text-slate-400">
+                        Rupees eroded per contract per calendar day.
+                      </p>
+                    </div>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                      Peaks At ATM
+                    </span>
+                  </div>
+
+                  <div className="h-56 w-full pt-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={greeksSmileData} margin={{ top: 10, right: 15, left: -15, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="thetaGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.4} />
+                            <stop offset="95%" stopColor="#f43f5e" stopOpacity={0.0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
+                        <XAxis dataKey="strike" tick={{ fontSize: 9, fill: '#94a3b8' }} />
+                        <YAxis tick={{ fontSize: 9, fill: '#94a3b8' }} tickFormatter={(v) => `₹${v}`} />
+                        <RechartsTooltip
+                          content={({ active, payload }) => {
+                            if (active && payload && payload.length) {
+                              const d = payload[0].payload as any;
+                              return (
+                                <div className="backdrop-blur-md bg-slate-950/90 border border-slate-700 p-2.5 rounded-xl text-white text-xs font-mono shadow-xl space-y-1">
+                                  <div className="font-bold text-amber-300">Strike: ₹{d.strike} {d.isAtm ? '(ATM)' : ''}</div>
+                                  <div className="text-rose-400">Call Theta: -₹{d.ceTheta} / day</div>
+                                  <div className="text-rose-400">Put Theta: -₹{d.peTheta} / day</div>
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
+                        />
+                        <Area type="monotone" dataKey="ceTheta" stroke="#f43f5e" strokeWidth={2} fill="url(#thetaGrad)" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
               </div>
             </div>
