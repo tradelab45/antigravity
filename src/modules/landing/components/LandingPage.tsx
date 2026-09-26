@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion, useScroll, useTransform } from 'motion/react';
 import { ArrowUpRight, ArrowRight, ArrowDown, BookOpen, RotateCcw, ShieldCheck, Sparkles, Pause, Play } from 'lucide-react';
-import { useAccessibility } from '../../../context/AccessibilityContext';
+import { useAccessibility } from '../../accessibility/context/AccessibilityContext';
 import type { AppTabType } from '../../../components/Header';
 import './landing.css';
 import { LiquidButton, MetalButton } from '../../../components/ui/liquid-glass-button';

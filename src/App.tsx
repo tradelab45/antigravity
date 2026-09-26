@@ -9,8 +9,8 @@ import { ToastNotifier } from './components/ToastNotifier';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { ContextualGlossary } from './components/ContextualGlossary';
-import { AccessibilityCenter } from './components/AccessibilityCenter';
-import { AccessibilityProvider } from './context/AccessibilityContext';
+import { AccessibilityCenter } from './modules/accessibility/components/AccessibilityCenter';
+import { AccessibilityProvider } from './modules/accessibility/context/AccessibilityContext';
 import { DailyTipOverlay, getDailyTipStorageKey } from './components/DailyTipOverlay';
 import { CommandPalette } from './components/CommandPalette';
 import { FloatingQuickDock } from './components/FloatingQuickDock';
@@ -20,7 +20,6 @@ import type { StockDetail } from './types';
 
 const Header = lazy(() => import('./components/Header').then((module) => ({ default: module.Header })));
 const AuthPage = lazy(() => import('./components/AuthPage').then((module) => ({ default: module.AuthPage })));
-const AuthLaunchTransition = lazy(() => import('./components/AuthLaunchTransition').then((module) => ({ default: module.AuthLaunchTransition })));
 const LandingPage = lazy(() => {
   const isClassic = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('classic') === 'true';
   return isClassic
@@ -31,20 +30,20 @@ const PortfolioHub = lazy(() => import('./components/PortfolioHub').then((module
 const MarketScreener = lazy(() => import('./components/MarketScreener').then((module) => ({ default: module.MarketScreener })));
 const InvestorAcademy = lazy(() => import('./components/InvestorAcademy').then((module) => ({ default: module.InvestorAcademy })));
 const ChanakyaMentor = lazy(() => import('./components/ChanakyaMentor').then((module) => ({ default: module.ChanakyaMentor })));
-const StockDetailModal = lazy(() => import('./components/StockDetailModal').then((module) => ({ default: module.StockDetailModal })));
+const StockDetailModal = lazy(() => import('./modules/market-data/components/StockDetailModal').then((module) => ({ default: module.StockDetailModal })));
 const ReplayTerminal = lazy(() => import('./components/ReplayTerminal').then((module) => ({ default: module.ReplayTerminal })));
 const TradeReviewHub = lazy(() => import('./components/TradeReviewHub').then((module) => ({ default: module.TradeReviewHub })));
 const ProgressHub = lazy(() => import('./components/ProgressHub').then((module) => ({ default: module.ProgressHub })));
-const CompoundCalculator = lazy(() => import('./components/CompoundCalculator').then((module) => ({ default: module.CompoundCalculator })));
+const CompoundCalculator = lazy(() => import('./modules/tax/components/CompoundCalculator').then((module) => ({ default: module.CompoundCalculator })));
 const AppWalkthroughOverlay = lazy(() => import('./components/AppWalkthroughOverlay').then((module) => ({ default: module.AppWalkthroughOverlay })));
 const CompleteProfileModal = lazy(() => import('./components/CompleteProfileModal').then((module) => ({ default: module.CompleteProfileModal })));
 const HomeDashboard = lazy(() => import('./components/HomeDashboard').then((module) => ({ default: module.HomeDashboard })));
 const DataPrivacyCenter = lazy(() => import('./components/DataPrivacyCenter').then((module) => ({ default: module.DataPrivacyCenter })));
 const HelpSupportCenter = lazy(() => import('./components/HelpSupportCenter').then((module) => ({ default: module.HelpSupportCenter })));
 const StockBattleModal = lazy(() => import('./components/StockBattleModal').then((module) => ({ default: module.StockBattleModal })));
-const OptionsChainModal = lazy(() => import('./components/OptionsChainModal').then((module) => ({ default: module.OptionsChainModal })));
+const OptionsChainModal = lazy(() => import('./modules/market-data/components/OptionsChainModal').then((module) => ({ default: module.OptionsChainModal })));
 const AdminDashboard = lazy(() => import('./components/AdminDashboard').then((module) => ({ default: module.AdminDashboard })));
-const BigQueryGraphView = lazy(() => import('./components/BigQueryGraphView').then((module) => ({ default: module.BigQueryGraphView })));
+const BigQueryGraphView = lazy(() => import('./modules/market-data/components/BigQueryGraphView').then((module) => ({ default: module.BigQueryGraphView })));
 
 const checkIsAdminPortal = (): boolean => {
   if (typeof window === 'undefined') return false;
@@ -169,7 +168,7 @@ function AdminAccessDenied({ onSwitchToApp, onUnlock }: { onSwitchToApp: () => v
 }
 
 function SimulatorApp() {
-  const { currentUser, stocks, broadcastAnnouncement, dismissBroadcast } = useSimulator();
+  const { currentUser, stocks, broadcastAnnouncement, dismissBroadcast, notifyUser } = useSimulator();
   const [isPortalAdmin, setIsPortalAdmin] = useState<boolean>(checkIsAdminPortal);
   const [adminBypassAuth, setAdminBypassAuth] = useState(false);
 
@@ -306,6 +305,27 @@ function SimulatorApp() {
     }
   }, [currentUser]);
 
+  // Signing in lands straight in the app. It used to stop on a full-screen
+  // spinning coin — confetti, a countdown and a reload — for about four and a
+  // half seconds every time, before anyone could see their own portfolio. The
+  // greeting is now a message in the corner, and the walkthrough a new
+  // account needs opens at once instead of after the coin had finished.
+  useEffect(() => {
+    if (!authLaunchState || !currentUser) return;
+    const firstName = (currentUser.fullName || '').trim().split(/\s+/)[0] || 'there';
+    if (authLaunchState.kind === 'new') {
+      notifyUser(
+        `Welcome, ${firstName}`,
+        'Your ₹10,00,000 practice capital is ready. The short tour shows where everything is.',
+        'SUCCESS',
+      );
+    } else {
+      notifyUser(`Welcome back, ${firstName}`, 'Everything is where you left it.', 'SUCCESS');
+    }
+    localStorage.removeItem('rr_auth_entry');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLaunchState, currentUser?.id]);
+
   useEffect(() => {
     if (!currentUser) return;
     const url = new URL(window.location.href);
@@ -330,7 +350,7 @@ function SimulatorApp() {
       const sessionGuidedKey = `rr_guided_session_${currentUser.id}`;
       const hasGuidedThisSession = sessionStorage.getItem(sessionGuidedKey);
 
-      if (!hasGuidedThisSession || authLaunchState) {
+      if (!hasGuidedThisSession || authLaunchState?.kind === 'new') {
         sessionStorage.setItem(sessionGuidedKey, 'true');
         const timer = setTimeout(() => {
           setIsWalkthroughOpen(true);
@@ -394,22 +414,6 @@ function SimulatorApp() {
         </Suspense>
         <ToastNotifier />
       </>
-    );
-  }
-
-  // 3D Spinning & Wobbling Coin Post-Login Loading Experience
-  if (authLaunchState) {
-    return (
-      <Suspense fallback={<PageLoadingState />}>
-        <AuthLaunchTransition
-          user={currentUser}
-          kind={authLaunchState.kind}
-          onEnter={() => {
-            localStorage.removeItem('rr_auth_entry');
-            setAuthLaunchState(null);
-          }}
-        />
-      </Suspense>
     );
   }
 
