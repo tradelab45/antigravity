@@ -1,4 +1,4 @@
-import { ReplayScenario } from '../types';
+import { ReplayScenario } from '../../../types';
 
 export const REPLAY_SCENARIOS: ReplayScenario[] = [
   {
