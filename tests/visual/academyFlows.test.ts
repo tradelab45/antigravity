@@ -105,6 +105,14 @@ test('failed and passed exams create one dated record each and export a certific
     await page.getByRole('button', { name: 'Exam History', exact: true }).click();
     const history = page.getByRole('region', { name: 'Exam history', exact: true });
     assert.equal(await history.locator('tbody tr').count(), 2);
+    // The trend is said in words, from the attempts it plots, and the drawing
+    // holds nothing a keyboard can land on.
+    const chart = await history.locator('figure[role="group"]').evaluate(node => ({
+      summary: node.ownerDocument.getElementById(node.getAttribute('aria-labelledby') || '')?.textContent || '',
+      trapped: node.querySelectorAll('[aria-hidden="true"] a[href], [aria-hidden="true"] button, [aria-hidden="true"] [tabindex]:not([tabindex="-1"])').length,
+    }));
+    assert.match(chart.summary, /13 to 20, up 7/, `the chart should say what the scores did: "${chart.summary}"`);
+    assert.equal(chart.trapped, 0, 'nothing focusable inside the hidden drawing');
     assert.equal(await history.getByRole('button', { name: 'Download certificate' }).count(), 1);
     const download = page.waitForEvent('download');
     await history.getByRole('button', { name: 'Download certificate' }).click();

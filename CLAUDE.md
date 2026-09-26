@@ -175,6 +175,16 @@ Two places this shapes the design rather than just the copy:
 - **Target size.** 24×24 CSS px is the floor on any pointer. A visual dot or
   pill smaller than that goes inside a button that meets it, rather than being
   the button.
+- **Charts.** A Recharts SVG is announced as nothing at all, so every chart
+  goes inside `ChartFigure` (`src/components/ui/chart-figure.tsx`): the
+  drawing is marked as decoration, the meaning is a summary built from the
+  same array it plots, and the numbers are offered as a table. The summary
+  helpers are in `src/utils/chartSummary.ts` and follow the measured-not-
+  plausible rule — an empty series says so rather than reading as zero.
+  `tests/visual/chartAlternatives.test.ts` holds this shut, including the
+  rule that nothing focusable may sit inside the hidden drawing: Recharts
+  gives its surface `tabindex="0"`, which would be a silent stop on the way
+  through the page.
 - **The comfort setting.** `largeTouchTargets` raises controls to 44px, but
   only under `(pointer: coarse)`. A narrow desktop viewport does not match
   that media query, so measuring targets in a resized desktop browser tells

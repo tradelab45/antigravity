@@ -49,6 +49,8 @@ import { useSimulator } from '../context/SimulatorContext';
 import { getStockWithTechnicals } from '../data/indianCompanies';
 import { calculateDuPontAnalysis } from '../utils/technicalCalculator';
 import { formatINR, formatPercent, formatIndianShort, formatNumberIndian } from '../utils/formatters';
+import { ChartFigure } from './ui/chart-figure';
+import { describeSeries, seriesRows } from '../utils/chartSummary';
 import { playOrderFilledSound, playStopLossTriggeredSound } from '../utils/soundEffects';
 import { useModalDialog } from '../hooks/useModalDialog';
 import { estimateTradeCharges } from '../utils/tradeCharges';
@@ -649,6 +651,22 @@ function generateRealisticChartSeries(
     });
   }, [chartData, timeframe, stock]);
 
+  /**
+   * The chart in words, built from the same points it plots.
+   *
+   * Drawn as SVG, the price history was announced by a screen reader as
+   * nothing at all — a learner was told a chart was there and never what it
+   * did.
+   */
+  const chartPoints = useMemo(
+    () =>
+      (activeChartSeries || []).map((point: any) => ({
+        label: String(point.displayTime ?? ''),
+        value: Number(point.price),
+      })),
+    [activeChartSeries],
+  );
+
   // Exact dynamic Y-axis bounds so price variations fill 75-80% of canvas
   const chartBounds = useMemo(() => {
     if (!activeChartSeries || activeChartSeries.length === 0) {
@@ -1223,6 +1241,12 @@ function generateRealisticChartSeries(
                   </div>
 
                   {/* Main Chart Graphic Canvas */}
+                  <ChartFigure
+                    title={`${stock.symbol} price over the ${timeframe} view`}
+                    summary={describeSeries(`${stock.symbol} price`, chartPoints, (value) => `₹${value.toFixed(2)}`)}
+                    columns={['Point', 'Price']}
+                    rows={seriesRows(chartPoints, (value) => `₹${value.toFixed(2)}`)}
+                  >
                   <div className="h-64 sm:h-72 w-full pt-2">
                     {activeChartSeries.length > 0 ? (
                       <ResponsiveContainer width="100%" height="100%">
@@ -1373,6 +1397,7 @@ function generateRealisticChartSeries(
                       </div>
                     )}
                   </div>
+                  </ChartFigure>
 
                   {/* Chart Indicator Legend & Footnotes */}
                   <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-500 pt-2.5 border-t border-slate-200 gap-2">
