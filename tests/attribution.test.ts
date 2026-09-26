@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { describePortfolioDay, formatSignedPercent } from '../src/utils/attribution';
+import { describePortfolioDay, formatSignedPercent } from '../src/modules/portfolio/utils/attribution';
 
 const holding = (symbol: string, dayChangeAmount: number, dayChangePercent = 1) => ({
   symbol,

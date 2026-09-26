@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { Star, ArrowRight, ArrowUpDown, Bell, Check, LayoutGrid, List, StickyNote, Scale, History } from 'lucide-react';
-import { useSimulator } from '../context/SimulatorContext';
-import { StockDetail } from '../types';
-import { formatINR, formatPercent } from '../utils/formatters';
+import { useSimulator } from '../../../context/SimulatorContext';
+import { StockDetail } from '../../../types';
+import { formatINR, formatPercent } from '../../../utils/formatters';
 
 interface WatchlistViewProps {
   onSelectStock: (stock: StockDetail) => void;

@@ -154,13 +154,18 @@ test('the stock detail modal is a dialog and keeps focus', { timeout: 120_000 },
 test('every modal component is exposed as a dialog', { timeout: 60_000 }, async () => {
   // A guard on the source rather than the DOM: a new overlay that forgets its
   // role would otherwise only be caught if a test happened to open it.
+  // The whole of src/, not just src/components: modals now also live in
+  // src/modules/<name>/components, and a scan of one folder would quietly stop
+  // checking every modal that moved.
   const { readdirSync, readFileSync } = await import('node:fs');
-  const componentDir = path.join(projectRoot, 'src', 'components');
+  const srcDir = path.join(projectRoot, 'src');
+  const modalFiles = (readdirSync(srcDir, { recursive: true }) as string[])
+    .filter((file) => file.endsWith('Modal.tsx'));
   const offenders: string[] = [];
 
-  for (const file of readdirSync(componentDir)) {
-    if (!file.endsWith('Modal.tsx')) continue;
-    const source = readFileSync(path.join(componentDir, file), 'utf8');
+  assert.ok(modalFiles.length > 0, 'the scan found no modals at all, so it is looking in the wrong place');
+  for (const file of modalFiles) {
+    const source = readFileSync(path.join(srcDir, file), 'utf8');
     const declaresRole = source.includes('role="dialog"');
     const usesHook = source.includes('useModalDialog');
     if (!declaresRole && !usesHook) offenders.push(file);

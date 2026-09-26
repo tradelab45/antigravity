@@ -45,7 +45,7 @@ import { useSimulator } from '../context/SimulatorContext';
 import { useAccessibility } from '../modules/accessibility/context/AccessibilityContext';
 import { StockDetail } from '../types';
 import { formatINR, formatPercent, formatIndianShort, formatNumberIndian, getDynamicMarketSessionBadge } from '../utils/formatters';
-import { ThematicBasketsModal, ANGEL_THEMATIC_BASKETS, ThematicBasket } from './ThematicBasketsModal';
+import { ThematicBasketsModal, ANGEL_THEMATIC_BASKETS, ThematicBasket } from '../modules/portfolio/components/ThematicBasketsModal';
 import { QuickAlertModal } from './QuickAlertModal';
 import { SpotlightCard } from './ui/spotlight-card';
 import { AnimatedSearchBar } from './ui/animated-search-bar';

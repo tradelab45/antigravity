@@ -1,7 +1,7 @@
 import React, { lazy, Suspense, useState } from 'react';
 import { PieChart, Star } from 'lucide-react';
-import type { StockDetail } from '../types';
-import { PageSkeleton } from './PageSkeleton';
+import type { StockDetail } from '../../../types';
+import { PageSkeleton } from '../../../components/PageSkeleton';
 const PortfolioView = lazy(() => import('./PortfolioView').then(module => ({ default: module.PortfolioView })));
 const WatchlistView = lazy(() => import('./WatchlistView').then(module => ({ default: module.WatchlistView })));
 

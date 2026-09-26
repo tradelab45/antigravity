@@ -14,8 +14,8 @@ import {
   CheckCircle2,
   X
 } from 'lucide-react';
-import { useSimulator } from '../context/SimulatorContext';
-import { RiskSettings } from '../types';
+import { useSimulator } from '../../../context/SimulatorContext';
+import { RiskSettings } from '../../../types';
 
 interface RiskCenterModalProps {
   isOpen: boolean;

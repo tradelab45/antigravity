@@ -14,10 +14,10 @@ import {
   DollarSign,
   AlertCircle
 } from 'lucide-react';
-import { useSimulator } from '../context/SimulatorContext';
-import { StockDetail } from '../types';
-import { formatINR, formatIndianShort } from '../utils/formatters';
-import { useModalDialog } from '../hooks/useModalDialog';
+import { useSimulator } from '../../../context/SimulatorContext';
+import { StockDetail } from '../../../types';
+import { formatINR, formatIndianShort } from '../../../utils/formatters';
+import { useModalDialog } from '../../../hooks/useModalDialog';
 
 export interface ThematicBasket {
   id: string;
