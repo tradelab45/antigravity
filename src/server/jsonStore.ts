@@ -41,28 +41,68 @@ function syncDirectory(file: string): void {
 }
 
 /**
+ * Deals with the file about to be replaced.
+ *
+ * A copy that parses becomes the backup. One that does not is moved aside
+ * under a timestamp instead: the backup used to be taken without checking,
+ * so a corrupt file was copied straight over the only good copy by the very
+ * next write, and the corrupt file itself — often a truncation a person could
+ * repair — was then written over too.
+ */
+function preserveCurrent(file: string): void {
+  if (!fs.existsSync(file)) return;
+
+  let current: string;
+  try {
+    current = fs.readFileSync(file, 'utf-8');
+  } catch (err) {
+    console.error(`[store] could not read ${path.basename(file)} before replacing it:`, err);
+    return;
+  }
+
+  try {
+    JSON.parse(current);
+  } catch {
+    const aside = `${file}.corrupt-${Date.now()}`;
+    try {
+      fs.renameSync(file, aside);
+      console.error(`[store] ${path.basename(file)} did not parse; kept it as ${path.basename(aside)}.`);
+    } catch (err) {
+      console.error(`[store] could not set aside the unreadable ${path.basename(file)}:`, err);
+    }
+    return;
+  }
+
+  try {
+    fs.copyFileSync(file, backupPath(file));
+    fs.chmodSync(backupPath(file), 0o600);
+  } catch (err) {
+    console.error(`[store] could not back up ${path.basename(file)}:`, err);
+  }
+}
+
+/**
  * Writes JSON so that a reader sees either the old file or the new one.
  *
  * The bytes go to a temporary file, are flushed to the disk rather than left
  * in the operating system's cache, and only then replace the real file by
- * rename — which is atomic. The file being replaced is kept as `.bak` first,
- * so a write that produces something unreadable is recoverable.
+ * rename — which is atomic. The file being replaced is kept as `.bak` first
+ * when it parses, and set aside when it does not, so neither a bad write nor
+ * a bad file already on disk can take the last good copy with it.
  */
 export function writeJsonAtomic(file: string, value: unknown): void {
   const body = JSON.stringify(value, null, 2);
   fs.mkdirSync(path.dirname(file), { recursive: true });
 
-  // Keep the copy that is known to parse, not the one about to be written.
-  try {
-    if (fs.existsSync(file)) fs.copyFileSync(file, backupPath(file));
-  } catch (err) {
-    console.error(`[store] could not back up ${path.basename(file)}:`, err);
-  }
+  preserveCurrent(file);
 
   const temp = tempPath(file);
   let handle: number | null = null;
   try {
-    handle = fs.openSync(temp, 'w');
+    // Owner-only. These files hold password hashes, email addresses and
+    // portfolios, and no other account on the machine needs to read them.
+    handle = fs.openSync(temp, 'w', 0o600);
+    fs.fchmodSync(handle, 0o600);
     fs.writeFileSync(handle, body, 'utf-8');
     fs.fsyncSync(handle);
   } finally {

@@ -2,6 +2,7 @@ node_modules/
 build/
 dist/
 coverage/
+test-results/
 .DS_Store
 *.log
 .env*
@@ -16,6 +17,12 @@ data/trades.json.bak
 data/ledgers.json
 data/ledgers.json.tmp
 data/ledgers.json.bak
+# Synced exam attempts and school/college rankings.
+data/academy.json
+data/academy.json.tmp
+# The backups and set-aside unreadable copies the JSON store keeps beside each file.
+data/*.bak
+data/*.corrupt-*
 # Local agent state stays out, but skills are shared instructions for anyone
 # working in this repo, so they are tracked. Git will not descend into an
 # excluded directory, so the contents are excluded rather than the directory.

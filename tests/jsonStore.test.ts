@@ -116,3 +116,40 @@ test('a failed update does not leave the file locked against the next one', () =
   });
   assert.equal(next.count, 7);
 });
+
+test('a corrupt file never overwrites the good backup', () => {
+  writeJsonAtomic(file, { portfolios: 30 });
+  writeJsonAtomic(file, { portfolios: 31 }); // .bak now holds 30
+
+  // A process killed mid-write, or a hand edit gone wrong.
+  fs.writeFileSync(file, '{"portfolios": 3');
+
+  // The next write must not copy the broken file over the only good copy.
+  writeJsonAtomic(file, { portfolios: 1 });
+  assert.deepEqual(
+    JSON.parse(fs.readFileSync(`${file}.bak`, 'utf-8')),
+    { portfolios: 30 },
+    'the backup must still be the last copy that parsed',
+  );
+});
+
+test('a corrupt file is kept aside rather than written over', () => {
+  writeJsonAtomic(file, { portfolios: 30 });
+  fs.writeFileSync(file, '{"portfolios": 3');
+
+  writeJsonAtomic(file, { portfolios: 1 });
+
+  // Truncated JSON is often repairable by hand. Replacing it would destroy
+  // the only record of whatever the backup does not have.
+  const kept = fs.readdirSync(path.dirname(file)).filter((name) => name.startsWith('store.json.corrupt-'));
+  assert.equal(kept.length, 1, 'the unreadable file is preserved beside the store');
+  assert.equal(fs.readFileSync(path.join(path.dirname(file), kept[0]), 'utf-8'), '{"portfolios": 3');
+  assert.deepEqual(readJson(file, null), { portfolios: 1 });
+});
+
+test('stores are readable by their owner only', () => {
+  // These files hold password hashes, email addresses and portfolios; no
+  // other account on the machine has any reason to read them.
+  writeJsonAtomic(file, { secret: true });
+  assert.equal(fs.statSync(file).mode & 0o777, 0o600);
+});

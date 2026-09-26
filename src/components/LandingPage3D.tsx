@@ -607,6 +607,7 @@ export function LandingPage3D({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP',
         <motion.section {...reveal} className="rr-section rr-playground" id="rr-practice">
           <div className="rr-section-heading">
             <p className="rr-eyebrow">01 / THE 3D RISK SANDBOX</p>
+            <span className="mt-2 inline-flex items-center gap-1.5 rounded border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-900"><ShieldCheck size={14} /> No signup needed</span>
             <h2>Stress-test your <em>shares</em>.<br />Discover your downside.</h2>
             <p>
               Selected Share: <strong className="text-slate-900 font-mono">{selectedStock.name} ({selectedStock.symbol})</strong>.
