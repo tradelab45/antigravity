@@ -117,6 +117,7 @@ export function LandingPage({ onEnter }: { onEnter: (mode: 'LOGIN' | 'SIGNUP', v
         <div className="rr-section-heading"><p className="rr-eyebrow">01 / THE PLAYGROUND</p><h2>A little experiment.<br />A big <em>“aha”.</em></h2><p>What happens when one idea takes up too much of your portfolio? Move the sliders. See for yourself.</p><span className="rr-demo-label">Illustrative simulation · not live market data</span></div>
         <div className="rr-experiment">
           <div className="rr-experiment-top"><span className="rr-eyebrow">YOUR VIRTUAL SANDBOX</span><button className="rr-reset" onClick={() => { setAllocation(20); setMove(-10); setSector('Technology'); }}><RotateCcw size={14} /> Reset</button></div>
+          <span className="mb-4 inline-flex items-center gap-1.5 rounded border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-900"><ShieldCheck size={14} /> No signup needed</span>
           <label className="rr-sector">Fictional company sector<select value={sector} onChange={e => setSector(e.target.value)}><option>Technology</option><option>Banking</option><option>Consumer goods</option></select></label>
           <div className="rr-slider-heading"><label htmlFor="rr-allocation">Position size</label><strong>{allocation}% of capital</strong></div>
           <input id="rr-allocation" type="range" min="5" max="100" step="5" value={allocation} onChange={e => setAllocation(Number(e.target.value))} aria-valuetext={`${allocation} percent, ${money(position)} virtual position`} />

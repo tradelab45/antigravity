@@ -1087,6 +1087,7 @@ function generateRealisticChartSeries(
                         )}
                       </div>
                     </div>
+
                   </div>
 
                   {/* Period Performance Ribbon (Active Timeframe Insights) */}

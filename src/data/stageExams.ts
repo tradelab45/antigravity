@@ -322,15 +322,10 @@ const beginner: ExamQuestion[] = [
   },
   {
     id: 'ex-b-26',
-    question: 'What is a dividend?',
-    options: [
-      'A share of the company’s profit paid out to shareholders',
-      'The interest a company pays on its loans',
-      'The fee a broker charges for a trade',
-      'The tax deducted when you sell a share',
-    ],
+    question: 'A share trades at ₹500 and pays a ₹10 dividend a year. What is its dividend yield?',
+    options: ['2%', '5%', '10%', '50%'],
     correctIndex: 0,
-    explanation: 'A dividend is part of the profit distributed to shareholders. A company can also choose to reinvest that profit instead.',
+    explanation: 'Dividend yield is the yearly dividend divided by the share price: ₹10 ÷ ₹500 = 2%.',
   },
   {
     id: 'ex-b-27',
@@ -382,15 +377,10 @@ const beginner: ExamQuestion[] = [
   },
   {
     id: 'ex-b-31',
-    question: 'What is market capitalisation?',
-    options: [
-      'The share price multiplied by the number of shares outstanding',
-      'The total cash a company holds in the bank',
-      'The profit a company made last year',
-      'The highest price the share has ever reached',
-    ],
+    question: 'A company has 20 crore shares outstanding, each trading at ₹150. What is its market capitalisation?',
+    options: ['₹3,000 crore', '₹170 crore', '₹150 crore', '₹20 crore'],
     correctIndex: 0,
-    explanation: 'Market cap is what the market says the whole company is worth. A high share price alone does not make a company large.',
+    explanation: 'Market cap is shares outstanding times the share price: 20 crore × ₹150 = ₹3,000 crore.',
   },
   {
     id: 'ex-b-32',
@@ -1596,15 +1586,10 @@ const analyst: ExamQuestion[] = [
   },
   {
     id: 'ex-a-28',
-    question: 'What is free cash flow?',
-    options: [
-      'Cash from operations after the spending needed to maintain the business',
-      'All the cash a company holds',
-      'Revenue minus tax',
-      'The dividend a company pays',
-    ],
+    question: 'A company’s operating cash flow is ₹500 crore and it spends ₹350 crore on new plant and equipment. What is its free cash flow?',
+    options: ['₹150 crore', '₹850 crore', '₹500 crore', '₹350 crore'],
     correctIndex: 0,
-    explanation: 'Free cash flow is what is genuinely available for dividends, buybacks or paying down debt.',
+    explanation: 'Free cash flow is operating cash flow less capital expenditure: ₹500 crore − ₹350 crore = ₹150 crore.',
   },
   {
     id: 'ex-a-29',
@@ -2385,10 +2370,15 @@ const taxation: ExamQuestion[] = [
   },
   {
     id: 'ex-t-25',
-    question: 'For how many assessment years can an unabsorbed capital loss be carried forward?',
-    options: ['8', '4', '2', 'Indefinitely'],
+    question: 'Can a capital loss be set off against salary income?',
+    options: [
+      'No — a capital loss can only be set off against capital gains',
+      'Yes, up to ₹2 lakh a year',
+      'Yes, without any limit',
+      'Only if the loss is long-term',
+    ],
     correctIndex: 0,
-    explanation: 'Capital losses can be carried forward for eight assessment years, provided the return is filed on time.',
+    explanation: 'A capital loss stays within the capital gains head. It cannot reduce salary, business or other income, which is why it is carried forward instead.',
   },
   {
     id: 'ex-t-26',
@@ -2416,15 +2406,15 @@ const taxation: ExamQuestion[] = [
   },
   {
     id: 'ex-t-28',
-    question: 'What is STT?',
+    question: 'Does the STT you paid on a sale reduce the capital gains tax you owe?',
     options: [
-      'Securities Transaction Tax, charged on exchange transactions themselves',
-      'A tax on the profit from a trade',
-      'The brokerage a broker charges',
-      'A tax on dividends received',
+      'No — STT cannot be deducted when working out capital gains',
+      'Yes — it is deducted from the gain in full',
+      'Yes — it is credited against the tax due',
+      'Only on long-term gains',
     ],
     correctIndex: 0,
-    explanation: 'STT is levied on the transaction regardless of profit or loss, and is separate from capital gains tax.',
+    explanation: 'The Act does not allow STT as a deduction when computing capital gains. It is a cost of trading that stays a cost. Someone taxed on trading as business income is treated differently.',
   },
   {
     id: 'ex-t-29',
