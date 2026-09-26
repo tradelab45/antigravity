@@ -1,4 +1,4 @@
-import type { LearningLanguage } from '../context/AccessibilityContext';
+import type { LearningLanguage } from '../modules/accessibility/context/AccessibilityContext';
 
 /**
  * The app shell in English and Hindi.

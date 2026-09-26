@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useAccessibility } from '../context/AccessibilityContext';
+import { useAccessibility } from '../modules/accessibility/context/AccessibilityContext';
 import { translate, type UiStringKey } from './strings';
 
 /**
