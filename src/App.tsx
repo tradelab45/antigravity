@@ -14,7 +14,7 @@ import { AccessibilityProvider } from './modules/accessibility/context/Accessibi
 import { DailyTipOverlay, getDailyTipStorageKey } from './components/DailyTipOverlay';
 import { CommandPalette } from './components/CommandPalette';
 import { FloatingQuickDock } from './components/FloatingQuickDock';
-import { ConnectionStatus } from './components/ConnectionStatus';
+import { ConnectionStatus } from './modules/pwa-platform/components/ConnectionStatus';
 import { PracticeTaskBanner } from './components/PracticeTaskBanner';
 import type { StockDetail } from './types';
 

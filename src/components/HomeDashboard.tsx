@@ -26,7 +26,7 @@ import { formatINR, formatPercent } from '../utils/formatters';
 import type { AppTabType } from './Header';
 import { useAccessibility } from '../modules/accessibility/context/AccessibilityContext';
 import { ResumeLearning } from './ResumeLearning';
-import { PwaInstall } from './PwaInstall';
+import { PwaInstall } from '../modules/pwa-platform/components/PwaInstall';
 import { SpatialCandlestickChart } from './ui/spatial-candlestick-chart';
 import { SpotlightCard } from './ui/spotlight-card';
 import { ThumbnailCarousel, CarouselSlide } from './ui/thumbnail-carousel';
