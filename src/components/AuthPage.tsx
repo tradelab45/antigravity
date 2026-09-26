@@ -133,7 +133,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
   initialMode = 'LOGIN',
   onBackToLanding,
 }) => {
-  const { loginUser, registerUser, loginWithGoogle, nseMarketInfo, marketIndices, stocks } = useSimulator();
+  const { loginUser, loginAsDemo, registerUser, loginWithGoogle, nseMarketInfo, marketIndices, stocks } = useSimulator();
 
   // Dynamically resolve live or context prices for sample stocks if available
   const sampleStocks: SampleStock[] = useMemo(() => {
@@ -216,7 +216,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
   const handleQuickDemoLogin = async () => {
     setErrorMsg('');
     setLoading(true);
-    const res = await loginUser('xyz@gmail.com', 'demo');
+    const res = await loginAsDemo();
     if (res.success && res.user) {
       window.dispatchEvent(new CustomEvent('rr_auth_success', { detail: { kind: 'returning' } }));
       setLaunchState({ user: res.user, kind: 'returning' });
@@ -615,7 +615,7 @@ export const AuthPage: React.FC<{ initialMode?: 'LOGIN' | 'SIGNUP'; onBackToLand
                       </span>
                     </div>
                     <div className="text-xs text-slate-400 mt-0.5">
-                      Ready demo pass: <strong className="text-slate-200">xyz@gmail.com</strong> (@rookie_trader)
+                      One practice account everyone shares — sign up to keep your own.
                     </div>
                   </div>
                 </div>

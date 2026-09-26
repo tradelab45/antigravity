@@ -125,8 +125,24 @@ whatever account was named. Routes that spend the operator's quota (the Gemini
 ones) need a session and a cap as well.
 
 `src/server/rateLimit.ts` throttles the auth routes on the caller's address and
-on the identifier being tried. `trust proxy` is deliberately off, so `req.ip`
-is the socket address and `X-Forwarded-For` cannot mint a fresh identity.
+on the identifier being tried. **The address rules are sized for a classroom**:
+a school puts every learner behind one network address, so what actually
+stops a password being guessed is the per-account rule, which stays tight.
+Routes that already know who is signed in — trades, class reports — limit per
+account, never per address.
+
+`req.ip` comes from `src/server/proxy.ts`. Behind a hosting provider's proxy
+every request arrives from the proxy's own address, and with `trust proxy` off
+the whole site shared one rate limit: ten failed sign-ins anywhere locked
+everybody out. `X-Forwarded-For` is now believed only when the connection comes
+from a loopback or private address — where such a proxy sits — so a caller on
+the internet still cannot mint a fresh identity. `TRUST_PROXY_HOPS` overrides
+it for a proxy on a public address.
+
+The landing page's demo button signs in to `usr_public_demo`, a shared account
+with no password. It is not an administrator, cannot be deleted, cannot join a
+class board, and its address is on the reserved `.invalid` domain so no Google
+account or mailbox can claim it. It is deliberately not the seeded account.
 
 ## Numbers must be measured, not plausible
 
@@ -205,8 +221,12 @@ painted with the first one's fill.
 
 - `ADMIN_PASSKEY` has no default. The admin API accepts it in the
   `x-admin-key` header only — never a query string, never an email allowlist.
-- `DEMO_ACCOUNT_PASSWORD` likewise has no default; without it a random one is
-  generated per boot.
+- The seeded account `usr_rookie_demo` is the **owner's** (it carries the
+  address in `ADMIN_EMAILS`). `OWNER_PASSWORD` — or the older
+  `DEMO_ACCOUNT_PASSWORD` — has no default and, when set, is authoritative over
+  any stored hash. It has to be: an earlier random password was written to
+  `users.json` on the first sign-up, and while a stored hash won, setting the
+  variable afterwards changed nothing and the owner could not sign in.
 - Client-side checks are for UX. The server decides, and `res.ok` is the only
   authority on whether an admin request succeeded.
 

@@ -8,7 +8,9 @@ declare global {
 
 const GIS_SCRIPT_SRC = 'https://accounts.google.com/gsi/client';
 
-export const FALLBACK_GOOGLE_CLIENT_ID = '92444997475-pplpa69ma4mv6l6ubs1r65apboehdn9n.apps.googleusercontent.com';
+import { FALLBACK_GOOGLE_CLIENT_ID } from '../config/google';
+
+export { FALLBACK_GOOGLE_CLIENT_ID };
 
 let clientIdPromise: Promise<string | null> | null = null;
 let scriptPromise: Promise<void> | null = null;
